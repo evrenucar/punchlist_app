@@ -1063,6 +1063,9 @@
           source,
         };
         state.trash.push(record);
+        if (options.pushUndo !== false && state.history.length) {
+          state.history[state.history.length - 1].trashId = record.id;
+        }
       }
       if (options.save !== false) saveState();
       if (options.render !== false) render();
@@ -1416,12 +1419,13 @@
       const visibleBeforeDelete = getVisibleNodes();
       const deletedKeys = collectDeletedNodeKeys(nodes);
 
+      const createdRecords = [];
       nodes.filter((node) => node.kind === "group").forEach((node) => {
         const index = state.groups.findIndex((group) => group.id === node.id);
         if (index < 0) return;
         const [group] = state.groups.splice(index, 1);
         if (state.settings.deleteMode !== "permanent") {
-          state.trash.push({
+          const record = {
             id: createId("trash"),
             kind: "group",
             item: group,
@@ -1429,17 +1433,23 @@
             wasCompleted: false,
             retentionSeconds: state.settings.trashRetentionSeconds,
             source: { index },
-          });
+          };
+          state.trash.push(record);
+          createdRecords.push(record);
         }
       });
 
       nodes.filter((node) => node.kind === "task").forEach((node) => {
-        deleteTaskWithPolicy(node.id, new Date().toISOString(), {
+        const record = deleteTaskWithPolicy(node.id, new Date().toISOString(), {
           pushUndo: false,
           save: false,
           render: false,
         });
+        if (record) createdRecords.push(record);
       });
+      if (createdRecords.length === 1 && state.history.length) {
+        state.history[state.history.length - 1].trashId = createdRecords[0].id;
+      }
 
       const target = getNeighborAfterDelete(nodes[0], visibleBeforeDelete, deletedKeys);
       if (target) {
@@ -2395,6 +2405,7 @@
             id: typeof img.id === "string" ? img.id : createId("img"),
             src: img.src,
             width: Number(img.width) > 0 ? Math.round(Number(img.width)) : 260,
+            caption: typeof img.caption === "string" ? img.caption : "",
           }))
         : [];
       item.linkType = ["alias", "reference"].includes(item.linkType) ? item.linkType : null;
@@ -2463,10 +2474,13 @@
       const imagesHtml = images.length && !item.linkType
         ? `<div class="task-images">${images.map((img) => `
             <span class="task-image ${isSelected("image", img.id) ? "selected" : ""}" data-node-kind="image" data-node-id="${img.id}" data-image-task="${resolved.id}" tabindex="0">
-              <span class="image-handle" data-image-handle="left" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
-              <img src="${img.src}" style="width: ${Math.max(60, Number(img.width) || 260)}px" alt="Pasted image" draggable="false">
-              <span class="image-handle" data-image-handle="right" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
-              <button class="image-remove" type="button" data-image-remove="${img.id}" data-image-task="${resolved.id}" title="Remove image" aria-label="Remove image">×</button>
+              <span class="task-image-frame">
+                <span class="image-handle" data-image-handle="left" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
+                <img src="${img.src}" style="width: ${Math.max(60, Number(img.width) || 260)}px" alt="Pasted image" draggable="false">
+                <span class="image-handle" data-image-handle="right" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
+                <button class="image-remove" type="button" data-image-remove="${img.id}" data-image-task="${resolved.id}" title="Remove image" aria-label="Remove image">×</button>
+              </span>
+              <span class="image-caption ${img.caption ? "" : "empty"}" contenteditable="true" spellcheck="true" data-image-caption="${img.id}" data-image-task="${resolved.id}" aria-label="Image caption">${escapeHtml(img.caption || "")}</span>
             </span>`).join("")}</div>`
         : "";
 
@@ -2547,10 +2561,14 @@
           ? `${at.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })} ${formatClockTime(at)}:${String(at.getSeconds()).padStart(2, "0")}`
           : "Unknown time";
         const kindLabel = entry.kind && entry.kind !== "board" ? ` · ${entry.kind}` : "";
+        const restorable = entry.trashId && state.trash.some((record) => record.id === entry.trashId);
         return `
           <details class="history-row">
             <summary><span class="disclosure-arrow" aria-hidden="true"></span><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></summary>
-            <div class="history-detail">${escapeHtml(fullStamp)}${escapeHtml(kindLabel)}</div>
+            <div class="history-detail">
+              ${escapeHtml(fullStamp)}${escapeHtml(kindLabel)}
+              ${restorable ? `<button class="control compact" type="button" data-action="restore-trash" data-trash-id="${entry.trashId}">Restore</button>` : ""}
+            </div>
           </details>`;
       }).join("") || '<p class="empty">No changes recorded yet.</p>';
     }
@@ -2584,7 +2602,8 @@
     }
 
     function renderLifecycleSections() {
-      const completed = getCompletedEntries();
+      const completed = getCompletedEntries()
+        .sort((a, b) => (Date.parse(b.item.completedAt) || 0) - (Date.parse(a.item.completedAt) || 0));
       const completedRows = completed.length
         ? completed.map(({ item, group }) => {
           const found = findTask(item.id);
@@ -2604,7 +2623,7 @@
         }).join("")
         : '<p class="empty">No completed tasks are hidden.</p>';
       const trashRows = state.trash.length
-        ? state.trash.map((record) => {
+        ? state.trash.slice().reverse().map((record) => {
           const label = record.kind === "group"
             ? record.item.title
             : (resolveTaskItem(record.item)?.text || record.item.text || "Deleted task");
@@ -2886,8 +2905,9 @@
       return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
     }
 
-    function renderFocusChildren(tasks, depth = 0) {
+    function renderFocusChildren(tasks, depth = 0, group = null) {
       const visible = (tasks || []).filter((item) => {
+        if (group && isTaskHiddenFromActive(item, group)) return false;
         const resolved = resolveTaskItem(item);
         return (resolved?.text || item.text || "").trim() || (item.children || []).length;
       });
@@ -2899,7 +2919,7 @@
         <li style="margin-left: ${depth * 18}px" class="${done ? "focus-child-done" : ""}">
           <button class="focus-child-check ${done ? "done" : ""}" type="button" data-focus-toggle="${resolved?.id || item.id}" aria-label="${done ? "Mark not done" : "Mark done"}">${done ? renderIcon("check") : ""}</button>
           <span class="focus-child-text" contenteditable="true" spellcheck="true" data-focus-task-text="${resolved?.id || item.id}">${renderInlineMarkdown(resolved?.text || item.text)}</span>
-          ${renderFocusChildren(item.children || [], depth + 1)}
+          ${renderFocusChildren(item.children || [], depth + 1, group)}
         </li>
       `;
       }).join("");
@@ -2970,8 +2990,8 @@
         focusModeEl.classList.add("group-focus");
         if (focusTimerEl) focusTimerEl.hidden = true;
         focusTaskEl.innerHTML = `
-          <div class="focus-mode__text focus-mode__group-title">${escapeHtml(group.title)}</div>
-          <div class="focus-mode__children">${renderFocusChildren(group.tasks) || '<p class="empty">This group is empty.</p>'}</div>
+          <div class="focus-mode__text focus-mode__group-title" contenteditable="true" spellcheck="true" data-focus-group-title="${group.id}">${escapeHtml(group.title)}</div>
+          <div class="focus-mode__children">${renderFocusChildren(group.tasks, 0, group) || '<p class="empty">This group is empty. Press Enter on the title to add a task.</p>'}</div>
         `;
         return;
       }
@@ -2988,7 +3008,7 @@
       const item = resolveTaskItem(found.item);
       focusTaskEl.innerHTML = `
         <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${item.id}">${renderInlineMarkdown(item.text)}</div>
-        <div class="focus-mode__children">${renderFocusChildren(item.children || [])}</div>
+        <div class="focus-mode__children">${renderFocusChildren(item.children || [], 0, found.group)}</div>
       `;
       renderFocusTimer();
     }
@@ -3090,6 +3110,16 @@
     });
 
     boardEl.addEventListener("input", (event) => {
+      const captionEl = event.target.closest("[data-image-caption]");
+      if (captionEl) {
+        const info = findImageNode(captionEl.dataset.imageCaption);
+        if (info) {
+          info.image.caption = getMarkdownTextFromEditable(captionEl);
+          captionEl.classList.toggle("empty", !info.image.caption);
+          saveState();
+        }
+        return;
+      }
       const textEl = event.target.closest("[data-task-text]");
       const groupTitle = event.target.closest("[data-group-title]");
       if (textEl) {
@@ -3134,7 +3164,7 @@
         const item = resolveTaskItem(found.item);
         pushUndoState("board", "Pasted an image");
         item.images = Array.isArray(item.images) ? item.images : [];
-        item.images.push({ id: createId("img"), src, width: 260 });
+        item.images.push({ id: createId("img"), src, width: 260, caption: "" });
         saveState();
         render();
       }).catch(() => showToast("That image could not be read."));
@@ -3302,6 +3332,18 @@
     });
 
     focusTaskEl?.addEventListener("keydown", (event) => {
+      const groupTitleEl = event.target.closest?.("[data-focus-group-title]");
+      if (groupTitleEl && event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const group = findGroup(groupTitleEl.dataset.focusGroupTitle);
+        if (!group) return;
+        group.title = groupTitleEl.textContent.trim() || "Untitled group";
+        const inserted = insertSiblingBelowNode({ kind: "group", id: group.id });
+        renderFocusMode();
+        if (inserted) focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${inserted.id}"]`), false);
+        return;
+      }
       const childEl = event.target.closest?.(".focus-child-text");
       if (!childEl) return;
       const id = childEl.dataset.focusTaskText;
@@ -3335,6 +3377,16 @@
     });
 
     focusTaskEl?.addEventListener("input", (event) => {
+      const groupTitleEl = event.target.closest?.("[data-focus-group-title]");
+      if (groupTitleEl) {
+        const group = findGroup(groupTitleEl.dataset.focusGroupTitle);
+        if (group) {
+          group.title = groupTitleEl.textContent.trim() || "Untitled group";
+          saveState();
+          render();
+        }
+        return;
+      }
       const target = event.target.closest("[data-focus-task-text]");
       if (!target) return;
       const found = findTask(target.dataset.focusTaskText);
@@ -3776,6 +3828,10 @@
       if (button.dataset.action === "add-group") addGroup();
       if (button.dataset.action === "expand-all") setEveryCollapsed(false);
       if (button.dataset.action === "collapse-all") setEveryCollapsed(true);
+      if (button.dataset.action === "restore-trash") {
+        restoreTrashRecord(button.dataset.trashId);
+        renderHistoryList();
+      }
       if (button.dataset.action === "reset") {
         if (typeof window.confirm === "function"
           && !window.confirm("Replace the current board with the example board? Your current groups and tasks will be erased. Export JSON first if you want a backup.")) {
@@ -3823,14 +3879,12 @@
       const text = event.clipboardData?.getData("text/plain") || "";
       if (imageInfo && text.trim()) {
         event.preventDefault();
-        const found = findTask(imageInfo.taskId);
-        if (found) {
-          const item = resolveTaskItem(found.item);
-          pushUndoState("paste", "Pasted text into a task");
-          item.text = `${item.text}\n${text.trim()}`;
-          saveState();
-          render();
-        }
+        pushUndoState("paste", "Captioned an image");
+        imageInfo.image.caption = imageInfo.image.caption
+          ? `${imageInfo.image.caption}\n${text.trim()}`
+          : text.trim();
+        saveState();
+        render();
         return;
       }
       if (internalClipboard?.taskIds?.length && text.trim() === internalClipboard.markdown.trim()) {
@@ -3938,6 +3992,8 @@
       if (isEditingText && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) return;
 
       if (event.target.matches?.("input, select, textarea") && !event.altKey) return;
+      if (event.target.closest?.(".sidebar")) return;
+      if (!boardEl.contains(event.target) && event.target.closest?.("button, summary, a")) return;
 
       const visible = getVisibleNodes();
       if (!visible.length) return;
@@ -3958,9 +4014,13 @@
         }
         if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
           event.preventDefault();
-          if (info) {
-            selectNode("task", info.taskId);
-            startEditingSelectedNode(event.key);
+          const caption = document.querySelector(`[data-image-caption="${selectedNode.id}"]`);
+          if (caption && info) {
+            focusEditableText(caption, false);
+            insertTextAtSelection(event.key, caption);
+            info.image.caption = getMarkdownTextFromEditable(caption);
+            caption.classList.remove("empty");
+            saveState();
           }
           return;
         }

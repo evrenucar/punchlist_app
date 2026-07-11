@@ -1292,12 +1292,51 @@
     }
 
     .task-image {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 2px;
+      border-radius: 10px;
+      outline: 0;
+    }
+
+    .task-image-frame {
       position: relative;
       display: inline-flex;
       align-items: stretch;
       gap: 3px;
-      border-radius: 10px;
+    }
+
+    .image-caption {
+      min-height: 16px;
+      max-width: 100%;
+      border-radius: 6px;
+      color: var(--muted);
+      padding: 1px 4px;
+      font-size: 12.5px;
       outline: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .image-caption:focus {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .image-caption.empty {
+      display: none;
+    }
+
+    .task-image:hover .image-caption.empty,
+    .task-image.selected .image-caption.empty,
+    .task-image:focus-within .image-caption.empty {
+      display: block;
+    }
+
+    .task-image:hover .image-caption.empty:not(:focus)::before {
+      content: "Add a note…";
+      opacity: 0.55;
     }
 
     .task-image.selected img,
