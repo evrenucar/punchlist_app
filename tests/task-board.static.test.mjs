@@ -390,6 +390,131 @@ test("settings configure lifecycle, export, paste, and optional policy overrides
   assert.equal(api.durationToSeconds(1, "days"), 86400);
 });
 
+test("tasks accept an optional schedule date, start time, planned minutes, and reminder", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+
+  assert.equal(api.setTaskSchedule(item.id, { date: "2026-07-11" }), true);
+  assert.equal(item.schedule.date, "2026-07-11");
+  assert.equal(item.schedule.startTime, null);
+  assert.equal(api.setTaskSchedule(item.id, { startTime: "09:30", plannedMinutes: 45 }), true);
+  assert.equal(item.schedule.date, "2026-07-11");
+  assert.equal(item.schedule.startTime, "09:30");
+  assert.equal(item.plannedMinutes, 45);
+  assert.equal(api.setTaskSchedule(item.id, { date: "not-a-date" }), false);
+  assert.equal(item.schedule.date, "2026-07-11");
+  assert.equal(api.setTaskSchedule(item.id, { reminderAt: "2026-07-11T09:00" }), true);
+  assert.equal(item.reminderAt, "2026-07-11T09:00");
+  assert.equal(api.setTaskSchedule(item.id, { date: null, startTime: null }), true);
+  assert.equal(item.schedule, null);
+  assert.equal(item.plannedMinutes, 45);
+});
+
+test("timeline projects scheduled blocks in time order and keeps unscheduled day tasks at the bottom", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const [first, second, third] = group.tasks;
+  api.setTaskSchedule(first.id, { date: "2026-07-11", startTime: "09:30", plannedMinutes: 45 });
+  api.setTaskSchedule(second.id, { date: "2026-07-11", startTime: "08:00" });
+  api.setTaskSchedule(third.id, { date: "2026-07-11" });
+
+  const entries = api.getTimelineEntries("2026-07-11");
+  assert.equal(entries.scheduled.length, 2);
+  assert.equal(entries.scheduled[0].item.id, second.id);
+  assert.equal(entries.scheduled[0].startMinutes, 480);
+  assert.equal(entries.scheduled[0].durationMinutes, null);
+  assert.equal(entries.scheduled[1].item.id, first.id);
+  assert.equal(entries.scheduled[1].startMinutes, 570);
+  assert.equal(entries.scheduled[1].durationMinutes, 45);
+  assert.equal(entries.unscheduled.length, 1);
+  assert.equal(entries.unscheduled[0].item.id, third.id);
+  assert.equal(api.getTimelineEntries("2026-07-12").scheduled.length, 0);
+});
+
+test("timeline drag offsets convert to snapped clock times inside the visible day", async () => {
+  const api = await loadBoardApi();
+  assert.equal(api.timelineTimeFromOffset(0), "06:00");
+  assert.equal(api.timelineTimeFromOffset(210), "09:30");
+  assert.equal(api.timelineTimeFromOffset(217), "09:30");
+  assert.equal(api.timelineTimeFromOffset(224), "09:45");
+  assert.equal(api.timelineTimeFromOffset(-30), "06:00");
+  assert.equal(api.timelineTimeFromOffset(100000), "23:45");
+});
+
+test("effort variance compares actual focus with planned minutes", async () => {
+  const api = await loadBoardApi();
+  assert.equal(
+    JSON.stringify(api.getEffortVariance({ plannedMinutes: 30, focusSeconds: 2400 })),
+    JSON.stringify({ seconds: 600, label: "+10m" }),
+  );
+  assert.equal(
+    JSON.stringify(api.getEffortVariance({ plannedMinutes: 30, focusSeconds: 1500 })),
+    JSON.stringify({ seconds: -300, label: "-5m" }),
+  );
+  assert.equal(
+    JSON.stringify(api.getEffortVariance({ plannedMinutes: 30, focusSeconds: 1800 })),
+    JSON.stringify({ seconds: 0, label: "0m" }),
+  );
+  assert.equal(api.getEffortVariance({ plannedMinutes: null, focusSeconds: 2400 }), null);
+});
+
+test("reminders become due while the page is open and completion clears them", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+  api.setTaskSchedule(item.id, { reminderAt: "2026-07-11T09:00" });
+
+  assert.equal(api.isReminderDue(item, Date.parse("2026-07-11T08:59")), false);
+  assert.equal(api.isReminderDue(item, Date.parse("2026-07-11T09:00")), true);
+  api.state.settings.reminders = true;
+  const due = api.getDueReminders(Date.parse("2026-07-11T09:05"));
+  assert.equal(due.length, 1);
+  assert.equal(due[0].item.id, item.id);
+  assert.equal(api.getDueReminders(Date.parse("2026-07-11T09:06")).length, 0);
+  api.setTaskCompleted(item.id, true);
+  assert.equal(api.isReminderDue(item, Date.parse("2026-07-11T09:00")), false);
+});
+
+test("scheduling surfaces stay hidden until their feature flags are enabled", async () => {
+  const api = await loadBoardApi();
+  const html = await readBoard();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+
+  for (const hook of [
+    "data-feature-metadata",
+    "data-feature-timeline",
+    "data-feature-reminders",
+    "data-feature-notifications",
+    "data-view-list",
+    "data-view-timeline",
+    "data-timeline-date",
+  ]) {
+    assert.match(html, new RegExp(hook));
+  }
+
+  assert.equal(api.state.settings.metadata, false);
+  assert.equal(api.renderTaskDetailsPanel(item.id), "");
+  assert.equal(api.renderTimelineSection("2026-07-11"), "");
+
+  api.state.settings.metadata = true;
+  const details = api.renderTaskDetailsPanel(item.id);
+  for (const hook of ["data-task-date", "data-task-start", "data-task-planned"]) {
+    assert.match(details, new RegExp(hook));
+  }
+  assert.equal(details.includes("data-task-reminder"), false);
+  api.state.settings.reminders = true;
+  assert.match(api.renderTaskDetailsPanel(item.id), /data-task-reminder/);
+
+  api.state.settings.timelineView = true;
+  api.setTaskSchedule(item.id, { date: "2026-07-11", startTime: "09:30", plannedMinutes: 45 });
+  const timeline = api.renderTimelineSection("2026-07-11");
+  assert.match(timeline, /data-timeline\b/);
+  assert.match(timeline, /data-timeline-block/);
+  assert.match(timeline, /timeline-unscheduled/);
+});
+
 test("task board file contains the seeded task groups and nested tasks", async () => {
   const html = await readBoard();
 

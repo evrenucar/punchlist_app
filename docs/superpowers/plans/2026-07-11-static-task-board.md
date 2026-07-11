@@ -284,7 +284,7 @@ git commit -m "feat: add completed and trash lifecycle"
 - Modify: `src/task-board.css`
 - Modify: `tests/task-board.static.test.mjs`
 
-- [ ] **Step 1: Write failing tests for scheduling and effort calculations**
+- [x] **Step 1: Write failing tests for scheduling and effort calculations**
 
 Cover date-only scheduling, time blocks, unscheduled tasks, duration fallback, focus accumulation, variance formatting, reminder due state, and feature-flag invisibility.
 
@@ -297,21 +297,21 @@ test("effort variance compares actual focus with planned minutes", () => {
 });
 ```
 
-- [ ] **Step 2: Verify focused failures**
+- [x] **Step 2: Verify focused failures**
 
 Run: `node --test --test-name-pattern="schedule|timeline|effort|reminder" tests/task-board.static.test.mjs`
 
 Expected: FAIL because schedule helpers and controls are absent.
 
-- [ ] **Step 3: Add optional task details and reminders**
+- [x] **Step 3: Add optional task details and reminders**
 
 Use native date/time/number controls in a compact task details panel. Keep every scheduling/reminder surface absent while its feature flag is disabled. Browser notifications require explicit permission and only fire while the page is open.
 
-- [ ] **Step 4: Add List/Timeline projection for the Day Plan group**
+- [x] **Step 4: Add List/Timeline projection for the Day Plan group**
 
 Render configurable day hours, current-time line, nested headings, duration-sized blocks, compact unknown-duration blocks, and unscheduled items at the bottom. Reuse task editor commands and shared selection state. Dragging a block updates date/time; keyboard navigation follows visual order.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `node scripts/build-task-board.mjs`
 

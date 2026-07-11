@@ -106,6 +106,25 @@
               </div>
             </details>
             <details class="settings-section">
+              <summary>Planning</summary>
+              <label class="settings-row" title="Show date, time, planned effort, and focus details for the selected task">
+                Task details
+                <input type="checkbox" data-feature-metadata>
+              </label>
+              <label class="settings-row" title="Show a day timeline view for scheduled tasks">
+                Timeline view
+                <input type="checkbox" data-feature-timeline>
+              </label>
+              <label class="settings-row" title="Show reminder times and alerts while the board is open">
+                Reminders
+                <input type="checkbox" data-feature-reminders>
+              </label>
+              <label class="settings-row" title="Also fire browser notifications for due reminders while this page is open">
+                Browser notifications
+                <input type="checkbox" data-feature-notifications>
+              </label>
+            </details>
+            <details class="settings-section">
               <summary>Export</summary>
               <label class="settings-row">
                 Include completed
@@ -149,14 +168,22 @@
           <p>Use arrows to browse. Alt+arrows moves items. Ctrl+Up/Down collapses or expands. Shift+F opens focus.</p>
         </div>
         <div class="topbar-tools">
+          <div class="view-toggle" data-view-toggle hidden>
+            <button type="button" data-view-list class="active" title="Show the outline of all groups">List</button>
+            <button type="button" data-view-timeline title="Show scheduled tasks on a day timeline">Timeline</button>
+            <input type="date" data-timeline-date aria-label="Timeline day" hidden>
+          </div>
           <div class="clock" data-clock aria-label="Current time">--:--</div>
           <input class="search" type="search" placeholder="Filter tasks" aria-label="Filter tasks" data-search>
         </div>
       </div>
 
+      <div data-task-details-host></div>
       <section class="board" aria-label="Editable task groups" data-board></section>
     </main>
   </div>
+
+  <div class="toast" data-toast role="status" hidden></div>
 
   <section class="focus-mode" data-focus-mode hidden>
     <div class="focus-mode__bar">

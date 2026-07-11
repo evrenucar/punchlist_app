@@ -23,6 +23,11 @@
     const LONG_PRESS_MS = 420;
     const LONG_PRESS_MOVE_PX = 12;
     const DURATION_UNIT_SECONDS = Object.freeze({ seconds: 1, minutes: 60, hours: 3600, days: 86400 });
+    const SCHEDULE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+    const SCHEDULE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const TIMELINE_START_HOUR = 6;
+    const TIMELINE_END_HOUR = 24;
+    const TIMELINE_SNAP_MINUTES = 15;
     const GROUP_PALETTES = [
       { color: "#d9480f", bg: "#fff4ec", selected: "#ffe0cc", border: "#ffc2a3", ink: "#6d2b09" },
       { color: "#2f6f4e", bg: "#eef8f2", selected: "#d9f0e2", border: "#aed8bf", ink: "#1f5137" },
@@ -70,6 +75,16 @@
     const exportCompletedEl = document.querySelector("[data-export-completed]");
     const exportTrashEl = document.querySelector("[data-export-trash]");
     const policyOverridesEl = document.querySelector("[data-policy-overrides]");
+    const featureMetadataEl = document.querySelector("[data-feature-metadata]");
+    const featureTimelineEl = document.querySelector("[data-feature-timeline]");
+    const featureRemindersEl = document.querySelector("[data-feature-reminders]");
+    const featureNotificationsEl = document.querySelector("[data-feature-notifications]");
+    const viewToggleEl = document.querySelector("[data-view-toggle]");
+    const viewListEl = document.querySelector("[data-view-list]");
+    const viewTimelineEl = document.querySelector("[data-view-timeline]");
+    const timelineDateEl = document.querySelector("[data-timeline-date]");
+    const taskDetailsHostEl = document.querySelector("[data-task-details-host]");
+    const toastEl = document.querySelector("[data-toast]");
     const focusModeEl = document.querySelector("[data-focus-mode]");
     const focusButtonEl = document.querySelector("[data-focus-button]");
     const focusExitEl = document.querySelector("[data-focus-exit]");
@@ -91,6 +106,11 @@
     let suppressFocusSelection = false;
     let internalClipboard = null;
     let lifecycleSignature = "";
+    let announcedReminders = new Set();
+    let activeView = "list";
+    let timelineDate = localDateString();
+    let timelineDrag = null;
+    let toastTimer = null;
     let state = loadState();
 
     function createId(prefix = "task") {
@@ -741,6 +761,112 @@
         if (total >= factor && total % factor === 0) return { value: total / factor, unit };
       }
       return { value: total, unit: "seconds" };
+    }
+
+    function localDateString(date = new Date()) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function timelineTimeFromOffset(offsetPx) {
+      const maxOffset = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 60 - TIMELINE_SNAP_MINUTES;
+      const snapped = Math.min(maxOffset, Math.max(0, Math.round((Number(offsetPx) || 0) / TIMELINE_SNAP_MINUTES) * TIMELINE_SNAP_MINUTES));
+      const total = TIMELINE_START_HOUR * 60 + snapped;
+      return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+    }
+
+    function setTaskSchedule(id, patch = {}) {
+      const found = findTask(id);
+      if (!found) return false;
+      const item = resolveTaskItem(found.item);
+      const clean = (value) => (value === "" || value === undefined ? null : value);
+      const current = item.schedule || {};
+      const nextDate = hasOwn(patch, "date") ? clean(patch.date) : current.date ?? null;
+      const nextStart = hasOwn(patch, "startTime") ? clean(patch.startTime) : current.startTime ?? null;
+      if (nextDate !== null && !SCHEDULE_DATE_PATTERN.test(String(nextDate))) return false;
+      if (nextStart !== null && !SCHEDULE_TIME_PATTERN.test(String(nextStart))) return false;
+      let nextPlanned = item.plannedMinutes;
+      if (hasOwn(patch, "plannedMinutes")) {
+        const raw = clean(patch.plannedMinutes);
+        if (raw === null) nextPlanned = null;
+        else {
+          const minutes = Number(raw);
+          if (!Number.isFinite(minutes) || minutes <= 0) return false;
+          nextPlanned = Math.round(minutes);
+        }
+      }
+      let nextReminder = item.reminderAt;
+      if (hasOwn(patch, "reminderAt")) {
+        const raw = clean(patch.reminderAt);
+        if (raw !== null && !Number.isFinite(Date.parse(raw))) return false;
+        nextReminder = raw;
+      }
+      item.schedule = nextDate === null && nextStart === null ? null : { date: nextDate, startTime: nextStart };
+      item.plannedMinutes = nextPlanned;
+      if (nextReminder !== item.reminderAt) {
+        item.reminderAt = nextReminder;
+        announcedReminders.delete(item.id);
+      }
+      saveState();
+      return true;
+    }
+
+    function getTimelineEntries(date) {
+      const scheduled = [];
+      const unscheduled = [];
+      function walk(tasks, group) {
+        (tasks || []).forEach((placement) => {
+          if (!placement.linkType && placement.schedule?.date === date) {
+            if (placement.schedule.startTime) {
+              const [hours, minutes] = placement.schedule.startTime.split(":").map(Number);
+              scheduled.push({
+                item: placement,
+                group,
+                startMinutes: hours * 60 + minutes,
+                durationMinutes: Number(placement.plannedMinutes) > 0 ? Number(placement.plannedMinutes) : null,
+              });
+            } else {
+              unscheduled.push({ item: placement, group });
+            }
+          }
+          walk(placement.children, group);
+        });
+      }
+      state.groups.forEach((group) => walk(group.tasks, group));
+      scheduled.sort((a, b) => a.startMinutes - b.startMinutes);
+      return { scheduled, unscheduled };
+    }
+
+    function getEffortVariance(item) {
+      const planned = Number(item?.plannedMinutes);
+      if (!Number.isFinite(planned) || planned <= 0) return null;
+      const focus = Math.max(0, Number(item?.focusSeconds) || 0);
+      const seconds = focus - planned * 60;
+      const minutes = Math.round(Math.abs(seconds) / 60);
+      const label = seconds === 0 ? "0m" : `${seconds > 0 ? "+" : "-"}${minutes}m`;
+      return { seconds, label };
+    }
+
+    function isReminderDue(placement, now = Date.now()) {
+      const item = resolveTaskItem(placement);
+      if (!item || item.done || !item.reminderAt) return false;
+      const at = Date.parse(item.reminderAt);
+      return Number.isFinite(at) && now >= at;
+    }
+
+    function getDueReminders(now = Date.now()) {
+      if (!state.settings.reminders) return [];
+      const due = [];
+      function walk(tasks, group) {
+        (tasks || []).forEach((placement) => {
+          if (!placement.linkType && isReminderDue(placement, now) && !announcedReminders.has(placement.id)) {
+            announcedReminders.add(placement.id);
+            due.push({ item: placement, group });
+          }
+          walk(placement.children, group);
+        });
+      }
+      state.groups.forEach((group) => walk(group.tasks, group));
+      return due;
     }
 
     function setPolicyOverride(kind, id, key, value) {
@@ -2257,6 +2383,113 @@
       `;
     }
 
+    function renderTaskDetailsPanel(taskId = selectedNode && selectedNode.kind === "task" ? selectedNode.id : null) {
+      if (!state.settings.metadata || !taskId) return "";
+      const found = findTask(taskId);
+      if (!found) return "";
+      const item = resolveTaskItem(found.item);
+      const schedule = item.schedule || {};
+      const variance = getEffortVariance(item);
+      const effort = state.settings.focusTiming
+        ? `<span class="task-details-effort" title="Accumulated focus time compared with the planned effort">Focused ${formatFocusSeconds(item.focusSeconds || 0)}${variance ? ` · ${variance.label} vs plan` : ""}</span>`
+        : "";
+      const reminder = state.settings.reminders
+        ? `<label>Remind<input type="datetime-local" data-task-reminder value="${escapeHtml(item.reminderAt || "")}" aria-label="Reminder time"></label>`
+        : "";
+      return `
+        <section class="task-details" data-task-details="${item.id}" aria-label="Selected task details">
+          <label>Date<input type="date" data-task-date value="${escapeHtml(schedule.date || "")}" aria-label="Scheduled date"></label>
+          <label>Start<input type="time" data-task-start value="${escapeHtml(schedule.startTime || "")}" aria-label="Start time"></label>
+          <label>Planned<input type="number" min="5" step="5" inputmode="numeric" data-task-planned value="${item.plannedMinutes || ""}" aria-label="Planned minutes"><span>min</span></label>
+          ${reminder}
+          ${effort}
+        </section>
+      `;
+    }
+
+    function renderTimelineSection(date = timelineDate) {
+      if (!state.settings.timelineView) return "";
+      const entries = getTimelineEntries(date);
+      const startOfDay = TIMELINE_START_HOUR * 60;
+      const dayMinutes = (TIMELINE_END_HOUR - TIMELINE_START_HOUR) * 60;
+      let hours = "";
+      for (let hour = TIMELINE_START_HOUR; hour < TIMELINE_END_HOUR; hour += 1) {
+        hours += `<div class="timeline-hour" style="top: ${(hour - TIMELINE_START_HOUR) * 60}px"><span>${String(hour).padStart(2, "0")}:00</span></div>`;
+      }
+      const now = new Date();
+      const nowOffset = now.getHours() * 60 + now.getMinutes() - startOfDay;
+      const nowLine = localDateString(now) === date && nowOffset >= 0 && nowOffset <= dayMinutes
+        ? `<div class="timeline-now" data-timeline-now style="top: ${nowOffset}px" aria-hidden="true"></div>`
+        : "";
+      const blocks = entries.scheduled.map(({ item, group, startMinutes, durationMinutes }) => {
+        const top = Math.max(0, Math.min(dayMinutes - 26, startMinutes - startOfDay));
+        const height = durationMinutes ? Math.max(26, durationMinutes) : 26;
+        const resolved = resolveTaskItem(item);
+        return `
+          <div class="timeline-block ${durationMinutes ? "" : "compact"} ${isSelected("task", item.id) ? "selected" : ""}" data-timeline-block="${item.id}" tabindex="0" style="top: ${top}px; height: ${height}px; ${groupStyleVars(group, state.groups.indexOf(group))}" title="${escapeHtml(group.title)} — drag to reschedule; Alt+arrows nudge by 15 minutes">
+            <span class="timeline-block-time">${item.schedule.startTime}${durationMinutes ? ` · ${durationMinutes}m` : ""}</span>
+            <span class="timeline-block-text">${renderInlineMarkdown(resolved?.text || item.text)}</span>
+            <span class="timeline-block-group">${escapeHtml(group.title)}</span>
+          </div>
+        `;
+      }).join("");
+      const unscheduled = entries.unscheduled.length
+        ? entries.unscheduled.map(({ item, group }) => {
+          const resolved = resolveTaskItem(item);
+          return `
+            <div class="timeline-unscheduled-item" data-timeline-unscheduled="${item.id}" tabindex="0" style="${groupStyleVars(group, state.groups.indexOf(group))}" title="Scheduled for this day without a start time — select it and set a start time">
+              <span class="timeline-block-text">${renderInlineMarkdown(resolved?.text || item.text)}</span>
+              <span class="timeline-block-group">${escapeHtml(group.title)}</span>
+            </div>
+          `;
+        }).join("")
+        : '<p class="empty">Nothing is waiting for a time slot.</p>';
+      return `
+        <section class="timeline" data-timeline aria-label="Day timeline">
+          <div class="timeline-day" data-timeline-day style="height: ${dayMinutes}px">
+            ${hours}
+            ${nowLine}
+            ${blocks}
+          </div>
+          <div class="timeline-unscheduled" data-timeline-unscheduled-list>
+            <h3>Waiting for a time</h3>
+            ${unscheduled}
+          </div>
+        </section>
+      `;
+    }
+
+    function showToast(message) {
+      if (!toastEl) return;
+      toastEl.textContent = message;
+      toastEl.hidden = false;
+      toastEl.classList.add("visible");
+      if (toastTimer !== null && typeof window.clearTimeout === "function") window.clearTimeout(toastTimer);
+      if (typeof window.setTimeout === "function") {
+        toastTimer = window.setTimeout(() => {
+          toastEl.classList.remove("visible");
+          toastEl.hidden = true;
+          toastTimer = null;
+        }, 4200);
+      }
+    }
+
+    function checkDueReminders(now = Date.now()) {
+      if (!state.settings.reminders) return;
+      getDueReminders(now).forEach(({ item }) => {
+        const resolved = resolveTaskItem(item);
+        const text = resolved?.text || item.text || "Task reminder";
+        showToast(`Reminder: ${text}`);
+        if (state.settings.browserNotifications && typeof Notification !== "undefined" && Notification.permission === "granted") {
+          try {
+            new Notification("Task reminder", { body: text });
+          } catch {
+            /* notifications unavailable in this context */
+          }
+        }
+      });
+    }
+
     function getLifecycleSignature(now = Date.now()) {
       return `${getCompletedEntries(now).map(({ item }) => item.id).sort().join(",")}|${state.trash.map((record) => record.id).sort().join(",")}`;
     }
@@ -2272,6 +2505,23 @@
 
     function render() {
       const query = searchEl.value.trim().toLowerCase();
+      if (!state.settings.timelineView) activeView = "list";
+      if (viewToggleEl) {
+        viewToggleEl.hidden = !state.settings.timelineView;
+        viewListEl?.classList.toggle("active", activeView === "list");
+        viewTimelineEl?.classList.toggle("active", activeView === "timeline");
+        if (timelineDateEl) {
+          timelineDateEl.hidden = activeView !== "timeline";
+          timelineDateEl.value = timelineDate;
+        }
+      }
+      if (taskDetailsHostEl) taskDetailsHostEl.innerHTML = renderTaskDetailsPanel();
+      if (activeView === "timeline") {
+        boardEl.innerHTML = renderTimelineSection(timelineDate);
+        renderNav();
+        lifecycleSignature = getLifecycleSignature();
+        return;
+      }
       const firstGroup = state.groups[0];
       const topDrop = firstGroup
         ? `<div class="group-top-drop" data-board-top-drop data-drop-target="${firstGroup.id}" data-drop-kind="group" data-position="before" aria-label="Move group to top"></div>`
@@ -2652,6 +2902,10 @@
       if (exportCompletedEl) exportCompletedEl.checked = settings.exportCompleted !== false;
       if (exportTrashEl) exportTrashEl.checked = Boolean(settings.exportTrash);
       if (policyOverridesEl) policyOverridesEl.checked = Boolean(settings.policyOverrides);
+      if (featureMetadataEl) featureMetadataEl.checked = Boolean(settings.metadata);
+      if (featureTimelineEl) featureTimelineEl.checked = Boolean(settings.timelineView);
+      if (featureRemindersEl) featureRemindersEl.checked = Boolean(settings.reminders);
+      if (featureNotificationsEl) featureNotificationsEl.checked = Boolean(settings.browserNotifications);
     }
 
     function updateSettings(patch) {
@@ -2690,6 +2944,123 @@
     exportCompletedEl?.addEventListener("change", () => updateSettings({ exportCompleted: exportCompletedEl.checked }));
     exportTrashEl?.addEventListener("change", () => updateSettings({ exportTrash: exportTrashEl.checked }));
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
+    featureMetadataEl?.addEventListener("change", () => updateSettings({ metadata: featureMetadataEl.checked }));
+    featureTimelineEl?.addEventListener("change", () => updateSettings({ timelineView: featureTimelineEl.checked }));
+    featureRemindersEl?.addEventListener("change", () => updateSettings({ reminders: featureRemindersEl.checked }));
+    featureNotificationsEl?.addEventListener("change", () => {
+      updateSettings({ browserNotifications: featureNotificationsEl.checked });
+      if (featureNotificationsEl.checked && typeof Notification !== "undefined" && Notification.permission === "default") {
+        Notification.requestPermission?.();
+      }
+    });
+
+    viewListEl?.addEventListener("click", () => {
+      activeView = "list";
+      render();
+    });
+    viewTimelineEl?.addEventListener("click", () => {
+      activeView = "timeline";
+      render();
+    });
+    timelineDateEl?.addEventListener("change", () => {
+      if (!SCHEDULE_DATE_PATTERN.test(timelineDateEl.value)) return;
+      timelineDate = timelineDateEl.value;
+      render();
+    });
+
+    taskDetailsHostEl?.addEventListener("change", (event) => {
+      const input = event.target;
+      const panel = input.closest("[data-task-details]");
+      const taskId = panel?.dataset.taskDetails;
+      if (!taskId) return;
+      let saved = null;
+      if (input.matches("[data-task-date]")) saved = setTaskSchedule(taskId, { date: input.value });
+      else if (input.matches("[data-task-start]")) saved = setTaskSchedule(taskId, { startTime: input.value });
+      else if (input.matches("[data-task-planned]")) saved = setTaskSchedule(taskId, { plannedMinutes: input.value });
+      else if (input.matches("[data-task-reminder]")) saved = setTaskSchedule(taskId, { reminderAt: input.value });
+      if (saved === false) showToast("That value could not be saved.");
+      if (saved !== null) render();
+    });
+
+    boardEl.addEventListener("pointerdown", (event) => {
+      const block = event.target.closest("[data-timeline-block]");
+      if (!block || (event.pointerType === "mouse" && event.button !== 0)) return;
+      timelineDrag = {
+        id: block.dataset.timelineBlock,
+        block,
+        pointerId: event.pointerId,
+        startY: event.clientY,
+        startX: event.clientX,
+        top: parseFloat(block.style.top) || 0,
+        armed: event.pointerType === "mouse",
+        moved: false,
+      };
+      if (!timelineDrag.armed && typeof window.setTimeout === "function") {
+        const pending = timelineDrag;
+        window.setTimeout(() => {
+          if (timelineDrag === pending && !timelineDrag.moved) {
+            timelineDrag.armed = true;
+            timelineDrag.block.classList.add("touch-dragging");
+          }
+        }, LONG_PRESS_MS);
+      }
+      try {
+        block.setPointerCapture?.(event.pointerId);
+      } catch {
+        /* pointer already released */
+      }
+    });
+
+    boardEl.addEventListener("pointermove", (event) => {
+      if (!timelineDrag || event.pointerId !== timelineDrag.pointerId) return;
+      const delta = event.clientY - timelineDrag.startY;
+      if (!timelineDrag.armed) {
+        if (shouldCancelLongPress(timelineDrag.startX, timelineDrag.startY, event.clientX, event.clientY)) timelineDrag = null;
+        return;
+      }
+      if (Math.abs(delta) > 3) timelineDrag.moved = true;
+      timelineDrag.block.style.top = `${timelineDrag.top + delta}px`;
+      event.preventDefault();
+    });
+
+    function finishTimelineDrag(event, cancelled = false) {
+      if (!timelineDrag || event.pointerId !== timelineDrag.pointerId) return;
+      const drag = timelineDrag;
+      timelineDrag = null;
+      drag.block.classList.remove("touch-dragging");
+      if (cancelled) {
+        render();
+        return;
+      }
+      if (drag.moved) {
+        const startTime = timelineTimeFromOffset(parseFloat(drag.block.style.top) || 0);
+        setTaskSchedule(drag.id, { startTime });
+        render();
+        return;
+      }
+      selectNode("task", drag.id);
+      render();
+    }
+
+    boardEl.addEventListener("pointerup", (event) => finishTimelineDrag(event));
+    boardEl.addEventListener("pointercancel", (event) => finishTimelineDrag(event, true));
+
+    boardEl.addEventListener("keydown", (event) => {
+      const block = event.target.closest?.("[data-timeline-block]");
+      if (!block || !event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const currentTop = parseFloat(block.style.top) || 0;
+      const nextTop = currentTop + (event.key === "ArrowUp" ? -TIMELINE_SNAP_MINUTES : TIMELINE_SNAP_MINUTES);
+      setTaskSchedule(block.dataset.timelineBlock, { startTime: timelineTimeFromOffset(nextTop) });
+      render();
+      document.querySelector(`[data-timeline-block="${block.dataset.timelineBlock}"]`)?.focus();
+    });
+
+    boardEl.addEventListener("click", (event) => {
+      const unscheduledItem = event.target.closest("[data-timeline-unscheduled]");
+      if (unscheduledItem) selectNode("task", unscheduledItem.dataset.timelineUnscheduled);
+    });
 
     darkModeEl?.addEventListener("change", () => toggleDarkMode(darkModeEl.checked));
     exportBoardEl?.addEventListener("click", downloadBoardState);
@@ -2895,6 +3266,7 @@
     updateClock();
     if (typeof window.setInterval === "function") window.setInterval(updateClock, 30000);
     if (typeof window.setInterval === "function") window.setInterval(runLifecycleMaintenance, 1000);
+    if (typeof window.setInterval === "function") window.setInterval(() => checkDueReminders(), 5000);
     render();
     selectedNode = getVisibleNodes()[0] || null;
     if (selectedNode) selectNode(selectedNode);
@@ -2926,6 +3298,16 @@
       setPolicyOverride,
       updateSettings,
       syncSettingsControls,
+      setTaskSchedule,
+      getTimelineEntries,
+      timelineTimeFromOffset,
+      getEffortVariance,
+      isReminderDue,
+      getDueReminders,
+      checkDueReminders,
+      renderTaskDetailsPanel,
+      renderTimelineSection,
+      localDateString,
       isTaskHiddenFromActive,
       setTaskCompleted,
       restoreCompletedTask,
