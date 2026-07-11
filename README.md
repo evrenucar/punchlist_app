@@ -35,6 +35,10 @@ node --test tests/task-board.static.test.mjs
 
 Never hand-edit `outputs/task-board.html`; change `src/` and rebuild.
 
+## Website
+
+`website/` holds a static landing page (`index.html`) plus a copy of the app that the build script refreshes on every build. Deploy the folder as-is to any static host. To collect emails server-side, set `FORM_ENDPOINT` near the bottom of `index.html` to a form service URL; until then the form falls back to a prefilled email draft.
+
 ## Product rules
 
 - JSON is canonical and lossless; Markdown is clean interchange.

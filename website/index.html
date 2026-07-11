@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Task Board: a day planner that's one HTML file</title>
+  <meta name="description" content="A 182 KB task organizer that runs from a single HTML file. No account, no server, no network requests. Nested outlining, day timeline, focus timing, Markdown export.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23246bfe'/%3E%3Cpath d='M7 12.5l3.2 3.2L17 8.5' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --surface: #ffffff;
+      --surface-2: #eef4f1;
+      --ink: #202422;
+      --muted: #65716b;
+      --line: #d8ded8;
+      --accent: #246bfe;
+      --accent-soft: #e9f0ff;
+      --g-orange: #d9480f;
+      --g-green: #2f6f4e;
+      --g-purple: #5f3dc4;
+      --g-teal: #0b7285;
+      --g-blue: #1971c2;
+      --g-red: #c92a2a;
+      --shadow: 0 18px 48px rgba(26, 38, 33, 0.10);
+      --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151716;
+        --surface: #202321;
+        --surface-2: #292d2a;
+        --ink: #f1f4ef;
+        --muted: #a8b2aa;
+        --line: #3a403c;
+        --accent-soft: #1f315f;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #151716;
+      --surface: #202321;
+      --surface-2: #292d2a;
+      --ink: #f1f4ef;
+      --muted: #a8b2aa;
+      --line: #3a403c;
+      --accent-soft: #1f315f;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+    }
+
+    :root[data-theme="light"] {
+      --bg: #f6f7f2;
+      --surface: #ffffff;
+      --surface-2: #eef4f1;
+      --ink: #202422;
+      --muted: #65716b;
+      --line: #d8ded8;
+      --accent-soft: #e9f0ff;
+      --shadow: 0 18px 48px rgba(26, 38, 33, 0.10);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    a { color: var(--accent); }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* Topbar mirrors the app's own header */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 10px 20px;
+    }
+
+    .brand-mark {
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .brand-name { font-weight: 800; }
+
+    .topbar .clock {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 18px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .theme-toggle {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 6px 10px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .theme-toggle:hover { background: var(--surface-2); }
+
+    /* Hero */
+    .hero { padding: 56px 0 32px; }
+
+    h1 {
+      margin: 0 0 14px;
+      font-size: clamp(34px, 6vw, 54px);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 1.05;
+      text-wrap: balance;
+    }
+
+    .lede {
+      max-width: 60ch;
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 19px;
+    }
+
+    .lede strong { color: var(--ink); }
+
+    .facts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 26px;
+    }
+
+    .fact {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 7px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fact b { color: var(--accent); font-weight: 800; }
+
+    .cta-row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+    .btn {
+      display: inline-block;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      padding: 11px 18px;
+      font: inherit;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .btn.primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn:hover { filter: brightness(1.06); }
+    .btn:focus-visible, .theme-toggle:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Mini board mockup, built from the app's real visual pieces */
+    .board-demo {
+      display: grid;
+      gap: 14px;
+      margin: 40px 0 8px;
+    }
+
+    .demo-group {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .demo-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 6px solid var(--gc);
+      border-bottom: 1px solid var(--line);
+      background: color-mix(in srgb, var(--gc) 9%, var(--surface));
+      padding: 9px 12px;
+      font-weight: 800;
+    }
+
+    .demo-count {
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--gc) 18%, var(--surface));
+      padding: 1px 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    .demo-rows { padding: 6px 10px 10px; }
+
+    .demo-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 6px 4px;
+      font-size: 15px;
+    }
+
+    .demo-row.child { padding-left: 34px; }
+
+    .demo-check {
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      width: 19px;
+      height: 19px;
+      border: 1.5px solid var(--line);
+      border-radius: 5px;
+      background: var(--surface);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .demo-check.done { border-color: var(--g-green); background: var(--g-green); }
+    .demo-row.done-text span { color: var(--muted); text-decoration: line-through; }
+
+    .demo-chip {
+      margin-left: auto;
+      border-radius: 6px;
+      background: var(--surface-2);
+      padding: 2px 7px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    /* Sections */
+    section { padding: 34px 0; scroll-margin-top: 64px; }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      text-wrap: balance;
+    }
+
+    .prose { max-width: 64ch; }
+    .prose p { margin: 0 0 14px; }
+
+    /* Build timeline: hour ruler like the app's day view */
+    .timeline { border-left: 2px solid var(--line); }
+
+    .tl-row {
+      position: relative;
+      display: grid;
+      grid-template-columns: 64px 1fr;
+      gap: 12px;
+      padding: 9px 0 9px 18px;
+    }
+
+    .tl-row::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      left: -6px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--dot, var(--accent));
+    }
+
+    .tl-time {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      color: var(--muted);
+      padding-top: 2px;
+    }
+
+    .tl-body strong { display: block; }
+    .tl-body small { color: var(--muted); font-size: 13.5px; }
+
+    /* Feature checklist rendered as app task rows */
+    .feature-list { display: grid; gap: 4px; max-width: 70ch; }
+
+    .feature-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+
+    .feature-row:hover { border-color: var(--line); background: var(--surface); }
+    .feature-row .demo-check { margin-top: 3px; }
+    .feature-row b { font-weight: 800; }
+
+    /* Email form */
+    .signup {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 26px;
+    }
+
+    .signup form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .signup input[type="email"] {
+      flex: 1 1 260px;
+      min-height: 46px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 0 14px;
+      font: inherit;
+    }
+
+    .signup .note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .signup .status {
+      margin: 10px 0 0;
+      font-weight: 700;
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      margin-top: 30px;
+      padding: 26px 0 44px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+
+    @media (max-width: 640px) {
+      .hero { padding: 36px 0 20px; }
+      .tl-row { grid-template-columns: 52px 1fr; }
+      .topbar .clock { font-size: 15px; }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+      .demo-group { transition: transform 160ms ease; }
+      .demo-group:hover { transform: translateY(-2px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-mark" aria-hidden="true">S</div>
+      <div class="brand-name">Task Board</div>
+      <div class="clock" data-clock aria-label="Current time">--:--</div>
+      <button class="theme-toggle" type="button" data-theme-toggle>Theme</button>
+    </div>
+  </div>
+
+  <header class="hero wrap">
+    <h1>A day planner that's one HTML file.</h1>
+    <p class="lede">No account, no server, no install, no network requests. You download <strong>one 182 KB file</strong>, open it in a browser, & your task board runs entirely on your machine. It keeps working on a plane, in a train tunnel, or ten years from now.</p>
+    <div class="facts" aria-label="Project facts">
+      <span class="fact"><b>1</b> file</span>
+      <span class="fact"><b>0</b> dependencies</span>
+      <span class="fact"><b>0</b> requests after download</span>
+      <span class="fact"><b>58</b> automated tests</span>
+      <span class="fact"><b>40</b>-step undo</span>
+    </div>
+    <div class="cta-row">
+      <a class="btn primary" href="task-board.html" download>Download the board</a>
+      <a class="btn" href="#signup">Get updates by email</a>
+    </div>
+
+    <div class="board-demo" aria-hidden="true">
+      <div class="demo-group" style="--gc: var(--g-green)">
+        <div class="demo-head">Today <span class="demo-count">4</span></div>
+        <div class="demo-rows">
+          <div class="demo-row done-text"><span class="demo-check done">✓</span><span>Book dentist appointment</span></div>
+          <div class="demo-row"><span class="demo-check"></span><span>Ship the invoice</span></div>
+          <div class="demo-row child"><span class="demo-check"></span><span>Attach June hours</span></div>
+          <div class="demo-row"><span class="demo-check"></span><span>Draft the proposal</span><span class="demo-chip">09:00 · 90m</span></div>
+        </div>
+      </div>
+      <div class="demo-group" style="--gc: var(--g-purple)">
+        <div class="demo-head">Backlog <span class="demo-count">2</span></div>
+        <div class="demo-rows">
+          <div class="demo-row"><span class="demo-check"></span><span>Compare bike insurance quotes</span></div>
+          <div class="demo-row"><span class="demo-check"></span><span>Fix the balcony door hinge</span><span class="demo-chip">alias in Today</span></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="why">
+      <h2>Why this exists</h2>
+      <div class="prose">
+        <p>My tasks lived in five places: a notes app, chat messages to myself, two abandoned to-do apps, & whatever paper was on the desk. Every tool I tried wanted an account, a sync service, or a subscription before it would let me type a first task. Then it wanted me to stay, so getting my own lists back out came down to whatever its exporter felt like giving me.</p>
+        <p>So I set one rule for this build: the whole app has to fit in a single file you can open from disk. No database, no server, no framework, no npm install. If it can't survive being emailed to yourself as an attachment, it's too heavy. Today's build is 185,841 bytes of native HTML, CSS & JavaScript.</p>
+        <p>Your data never leaves the browser. Tasks persist in local storage, export losslessly to JSON, & copy out as indented Markdown that pastes clean into Obsidian, Notion, or any text editor. There's no telemetry to switch off because the file doesn't contain any.</p>
+      </div>
+    </section>
+
+    <section id="how">
+      <h2>How it was built, commit by commit</h2>
+      <div class="prose">
+        <p>I ran this as a spec-first build with Claude Code writing the implementation against my requirements & my live feedback. Every feature landed the same way: write the failing test, make it pass, rebuild the single file, then click through it in a real browser at 1440×900 and 390×844 before committing. The static suite sits at 58 tests across 1,067 lines. The app itself is 3,271 lines of JavaScript & 1,187 lines of CSS.</p>
+        <p>The core build happened in one sitting on July 11, 2026. The git log is the honest diary:</p>
+      </div>
+      <div class="timeline" role="list">
+        <div class="tl-row" role="listitem" style="--dot: var(--g-orange)"><span class="tl-time">14:33</span><span class="tl-body"><strong>Baseline</strong><small>Working prototype & the design spec checked in.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-orange)"><span class="tl-time">14:37</span><span class="tl-body"><strong>Build script</strong><small>Three source files inlined into one output file. Node standard library only.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-teal)"><span class="tl-time">14:41</span><span class="tl-body"><strong>Schema v2</strong><small>Immutable task IDs & creation metadata, with migration that keeps existing boards intact.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-teal)"><span class="tl-time">14:46</span><span class="tl-body"><strong>Editor fixes</strong><small>Caret-aware Enter, deterministic Shift+Tab, long-press touch drag that doesn't block scrolling.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-blue)"><span class="tl-time">14:54</span><span class="tl-body"><strong>Markdown & links</strong><small>Clipboard interchange, plus aliases & references: one task, several placements.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-blue)"><span class="tl-time">15:20</span><span class="tl-body"><strong>Lifecycle</strong><small>Completed & Trash views with retention policies. Task overrides beat group overrides beat globals.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-purple)"><span class="tl-time">15:30</span><span class="tl-body"><strong>Day planning</strong><small>Timeline from 06:00 to midnight, drag rescheduling snapped to 15 minutes, focus timing, planned-versus-actual variance.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-purple)"><span class="tl-time">16:00</span><span class="tl-body"><strong>Responsive shell</strong><small>Collapsible sidebar, phone drawer, dark-mode group tints, 44 px touch targets.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-green)"><span class="tl-time">16:04</span><span class="tl-body"><strong>Acceptance</strong><small>Real-browser pass in both themes at both viewports, plus a reusable Playwright smoke test.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-green)"><span class="tl-time">16:40</span><span class="tl-body"><strong>First real-use fixes</strong><small>Settings overflow, Enter inside a group title, copying collapsed groups, a proper task details panel.</small></span></div>
+      </div>
+    </section>
+
+    <section id="what">
+      <h2>What the file does</h2>
+      <div class="feature-list">
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Nested outline.</b> Enter splits a task at the caret, Tab indents, Alt+arrows move items, & undo holds your last 40 board actions.</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Markdown clipboard.</b> Ctrl+C turns any selection into clean indented Markdown. Collapsed groups copy in full, children included.</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Aliases & references.</b> Put one task in two places; edit either placement & both update. A reference jumps to the original instead.</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Completed & Trash.</b> Finished tasks hide on your schedule: immediately, after 7 days, or never. Deletes go to a restorable Trash by default.</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Day timeline.</b> Optional view from 06:00 to midnight with a current-time line & drag rescheduling snapped to 15 minutes.</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Focus mode.</b> One task full-screen with a running timer. Time accumulates per task & reads out against your plan, like "+10m vs plan".</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Works on your phone.</b> Drawer sidebar, 44 px touch targets, long-press drag. Light & dark themes with per-group color tints in both.</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Your data, portable.</b> Lossless JSON export & import. Off by default means invisible: disabled features add zero buttons to the screen.</span></div>
+      </div>
+    </section>
+
+    <section id="signup">
+      <div class="signup">
+        <h2>Get the file & the next build</h2>
+        <p class="prose" style="margin: 0;">The board is free. Leave your email & you'll get one message when a new build ships or the schema changes, with the file attached. No welcome sequence, no weekly digest; the last thing a to-do app needs is a funnel.</p>
+        <form data-signup-form novalidate>
+          <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address">
+          <button class="btn primary" type="submit">Send me the board</button>
+        </form>
+        <p class="status" data-signup-status role="status"></p>
+        <p class="note">This page sets no cookies & loads nothing from third parties. Your address lands in one inbox & nowhere else.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Task Board, built July 2026.</span>
+      <span>This page makes zero external requests. View source; it's one file too.</span>
+    </div>
+  </footer>
+
+  <script>
+    // Clock, same 24-hour format as the app's topbar.
+    const clock = document.querySelector("[data-clock]");
+    function tick() {
+      clock.textContent = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+    tick();
+    setInterval(tick, 30000);
+
+    // Theme toggle stamps data-theme on <html>; tokens do the rest.
+    const toggle = document.querySelector("[data-theme-toggle]");
+    const saved = localStorage.getItem("task-board-site-theme");
+    if (saved) document.documentElement.dataset.theme = saved;
+    toggle.addEventListener("click", () => {
+      const dark = document.documentElement.dataset.theme === "dark"
+        || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+      const next = dark ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      localStorage.setItem("task-board-site-theme", next);
+    });
+
+    // Email capture. Set FORM_ENDPOINT to a form service URL (e.g. a Formspree
+    // endpoint like https://formspree.io/f/XXXXXXXX) to collect addresses
+    // server-side. Left empty, the form falls back to a prefilled email draft,
+    // which keeps this page dependency-free until an endpoint exists.
+    const FORM_ENDPOINT = "";
+    const form = document.querySelector("[data-signup-form]");
+    const status = document.querySelector("[data-signup-status]");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const email = form.email.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        status.textContent = "That doesn't look like an email address. Check it & try again.";
+        return;
+      }
+      if (!FORM_ENDPOINT) {
+        location.href = "mailto:anilgulbeden@gmail.com?subject=" + encodeURIComponent("Task Board updates")
+          + "&body=" + encodeURIComponent("Send Task Board builds to: " + email);
+        status.textContent = "Opening your mail app with a prefilled message. Hit send & you're on the list.";
+        return;
+      }
+      try {
+        const response = await fetch(FORM_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        status.textContent = response.ok
+          ? "Done. You'll hear about the next build."
+          : "The form service said no (" + response.status + "). Try again in a minute.";
+      } catch {
+        status.textContent = "Couldn't reach the form service. Check your connection & try again.";
+      }
+    });
+  </script>
+</body>
+</html>

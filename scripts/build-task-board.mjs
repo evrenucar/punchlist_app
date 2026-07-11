@@ -23,4 +23,8 @@ const output = template
 await mkdir(path.dirname(outputPath), { recursive: true });
 await writeFile(outputPath, output, "utf8");
 
-console.log(`Built ${path.relative(root, outputPath)}`);
+const websiteCopy = path.join(root, "website", "task-board.html");
+await mkdir(path.dirname(websiteCopy), { recursive: true });
+await writeFile(websiteCopy, output, "utf8");
+
+console.log(`Built ${path.relative(root, outputPath)} (+ website copy)`);
