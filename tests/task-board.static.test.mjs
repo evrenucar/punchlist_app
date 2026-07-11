@@ -657,8 +657,11 @@ test("board shell brands as Punchlist with a timeline pane and history tab", asy
     "<title>Punchlist</title>",
     "data-board-split",
     "data-timeline-pane",
-    "data-sidebar-tabs",
+    "data-history-menu",
     "data-history-list",
+    "data-image-handle",
+    "compressImageFile",
+    "focus-child-text",
     "Ctrl\\+Enter",
     "Use global \\(",
   ]) {
@@ -1236,7 +1239,7 @@ test("focus mode advertises Shift F and left controls have hover explanations", 
     "title=\"Download this board as a JSON backup\"",
     "title=\"Load a board from a JSON backup\"",
     "title=\"Replace the current board with the built-in example board\"",
-    "title=\"Jump to",
+    "title=\"Recent changes on this board\"",
   ]) {
     assert.match(html, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }

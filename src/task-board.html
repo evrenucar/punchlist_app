@@ -172,12 +172,13 @@
         <button type="button" data-view-nav="trash" title="Show deleted tasks">Trash</button>
       </nav>
 
-      <div class="sidebar-tabs" data-sidebar-tabs role="tablist" aria-label="Sidebar content">
-        <button type="button" class="active" data-sidebar-tab="groups" role="tab" aria-selected="true">Groups</button>
-        <button type="button" data-sidebar-tab="history" role="tab" aria-selected="false" title="Recent changes on this board">History</button>
-      </div>
-      <nav class="section-nav" aria-label="Task groups" data-section-nav></nav>
-      <div class="history-list" data-history-list hidden></div>
+      <details class="history-menu" data-history-menu>
+        <summary class="control" title="Recent changes on this board">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
+          History
+        </summary>
+        <div class="history-list" data-history-list></div>
+      </details>
     </aside>
 
     <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>

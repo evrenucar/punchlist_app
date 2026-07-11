@@ -53,7 +53,6 @@
       "group-sidequests": GROUP_PALETTES[8],
     };
     const boardEl = document.querySelector("[data-board]");
-    const navEl = document.querySelector("[data-section-nav]");
     const sidebarToggleEl = document.querySelector("[data-sidebar-toggle]");
     const sidebarBackdropEl = document.querySelector("[data-sidebar-backdrop]");
     const viewsNavEl = document.querySelector("[data-views-nav]");
@@ -92,7 +91,7 @@
     const sidebarResizerEl = document.querySelector("[data-sidebar-resizer]");
     const timelinePaneEl = document.querySelector("[data-timeline-pane]");
     const historyListEl = document.querySelector("[data-history-list]");
-    const sidebarTabsEl = document.querySelector("[data-sidebar-tabs]");
+    const historyMenuEl = document.querySelector("[data-history-menu]");
     const toastEl = document.querySelector("[data-toast]");
     const focusModeEl = document.querySelector("[data-focus-mode]");
     const focusButtonEl = document.querySelector("[data-focus-button]");
@@ -121,7 +120,6 @@
     let focusModeGroupId = null;
     let showList = true;
     let showTimeline = false;
-    let sidebarTab = "groups";
     let timelineDate = localDateString();
     let timelineDrag = null;
     let toastTimer = null;
@@ -147,6 +145,7 @@
         createdAt,
         createdInGroupId: options.createdInGroupId || null,
         createdUnderTaskId: options.createdUnderTaskId || null,
+        images: Array.isArray(options.images) ? options.images : [],
         children,
       };
     }
@@ -434,7 +433,7 @@
         throw new Error("Imported file must contain a state.groups array.");
       }
       if (focusModeTaskId) exitFocusMode();
-      pushUndoState();
+      pushUndoState("board", "Imported a board from JSON");
       state = migrateState(importedState, new Date().toISOString(), { includeResearch: false });
       selectedNode = getVisibleNodes()[0] || null;
       multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
@@ -479,6 +478,7 @@
       link: "Pasted linked items",
       color: "Changed a group color",
       paste: "Pasted tasks",
+      collapse: "",
     };
 
     function shortText(value, max = 34) {
@@ -486,14 +486,15 @@
       return text.length > max ? `${text.slice(0, max - 1)}…` : text;
     }
 
-    function logHistory(text) {
+    function logHistory(text, kind = "board") {
       if (!Array.isArray(state.history)) state.history = [];
-      state.history.push({ at: new Date().toISOString(), text: String(text) });
+      state.history.push({ at: new Date().toISOString(), text: String(text), kind });
       if (state.history.length > 50) state.history.shift();
     }
 
     function pushUndoState(action = "board", detail = null) {
-      logHistory(detail || HISTORY_LABELS[action] || "Changed the board");
+      const label = detail || (action in HISTORY_LABELS ? HISTORY_LABELS[action] : "Changed the board");
+      if (label) logHistory(label, action);
       undoStack.push(JSON.stringify(state));
       undoActions.push(action);
       if (undoStack.length > 40) {
@@ -1092,7 +1093,7 @@
     function copyTaskToDoingNow(taskId) {
       const found = findTask(taskId);
       if (!found) return null;
-      pushUndoState();
+      pushUndoState("move", `Copied "${shortText(resolveTaskItem(found.item)?.text)}" to the day group`);
       const group = ensureDoingNowGroup();
       const pasteMode = ["alias", "reference", "duplicate"].includes(state.settings.pasteMode)
         ? state.settings.pasteMode
@@ -1112,7 +1113,7 @@
       if (!sourceId || !targetId || sourceId === targetId) return;
       const source = findTask(sourceId);
       if (!source || isDescendant(source.item, targetId)) return;
-      pushUndoState();
+      pushUndoState("move", `Moved "${shortText(resolveTaskItem(source.item)?.text)}"`);
       const moved = removeTask(sourceId);
       if (!moved) {
         discardUndoState();
@@ -1134,7 +1135,7 @@
       if (!sourceId || !targetId || sourceId === targetId) return;
       const sourceIndex = state.groups.findIndex((group) => group.id === sourceId);
       if (sourceIndex < 0) return;
-      pushUndoState();
+      pushUndoState("move", `Moved group "${shortText(state.groups[sourceIndex].title)}"`);
       const [group] = state.groups.splice(sourceIndex, 1);
       const targetIndex = state.groups.findIndex((item) => item.id === targetId);
       if (targetIndex < 0) {
@@ -1225,7 +1226,7 @@
         selectNode("task", id);
         return;
       }
-      pushUndoState();
+      pushUndoState("collapse");
       found.item.collapsed = nextCollapsed;
       saveState();
       render();
@@ -1240,7 +1241,7 @@
         selectNode("group", id);
         return;
       }
-      pushUndoState();
+      pushUndoState("collapse");
       group.collapsed = nextCollapsed;
       saveState();
       render();
@@ -1305,7 +1306,7 @@
     function moveSelectedNodes(direction) {
       const nodes = getSelectedNodes();
       if (!nodes.length) return;
-      pushUndoState();
+      pushUndoState("move");
       let moved = false;
 
       const groupEntries = nodes
@@ -1392,7 +1393,7 @@
       const nodes = getSelectedNodes();
       if (!nodes.length) return;
       let changed = false;
-      pushUndoState();
+      pushUndoState("collapse");
 
       nodes.forEach((node) => {
         if (node.kind === "group") {
@@ -1627,7 +1628,7 @@
 
     function insertSiblingBelowNode(node = selectedNode) {
       if (!node) return null;
-      pushUndoState();
+      pushUndoState("board", "Added a task");
 
       if (node.kind === "group") {
         const group = findGroup(node.id);
@@ -1822,7 +1823,7 @@
       });
     }
 
-    function renderSelection() {
+    function renderSelection(forceFocus = false) {
       document.querySelectorAll(".selected").forEach((row) => row.classList.remove("selected"));
       getSelectedNodes().forEach((node) => getNodeRow(node)?.classList.add("selected"));
       if (taskDetailsHostEl && !taskDetailsHostEl.contains(document.activeElement)) {
@@ -1834,12 +1835,14 @@
 
       const row = getNodeRow(selectedNode);
       if (row) {
-        if (document.activeElement !== row && !row.contains(document.activeElement)) {
+        const active = document.activeElement;
+        const focusIsElsewhere = !forceFocus && active && active !== document.body && !boardEl.contains(active) && !row.contains(active);
+        if (!focusIsElsewhere && active !== row && !row.contains(active)) {
           suppressFocusSelection = true;
           row.focus({ preventScroll: true });
           suppressFocusSelection = false;
         }
-        row.scrollIntoView({ block: "nearest" });
+        if (!focusIsElsewhere) row.scrollIntoView({ block: "nearest" });
       }
     }
 
@@ -2288,6 +2291,15 @@
       item.policyOverrides = item.policyOverrides && typeof item.policyOverrides === "object"
         ? item.policyOverrides
         : null;
+      item.images = Array.isArray(item.images)
+        ? item.images
+          .filter((img) => img && typeof img.src === "string" && img.src.startsWith("data:image/"))
+          .map((img) => ({
+            id: typeof img.id === "string" ? img.id : createId("img"),
+            src: img.src,
+            width: Number(img.width) > 0 ? Math.round(Number(img.width)) : 260,
+          }))
+        : [];
       item.linkType = ["alias", "reference"].includes(item.linkType) ? item.linkType : null;
       item.targetTaskId = item.linkType && typeof item.targetTaskId === "string" ? item.targetTaskId : null;
       item.children = Array.isArray(item.children) ? item.children : [];
@@ -2350,6 +2362,16 @@
       const dropChild = hasChildren
         ? `<div class="drop-zone child" data-drop-target="${item.id}" data-position="child" aria-hidden="true"></div>`
         : "";
+      const images = resolved?.images || [];
+      const imagesHtml = images.length && !item.linkType
+        ? `<div class="task-images">${images.map((img) => `
+            <span class="task-image">
+              <span class="image-handle" data-image-handle="left" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
+              <img src="${img.src}" style="width: ${Math.max(60, Number(img.width) || 260)}px" alt="Pasted image" draggable="false">
+              <span class="image-handle" data-image-handle="right" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
+              <button class="image-remove" type="button" data-image-remove="${img.id}" data-image-task="${resolved.id}" title="Remove image" aria-label="Remove image">×</button>
+            </span>`).join("")}</div>`
+        : "";
 
       return `
         <li class="task" data-task="${item.id}">
@@ -2370,6 +2392,7 @@
               <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" aria-label="Delete task">${renderIcon("trash")}</button>
             </div>
           </div>
+          ${imagesHtml}
           ${childHtml}
           ${dropChild}
           <div class="drop-zone" data-drop-target="${item.id}" data-position="after" aria-hidden="true"></div>
@@ -2412,30 +2435,26 @@
     }
 
     function renderHistoryList() {
-      if (!historyListEl) return;
-      const showHistory = sidebarTab === "history";
-      historyListEl.hidden = !showHistory;
-      if (navEl) navEl.hidden = showHistory;
-      if (!showHistory) return;
+      if (!historyListEl || !historyMenuEl?.open) return;
       const today = localDateString();
       historyListEl.innerHTML = (state.history || []).slice().reverse().map((entry) => {
         const at = new Date(Date.parse(entry.at));
-        const label = Number.isFinite(at.getTime())
+        const valid = Number.isFinite(at.getTime());
+        const label = valid
           ? (localDateString(at) === today
             ? formatClockTime(at)
             : at.toLocaleDateString([], { month: "short", day: "numeric" }))
           : "";
-        return `<div class="history-row"><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></div>`;
+        const fullStamp = valid
+          ? `${at.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })} ${formatClockTime(at)}:${String(at.getSeconds()).padStart(2, "0")}`
+          : "Unknown time";
+        const kindLabel = entry.kind && entry.kind !== "board" ? ` · ${entry.kind}` : "";
+        return `
+          <details class="history-row">
+            <summary><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></summary>
+            <div class="history-detail">${escapeHtml(fullStamp)}${escapeHtml(kindLabel)}</div>
+          </details>`;
       }).join("") || '<p class="empty">No changes recorded yet.</p>';
-    }
-
-    function renderNav() {
-      navEl.innerHTML = state.groups.map((group, index) => `
-        <button type="button" data-nav-target="${group.id}" title="Jump to ${escapeHtml(group.title)}" style="--nav-color: ${getGroupPalette(group, index).color}">
-          <span>${escapeHtml(group.title)}</span>
-          <strong>${countTasks(group.tasks)}</strong>
-        </button>
-      `).join("");
     }
 
     function getCompletedEntries(now = Date.now()) {
@@ -2699,7 +2718,6 @@
       boardEl.hidden = !showList;
       renderHistoryList();
       if (!showList) {
-        renderNav();
         lifecycleSignature = getLifecycleSignature();
         return;
       }
@@ -2710,7 +2728,6 @@
       boardEl.innerHTML = topDrop
         + state.groups.map((group, index) => renderGroup(group, query, index)).join("")
         + renderLifecycleSections();
-      renderNav();
       lifecycleSignature = getLifecycleSignature();
       if (selectedNode) renderSelection();
     }
@@ -2750,7 +2767,7 @@
         const resolved = resolveTaskItem(item);
         return `
         <li style="margin-left: ${depth * 18}px">
-          ${renderInlineMarkdown(resolved?.text || item.text)}
+          <span class="focus-child-text" contenteditable="true" spellcheck="true" data-focus-task-text="${resolved?.id || item.id}">${renderInlineMarkdown(resolved?.text || item.text)}</span>
           ${renderFocusChildren(item.children || [], depth + 1)}
         </li>
       `;
@@ -2915,6 +2932,17 @@
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       if (action === "delete-task") deleteTask(button.dataset.taskId);
+      if (button.dataset.imageRemove) {
+        const found = findTask(button.dataset.imageTask);
+        if (found) {
+          const item = resolveTaskItem(found.item);
+          pushUndoState("delete", "Removed an image");
+          item.images = (item.images || []).filter((img) => img.id !== button.dataset.imageRemove);
+          saveState();
+          render();
+        }
+        return;
+      }
       if (action === "confirm-delete" && pendingGroupDelete) {
         deleteSelectedNodes(pendingGroupDelete.nodes, { confirmed: true });
         return;
@@ -2944,14 +2972,55 @@
         if (group) {
           group.title = groupTitle.textContent.trim() || "Untitled group";
           saveState();
-          renderNav();
         }
       }
     });
 
+    function compressImageFile(file, maxWidth = 800) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const image = new Image();
+          image.onload = () => {
+            const scale = Math.min(1, maxWidth / (image.naturalWidth || maxWidth));
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.max(1, Math.round((image.naturalWidth || 1) * scale));
+            canvas.height = Math.max(1, Math.round((image.naturalHeight || 1) * scale));
+            canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+            let output = canvas.toDataURL("image/webp", 0.8);
+            if (!output.startsWith("data:image/webp")) output = canvas.toDataURL("image/jpeg", 0.82);
+            resolve(output.length < String(reader.result).length ? output : String(reader.result));
+          };
+          image.onerror = reject;
+          image.src = String(reader.result);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function attachImageToTask(taskId, file) {
+      compressImageFile(file).then((src) => {
+        const found = findTask(taskId);
+        if (!found) return;
+        const item = resolveTaskItem(found.item);
+        pushUndoState("board", "Pasted an image");
+        item.images = Array.isArray(item.images) ? item.images : [];
+        item.images.push({ id: createId("img"), src, width: 260 });
+        saveState();
+        render();
+      }).catch(() => showToast("That image could not be read."));
+    }
+
     boardEl.addEventListener("paste", (event) => {
       const textEl = event.target.closest("[data-task-text]");
       if (!textEl) return;
+      const imageFile = [...(event.clipboardData?.files || [])].find((file) => file.type?.startsWith("image/"));
+      if (imageFile) {
+        event.preventDefault();
+        attachImageToTask(textEl.dataset.taskText, imageFile);
+        return;
+      }
       const pasted = event.clipboardData?.getData("text/plain")?.trim() || "";
       if (!/^https?:\/\/\S+$/i.test(pasted)) return;
       const selection = window.getSelection();
@@ -3087,14 +3156,6 @@
     boardEl.addEventListener("pointerup", (event) => finishTouchDrag(event));
     boardEl.addEventListener("pointercancel", (event) => finishTouchDrag(event, true));
 
-    navEl.addEventListener("click", (event) => {
-      const button = event.target.closest("[data-nav-target]");
-      if (!button) return;
-      document.getElementById(button.dataset.navTarget)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      navEl.querySelectorAll(".active").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-    });
-
     focusTaskEl?.addEventListener("input", (event) => {
       const target = event.target.closest("[data-focus-task-text]");
       if (!target) return;
@@ -3200,16 +3261,46 @@
 
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
 
-    sidebarTabsEl?.addEventListener("click", (event) => {
-      const tab = event.target.closest("[data-sidebar-tab]");
-      if (!tab) return;
-      sidebarTab = tab.dataset.sidebarTab === "history" ? "history" : "groups";
-      sidebarTabsEl.querySelectorAll("[data-sidebar-tab]").forEach((button) => {
-        const active = button === tab;
-        button.classList.toggle("active", active);
-        button.setAttribute("aria-selected", active ? "true" : "false");
-      });
-      renderHistoryList();
+    historyMenuEl?.addEventListener("toggle", renderHistoryList);
+
+    let imageResize = null;
+    boardEl.addEventListener("pointerdown", (event) => {
+      const handle = event.target.closest("[data-image-handle]");
+      if (!handle) return;
+      const img = handle.closest(".task-image")?.querySelector("img");
+      if (!img) return;
+      imageResize = {
+        pointerId: event.pointerId,
+        taskId: handle.dataset.imageTask,
+        imageId: handle.dataset.imageId,
+        side: handle.dataset.imageHandle,
+        startX: event.clientX,
+        startWidth: img.getBoundingClientRect().width,
+        img,
+      };
+      event.preventDefault();
+      try {
+        handle.setPointerCapture?.(event.pointerId);
+      } catch {
+        /* pointer already released */
+      }
+    });
+    boardEl.addEventListener("pointermove", (event) => {
+      if (!imageResize || event.pointerId !== imageResize.pointerId) return;
+      const delta = event.clientX - imageResize.startX;
+      const width = Math.min(900, Math.max(60, imageResize.startWidth + (imageResize.side === "right" ? delta : -delta)));
+      imageResize.img.style.width = `${width}px`;
+      event.preventDefault();
+    });
+    boardEl.addEventListener("pointerup", (event) => {
+      if (!imageResize || event.pointerId !== imageResize.pointerId) return;
+      const found = findTask(imageResize.taskId);
+      const record = found ? (resolveTaskItem(found.item).images || []).find((img) => img.id === imageResize.imageId) : null;
+      if (record) {
+        record.width = Math.round(parseFloat(imageResize.img.style.width) || record.width);
+        saveState();
+      }
+      imageResize = null;
     });
 
     viewsNavEl?.addEventListener("click", (event) => {
@@ -3684,7 +3775,7 @@
       if (event.key === "ArrowDown" || event.key === "Escape") {
         event.preventDefault();
         searchEl.blur();
-        if (selectedNode) renderSelection();
+        if (selectedNode) renderSelection(true);
         else selectNode(getVisibleNodes()[0]);
         return;
       }
@@ -3711,7 +3802,7 @@
       }
       if (event.key === "ArrowDown" || event.key === "Escape") {
         event.preventDefault();
-        if (selectedNode) renderSelection();
+        if (selectedNode) renderSelection(true);
         else selectNode(getVisibleNodes()[0]);
       }
     });
@@ -3731,7 +3822,7 @@
       }
       if (event.key === "ArrowRight" || event.key === "Escape") {
         event.preventDefault();
-        if (selectedNode) renderSelection();
+        if (selectedNode) renderSelection(true);
         else selectNode(getVisibleNodes()[0]);
       }
     });
