@@ -95,6 +95,7 @@
     const historyMenuEl = document.querySelector("[data-history-menu]");
     const usernameEl = document.querySelector("[data-username]");
     const exportSettingsEl = document.querySelector("[data-export-settings]");
+    const feedbackEl = document.querySelector("[data-feedback]");
     const lightboxEl = document.querySelector("[data-lightbox]");
     const lightboxImgEl = document.querySelector("[data-lightbox-img]");
     const toastEl = document.querySelector("[data-toast]");
@@ -3613,6 +3614,19 @@
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
     usernameEl?.addEventListener("change", () => updateSettings({ username: usernameEl.value.trim() }));
     exportSettingsEl?.addEventListener("click", downloadSettingsExport);
+
+    const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
+    feedbackEl?.addEventListener("click", () => {
+      const done = () => showToast(`${FEEDBACK_EMAIL} copied. Please send Evren a kind email with your feedback.`);
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(FEEDBACK_EMAIL).then(done).catch(() => {
+          window.prompt?.("Copy the feedback address:", FEEDBACK_EMAIL);
+        });
+        return;
+      }
+      window.prompt?.("Copy the feedback address:", FEEDBACK_EMAIL);
+    });
+
     featureMetadataEl?.addEventListener("change", () => updateSettings({ metadata: featureMetadataEl.checked }));
     featureTimelineEl?.addEventListener("change", () => updateSettings({ timelineView: featureTimelineEl.checked }));
     featureRemindersEl?.addEventListener("change", () => updateSettings({ reminders: featureRemindersEl.checked }));

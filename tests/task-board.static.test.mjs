@@ -746,6 +746,13 @@ test("board shell brands as Punchlist with a timeline pane and history tab", asy
   }
 });
 
+test("settings offers a feedback button that copies the author's email", async () => {
+  const html = await readBoard();
+  assert.match(html, /data-feedback/);
+  assert.match(html, /Give feedback/);
+  assert.match(html, /evrenucar1999@gmail\.com/);
+});
+
 test("shell provides a collapsible sidebar, views navigation, help, and a favicon", async () => {
   const html = await readBoard();
   for (const hook of [

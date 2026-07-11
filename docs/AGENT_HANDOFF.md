@@ -29,7 +29,7 @@ The user routinely dumps unstructured work, then needs to:
 
 `outputs/task-board.html` is generated from `src/` by `scripts/build-task-board.mjs` (which also refreshes `website/task-board.html`). Everything in the original scope shipped, plus several iteration rounds driven by the user's live usage:
 
-- Outline editing with 40-step undo, mouse and long-press touch drag, caret-aware Enter, Shift+Enter line breaks (with an end-of-content `<br>` sentinel because `pre-wrap` swallows a trailing newline), Ctrl+Enter completes, Alt+A adds a group, Ctrl+Shift+Down/Up expands/collapses all.
+- Outline editing with 40-step undo, mouse and long-press touch drag, caret-aware Enter, Shift+Enter line breaks (with an end-of-content `<br>` sentinel because `pre-wrap` swallows a trailing newline), Ctrl+Enter completes, Alt+A adds a group, Ctrl+Shift+Down/Up expands/collapses all. Alt+arrows move a task one VISUAL slot (into expanded subtrees, out of them, and across group boundaries — `moveTaskVisually`), and Tab/Shift+Tab indent or outdent an entire multi-selection in one undo step (`shiftSelectedDepth`).
 - Markdown clipboard (groups copy as `## Heading` with full contents even when collapsed), linked copies (`alias`) and shortcuts (`reference`), external Markdown paste.
 - Lifecycle: Completed/Trash as expandable rows (newest first) showing origin group/parent and time; `task > group > global` policy overrides whose "Use global (…)" options name the current global value; slide-away animation when completion hides a task.
 - Planning (all behind flags, off by default): task details panel (also shows group info; date/reminder auto-fill with relative-date hints), day timeline docked as a right-hand pane (List and Timeline independently toggleable, one always on), reminders with toasts/notifications.
@@ -38,7 +38,11 @@ The user routinely dumps unstructured work, then needs to:
 - Shell: resizable sidebar (drag divider, 200–420px, persisted), collapsible Views/Settings/Help/History sections with rotating triangles, History panel with per-entry expansion and Restore buttons for deletions (exact via `entry.trashId`, fuzzy name-match fallback for older entries), search that expands everything non-destructively while typing, one-keyboard-zone-at-a-time navigation reaching sidebar, hamburger, topbar toggles, search, and the Completed/Trash sections.
 - Settings sharing: username field + "Export settings" (`punchlist-settings-{user}-{date}.json`, kind `punchlist-settings`); the regular Import JSON button recognizes settings files and applies only settings. Board exports exclude settings; importing a board backup keeps local settings.
 
-Verification as of retirement (2026-07-11 evening): 67 tests in `tests/task-board.static.test.mjs` pass; the Playwright smoke test skips (no runtime installed); browser acceptance ran continuously through the Chrome DevTools MCP against the built file at desktop and phone widths in both themes.
+- Settings also holds a "Give feedback" button that copies `evrenucar1999@gmail.com` to the clipboard with a toast asking for a kind email.
+
+Verification as of wrap-up (2026-07-11 night): 70 tests in `tests/task-board.static.test.mjs` pass; the Playwright smoke test skips (no runtime installed); browser acceptance ran continuously through the Chrome DevTools MCP against the built file at desktop and phone widths in both themes.
+
+One historical note: a "rename to cosmo_vid" request (branding, folder, README) was executed and then FULLY rolled back — it was meant for a different project. The name stays Punchlist; do not resurrect cosmo_vid from git history or transcripts. `CLAUDE.md` at the repo root is the entry point for new agents.
 
 Do not encode mutable placement into task IDs; aliases/references, lifecycle history, and scheduling all rely on stable task identity.
 
