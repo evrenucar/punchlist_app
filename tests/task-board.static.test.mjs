@@ -629,6 +629,28 @@ test("policy override menus name the current global policy", async () => {
   assert.equal(api.describeGlobalCompletionPolicy(), "keep visible");
 });
 
+test("deleting the first task in a group selects the group header", async () => {
+  const api = await loadBoardApi();
+  const visible = api.getVisibleNodes();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const neighbor = api.getNeighborAfterDelete({ kind: "task", id: group.tasks[0].id }, visible);
+  assert.equal(neighbor.kind, "group");
+  assert.equal(neighbor.id, "group-today");
+});
+
+test("completed and trash sections are reachable as keyboard nodes", async () => {
+  const api = await loadBoardApi();
+  const visible = api.getVisibleNodes();
+  assert.equal(visible.at(-2).kind, "section");
+  assert.equal(visible.at(-2).id, "completed");
+  assert.equal(visible.at(-1).kind, "section");
+  assert.equal(visible.at(-1).id, "trash");
+  const html = await readBoard();
+  assert.match(html, /data-section-row="completed"/);
+  assert.match(html, /data-sidebar-resizer/);
+  assert.equal(html.includes('contenteditable="false"'), false);
+});
+
 test("board shell brands as Punchlist with a timeline pane and history tab", async () => {
   const html = await readBoard();
   for (const hook of [

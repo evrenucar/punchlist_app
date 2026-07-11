@@ -17,6 +17,7 @@
       exportCompleted: true,
       exportTrash: false,
       sidebarCollapsed: false,
+      sidebarWidth: 280,
     });
     const AUTO_SCROLL_EDGE_PX = 96;
     const MAX_AUTO_SCROLL_SPEED = 18;
@@ -87,6 +88,8 @@
     const timelineDateEl = document.querySelector("[data-timeline-date]");
     const taskDetailsHostEl = document.querySelector("[data-task-details-host]");
     const boardSplitEl = document.querySelector("[data-board-split]");
+    const mainEl = document.querySelector("main");
+    const sidebarResizerEl = document.querySelector("[data-sidebar-resizer]");
     const timelinePaneEl = document.querySelector("[data-timeline-pane]");
     const historyListEl = document.querySelector("[data-history-list]");
     const sidebarTabsEl = document.querySelector("[data-sidebar-tabs]");
@@ -1159,16 +1162,6 @@
 
       for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
         const candidate = visibleBeforeDelete[cursor];
-        if (candidate.kind === "task" && !deletedKeys.has(nodeKey(candidate))) return candidate;
-      }
-
-      for (let cursor = index + 1; cursor < visibleBeforeDelete.length; cursor += 1) {
-        const candidate = visibleBeforeDelete[cursor];
-        if (candidate.kind === "task" && !deletedKeys.has(nodeKey(candidate))) return candidate;
-      }
-
-      for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
-        const candidate = visibleBeforeDelete[cursor];
         if (!deletedKeys.has(nodeKey(candidate))) return candidate;
       }
 
@@ -1525,7 +1518,7 @@
         stopDragAutoScroll();
         return;
       }
-      window.scrollBy({ top: autoScrollVelocity, behavior: "auto" });
+      (mainEl || window).scrollBy({ top: autoScrollVelocity, behavior: "auto" });
       const nextFrame = window.requestAnimationFrame || window.setTimeout;
       autoScrollFrame = nextFrame(runDragAutoScroll, 16);
     }
@@ -1791,6 +1784,10 @@
         nodes.push({ kind: "group", id: group.id });
         if (!group.collapsed) walk(group.tasks, group);
       });
+      if (!query) {
+        nodes.push({ kind: "section", id: "completed" });
+        nodes.push({ kind: "section", id: "trash" });
+      }
       return nodes;
     }
 
@@ -1804,6 +1801,7 @@
 
     function nodeExists(node) {
       if (!node) return false;
+      if (node.kind === "section") return node.id === "completed" || node.id === "trash";
       return node.kind === "group" ? Boolean(findGroup(node.id)) : Boolean(findTask(node.id));
     }
 
@@ -2487,11 +2485,11 @@
       return `
         <div class="lifecycle-sections">
           <details class="lifecycle-section" data-completed-section>
-            <summary>Completed</summary>
+            <summary data-section-row="completed" data-node-kind="section" data-node-id="completed" tabindex="0" class="${isSelected("section", "completed") ? "selected" : ""}">Completed</summary>
             <div class="lifecycle-list">${completedRows}</div>
           </details>
           <details class="lifecycle-section" data-trash-section>
-            <summary>Trash</summary>
+            <summary data-section-row="trash" data-node-kind="section" data-node-id="trash" tabindex="0" class="${isSelected("section", "trash") ? "selected" : ""}">Trash</summary>
             <div class="lifecycle-list">${trashRows}</div>
           </details>
         </div>
@@ -2736,7 +2734,7 @@
         const label = match[1] || match[3];
         const url = match[2] || match[3];
         const autoLink = match[3] ? ' data-auto-link="true"' : "";
-        html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" contenteditable="false"${autoLink}>${escapeHtml(label)}</a>`;
+        html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Ctrl+Click to open"${autoLink}>${escapeHtml(label)}</a>`;
         cursor = pattern.lastIndex;
       }
       return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
@@ -3004,6 +3002,11 @@
 
     boardEl.addEventListener("focusin", (event) => {
       if (suppressFocusSelection) return;
+      const sectionRow = event.target.closest("[data-section-row]");
+      if (sectionRow) {
+        selectNode("section", sectionRow.dataset.sectionRow);
+        return;
+      }
       const groupRow = event.target.closest("[data-group-row]");
       const row = event.target.closest("[data-task-row]");
       if (groupRow) selectNode("group", groupRow.dataset.groupRow);
@@ -3226,7 +3229,35 @@
         }
         return;
       }
-      window.scrollTo?.({ top: 0, behavior: "smooth" });
+      (mainEl || window).scrollTo?.({ top: 0, behavior: "smooth" });
+    });
+
+    function applySidebarWidth() {
+      const width = Math.min(420, Math.max(200, Number(state.settings.sidebarWidth) || 280));
+      document.documentElement?.style?.setProperty("--sidebar-w", `${width}px`);
+    }
+
+    let sidebarResize = null;
+    sidebarResizerEl?.addEventListener("pointerdown", (event) => {
+      sidebarResize = { pointerId: event.pointerId };
+      sidebarResizerEl.classList.add("dragging");
+      try {
+        sidebarResizerEl.setPointerCapture?.(event.pointerId);
+      } catch {
+        /* pointer already released */
+      }
+      event.preventDefault();
+    });
+    sidebarResizerEl?.addEventListener("pointermove", (event) => {
+      if (!sidebarResize || event.pointerId !== sidebarResize.pointerId) return;
+      state.settings.sidebarWidth = Math.min(420, Math.max(200, Math.round(event.clientX)));
+      applySidebarWidth();
+    });
+    sidebarResizerEl?.addEventListener("pointerup", (event) => {
+      if (!sidebarResize || event.pointerId !== sidebarResize.pointerId) return;
+      sidebarResize = null;
+      sidebarResizerEl.classList.remove("dragging");
+      saveState();
     });
 
     viewListEl?.addEventListener("click", () => {
@@ -3387,6 +3418,18 @@
     });
 
     document.addEventListener("click", (event) => {
+      document.querySelectorAll(".policy-menu[open]").forEach((menu) => {
+        if (!menu.contains(event.target)) menu.open = false;
+      });
+      const link = event.target.closest("[data-task-link]");
+      if (link) {
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          window.open(link.href, "_blank", "noopener");
+        } else if (link.closest("[contenteditable='true']")) {
+          event.preventDefault();
+        }
+      }
       const button = event.target.closest("[data-action]");
       if (!button || boardEl.contains(button)) return;
       if (button.dataset.action === "add-group") addGroup();
@@ -3516,12 +3559,30 @@
 
       if (isEditingText && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) return;
 
-      if (event.target.matches("input") && !event.altKey) return;
+      if (event.target.matches("input, select, textarea") && !event.altKey) return;
 
       const visible = getVisibleNodes();
       if (!visible.length) return;
       const currentIndex = visible.findIndex((node) => node.kind === selectedNode?.kind && node.id === selectedNode?.id);
       const index = Math.max(0, currentIndex);
+
+      if (selectedNode?.kind === "section" && !isEditingText) {
+        if (event.key === "Enter" || event.key === "Tab" || event.key === "Backspace" || event.key === "Delete") return;
+        if ((event.key === "ArrowUp" || event.key === "ArrowDown") && event.ctrlKey) {
+          event.preventDefault();
+          const details = getNodeRow(selectedNode)?.closest("details");
+          if (details) details.open = event.key === "ArrowDown";
+          return;
+        }
+        if ((event.key === "ArrowUp" || event.key === "ArrowDown") && event.altKey) return;
+        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) return;
+      }
+
+      if (event.key === "ArrowLeft" && !event.ctrlKey && !event.altKey && !event.shiftKey && !isEditingText) {
+        event.preventDefault();
+        [...document.querySelectorAll(".sidebar button, .sidebar summary")].find((el) => el.offsetParent !== null)?.focus();
+        return;
+      }
 
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
@@ -3590,6 +3651,10 @@
 
       if (event.key === "ArrowUp") {
         event.preventDefault();
+        if (index === 0 && currentIndex !== -1) {
+          searchEl?.focus();
+          return;
+        }
         selectionAnchorNode = null;
         selectNode(visible[Math.max(0, index - 1)]);
       }
@@ -3609,7 +3674,70 @@
 
     searchEl.addEventListener("input", render);
 
+    searchEl.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && searchEl.value) {
+        event.preventDefault();
+        searchEl.value = "";
+        render();
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "Escape") {
+        event.preventDefault();
+        searchEl.blur();
+        if (selectedNode) renderSelection();
+        else selectNode(getVisibleNodes()[0]);
+        return;
+      }
+      if (event.key === "ArrowLeft" && searchEl.selectionStart === 0 && viewToggleEl && !viewToggleEl.hidden) {
+        event.preventDefault();
+        viewListEl?.focus();
+      }
+    });
+
+    viewToggleEl?.addEventListener("keydown", (event) => {
+      if (event.target.tagName !== "BUTTON") return;
+      const items = [viewListEl, viewTimelineEl, timelineDateEl].filter((el) => el && !el.hidden);
+      const itemIndex = items.indexOf(document.activeElement);
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        if (itemIndex >= 0 && itemIndex < items.length - 1) items[itemIndex + 1].focus();
+        else searchEl?.focus();
+        return;
+      }
+      if (event.key === "ArrowLeft" && itemIndex > 0) {
+        event.preventDefault();
+        items[itemIndex - 1].focus();
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "Escape") {
+        event.preventDefault();
+        if (selectedNode) renderSelection();
+        else selectNode(getVisibleNodes()[0]);
+      }
+    });
+
+    document.querySelector(".sidebar")?.addEventListener("keydown", (event) => {
+      const tag = event.target.tagName;
+      if (tag === "SELECT" || tag === "INPUT") return;
+      const sidebar = event.currentTarget;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        const focusables = [...sidebar.querySelectorAll("button, summary")].filter((el) => el.offsetParent !== null);
+        const focusIndex = focusables.indexOf(document.activeElement);
+        if (focusIndex < 0) return;
+        event.preventDefault();
+        const next = focusIndex + (event.key === "ArrowDown" ? 1 : -1);
+        focusables[Math.min(focusables.length - 1, Math.max(0, next))]?.focus();
+        return;
+      }
+      if (event.key === "ArrowRight" || event.key === "Escape") {
+        event.preventDefault();
+        if (selectedNode) renderSelection();
+        else selectNode(getVisibleNodes()[0]);
+      }
+    });
+
     applyTheme(loadTheme());
+    applySidebarWidth();
     syncSettingsControls();
     updateClock();
     if (typeof window.setInterval === "function") window.setInterval(updateClock, 30000);
