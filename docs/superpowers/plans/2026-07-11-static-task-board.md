@@ -245,25 +245,25 @@ git commit -m "feat: add markdown clipboard and task links"
 - Modify: `src/task-board.css`
 - Modify: `tests/task-board.static.test.mjs`
 
-- [ ] **Step 1: Write failing lifecycle and policy-inheritance tests**
+- [x] **Step 1: Write failing lifecycle and policy-inheritance tests**
 
 Cover custom seconds, immediate hiding, indefinite visibility, soft delete, permanent delete, timed trash purge, completed-and-deleted identity, restore location, export inclusion, and precedence `task > group > global`.
 
-- [ ] **Step 2: Verify the lifecycle tests fail**
+- [x] **Step 2: Verify the lifecycle tests fail**
 
 Run: `node --test --test-name-pattern="completed|trash|retention|policy|restore" tests/task-board.static.test.mjs`
 
 Expected: FAIL because timestamps and derived views are absent.
 
-- [ ] **Step 3: Implement timestamp-driven derived views**
+- [x] **Step 3: Implement timestamp-driven derived views**
 
 Use `completedAt` and `deletedAt`; do not destructively move completion records. Put deleted subtrees in restorable trash snapshots unless permanent deletion is selected. Evaluate retention at load and on a lightweight interval only when a finite seconds-based policy exists.
 
-- [ ] **Step 4: Add global settings and hidden optional overrides**
+- [x] **Step 4: Add global settings and hidden optional overrides**
 
 Expose duration value/unit controls and export inclusion. Add group/task override controls only when Advanced policy overrides are enabled.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `node scripts/build-task-board.mjs`
 

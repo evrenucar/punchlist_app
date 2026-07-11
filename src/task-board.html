@@ -53,6 +53,73 @@
               Dark mode
               <input type="checkbox" data-dark-mode>
             </label>
+            <label class="settings-row" title="Choose how copied tasks are placed inside this board">
+              Internal paste
+              <select data-paste-mode>
+                <option value="alias">Alias</option>
+                <option value="reference">Reference</option>
+                <option value="duplicate">Duplicate</option>
+                <option value="ask">Ask each time</option>
+              </select>
+            </label>
+            <details class="settings-section">
+              <summary>Lifecycle</summary>
+              <label class="settings-row">
+                Completed tasks
+                <select data-completion-mode>
+                  <option value="custom">Hide after</option>
+                  <option value="immediate">Hide immediately</option>
+                  <option value="never">Keep visible</option>
+                </select>
+              </label>
+              <div class="settings-duration" data-completion-duration>
+                <input type="number" min="1" step="1" aria-label="Completed task visibility duration" data-completion-value>
+                <select aria-label="Completed task visibility unit" data-completion-unit>
+                  <option value="seconds">seconds</option>
+                  <option value="minutes">minutes</option>
+                  <option value="hours">hours</option>
+                  <option value="days">days</option>
+                </select>
+              </div>
+              <label class="settings-row">
+                Delete action
+                <select data-delete-mode>
+                  <option value="trash">Move to Trash</option>
+                  <option value="permanent">Delete permanently</option>
+                </select>
+              </label>
+              <label class="settings-row" data-trash-mode-row>
+                Keep Trash
+                <select data-trash-mode>
+                  <option value="forever">Until purged</option>
+                  <option value="custom">For a period</option>
+                </select>
+              </label>
+              <div class="settings-duration" data-trash-duration>
+                <input type="number" min="1" step="1" aria-label="Trash retention duration" data-trash-value>
+                <select aria-label="Trash retention unit" data-trash-unit>
+                  <option value="seconds">seconds</option>
+                  <option value="minutes">minutes</option>
+                  <option value="hours">hours</option>
+                  <option value="days">days</option>
+                </select>
+              </div>
+            </details>
+            <details class="settings-section">
+              <summary>Export</summary>
+              <label class="settings-row">
+                Include completed
+                <input type="checkbox" data-export-completed>
+              </label>
+              <label class="settings-row">
+                Include Trash
+                <input type="checkbox" data-export-trash>
+              </label>
+            </details>
+            <label class="settings-row" title="Reveal optional policy controls on groups and tasks">
+              Group/task overrides
+              <input type="checkbox" data-policy-overrides>
+            </label>
           </div>
         </details>
         <button class="control danger" type="button" data-action="reset" title="Restore the original seeded board">

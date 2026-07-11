@@ -22,6 +22,7 @@
     const MAX_AUTO_SCROLL_SPEED = 18;
     const LONG_PRESS_MS = 420;
     const LONG_PRESS_MOVE_PX = 12;
+    const DURATION_UNIT_SECONDS = Object.freeze({ seconds: 1, minutes: 60, hours: 3600, days: 86400 });
     const GROUP_PALETTES = [
       { color: "#d9480f", bg: "#fff4ec", selected: "#ffe0cc", border: "#ffc2a3", ink: "#6d2b09" },
       { color: "#2f6f4e", bg: "#eef8f2", selected: "#d9f0e2", border: "#aed8bf", ink: "#1f5137" },
@@ -55,6 +56,20 @@
     const importFileEl = document.querySelector("[data-import-file]");
     const clockEl = document.querySelector("[data-clock]");
     const darkModeEl = document.querySelector("[data-dark-mode]");
+    const pasteModeEl = document.querySelector("[data-paste-mode]");
+    const completionModeEl = document.querySelector("[data-completion-mode]");
+    const completionValueEl = document.querySelector("[data-completion-value]");
+    const completionUnitEl = document.querySelector("[data-completion-unit]");
+    const completionDurationEl = document.querySelector("[data-completion-duration]");
+    const deleteModeEl = document.querySelector("[data-delete-mode]");
+    const trashModeEl = document.querySelector("[data-trash-mode]");
+    const trashValueEl = document.querySelector("[data-trash-value]");
+    const trashUnitEl = document.querySelector("[data-trash-unit]");
+    const trashDurationEl = document.querySelector("[data-trash-duration]");
+    const trashModeRowEl = document.querySelector("[data-trash-mode-row]");
+    const exportCompletedEl = document.querySelector("[data-export-completed]");
+    const exportTrashEl = document.querySelector("[data-export-trash]");
+    const policyOverridesEl = document.querySelector("[data-policy-overrides]");
     const focusModeEl = document.querySelector("[data-focus-mode]");
     const focusButtonEl = document.querySelector("[data-focus-button]");
     const focusExitEl = document.querySelector("[data-focus-exit]");
@@ -75,6 +90,7 @@
     let lastUndoAction = null;
     let suppressFocusSelection = false;
     let internalClipboard = null;
+    let lifecycleSignature = "";
     let state = loadState();
 
     function createId(prefix = "task") {
@@ -345,8 +361,32 @@
       return {
         version: SCHEMA_VERSION,
         exportedAt: new Date().toISOString(),
-        state,
+        state: getExportState(),
       };
+    }
+
+    function getExportState() {
+      const includeCompleted = state.settings.exportCompleted !== false;
+      const groups = state.groups.map((group) => ({
+        ...group,
+        tasks: filterTasksForExport(group.tasks, includeCompleted),
+      }));
+      return JSON.parse(JSON.stringify({
+        ...state,
+        groups,
+        trash: state.settings.exportTrash ? state.trash : [],
+      }));
+    }
+
+    function filterTasksForExport(tasks, includeCompleted) {
+      return (tasks || []).flatMap((placement) => {
+        const item = resolveTaskItem(placement);
+        if (!includeCompleted && item?.done) return [];
+        return [{
+          ...placement,
+          children: filterTasksForExport(placement.children || [], includeCompleted),
+        }];
+      });
     }
 
     function serializeBoardState() {
@@ -685,6 +725,159 @@
       return removed;
     }
 
+    function hasOwn(object, key) {
+      return Boolean(object && Object.prototype.hasOwnProperty.call(object, key));
+    }
+
+    function durationToSeconds(value, unit) {
+      const amount = Math.max(0, Math.floor(Number(value) || 0));
+      return amount * (DURATION_UNIT_SECONDS[unit] || 1);
+    }
+
+    function secondsToDurationParts(seconds) {
+      const total = Math.max(0, Math.floor(Number(seconds) || 0));
+      for (const unit of ["days", "hours", "minutes"]) {
+        const factor = DURATION_UNIT_SECONDS[unit];
+        if (total >= factor && total % factor === 0) return { value: total / factor, unit };
+      }
+      return { value: total, unit: "seconds" };
+    }
+
+    function setPolicyOverride(kind, id, key, value) {
+      const target = kind === "group" ? findGroup(id) : findTask(id)?.item;
+      if (!target) return false;
+      if (!target.policyOverrides || typeof target.policyOverrides !== "object") target.policyOverrides = {};
+      if (value === undefined) delete target.policyOverrides[key];
+      else target.policyOverrides[key] = value;
+      saveState();
+      render();
+      return true;
+    }
+
+    function resolveLifecyclePolicy(item, group, key) {
+      if (hasOwn(item?.policyOverrides, key)) return item.policyOverrides[key];
+      const resolved = item ? resolveTaskItem(item) : null;
+      if (resolved !== item && hasOwn(resolved?.policyOverrides, key)) return resolved.policyOverrides[key];
+      if (hasOwn(group?.policyOverrides, key)) return group.policyOverrides[key];
+      return state.settings[key];
+    }
+
+    function isTaskHiddenFromActive(item, group, now = Date.now()) {
+      const resolved = resolveTaskItem(item);
+      if (!resolved?.done || !resolved.completedAt) return false;
+      const retention = resolveLifecyclePolicy(item, group, "completionRetentionSeconds");
+      if (retention === null || retention === "never") return false;
+      const seconds = Math.max(0, Number(retention) || 0);
+      const completedAt = Date.parse(resolved.completedAt);
+      return Number.isFinite(completedAt) && now >= completedAt + seconds * 1000;
+    }
+
+    function setTaskCompleted(id, done, now = new Date().toISOString(), options = {}) {
+      const found = findTask(id);
+      if (!found) return false;
+      const item = resolveTaskItem(found.item);
+      const nextDone = Boolean(done);
+      if (item.done === nextDone && (nextDone ? Boolean(item.completedAt) : !item.completedAt)) return false;
+      if (options.pushUndo !== false) pushUndoState("complete");
+      item.done = nextDone;
+      item.completedAt = nextDone ? now : null;
+      if (options.save !== false) saveState();
+      if (options.render !== false) render();
+      return true;
+    }
+
+    function restoreCompletedTask(id) {
+      return setTaskCompleted(id, false);
+    }
+
+    function deleteTaskWithPolicy(id, now = new Date().toISOString(), options = {}) {
+      const found = findTask(id);
+      if (!found) return null;
+      const resolved = resolveTaskItem(found.item);
+      const deleteMode = options.deleteMode || resolveLifecyclePolicy(found.item, found.group, "deleteMode") || "trash";
+      const retention = resolveLifecyclePolicy(found.item, found.group, "trashRetentionSeconds");
+      if (options.pushUndo !== false) pushUndoState("delete");
+      const source = {
+        groupId: found.group?.id || null,
+        parentId: found.parent?.id || null,
+        index: found.index,
+      };
+      const removed = removeTask(id);
+      let record = null;
+      if (removed && deleteMode !== "permanent") {
+        record = {
+          id: createId("trash"),
+          kind: "task",
+          item: removed,
+          deletedAt: now,
+          wasCompleted: Boolean(resolved?.done),
+          retentionSeconds: retention === null || retention === "never"
+            ? null
+            : Math.max(0, Number(retention) || 0),
+          source,
+        };
+        state.trash.push(record);
+      }
+      if (options.save !== false) saveState();
+      if (options.render !== false) render();
+      return record;
+    }
+
+    function restoreTrashRecord(recordId) {
+      const index = state.trash.findIndex((record) => record.id === recordId);
+      if (index < 0) return false;
+      pushUndoState("restore");
+      const [record] = state.trash.splice(index, 1);
+      if (record.kind === "group") {
+        state.groups.splice(Math.min(record.source?.index ?? state.groups.length, state.groups.length), 0, record.item);
+      } else {
+        let list = null;
+        if (record.source?.parentId) list = findTask(record.source.parentId)?.item?.children;
+        if (!list) list = findGroup(record.source?.groupId)?.tasks;
+        if (!list) {
+          let restored = findGroup("group-restored");
+          if (!restored) {
+            restored = {
+              id: "group-restored",
+              title: "Restored",
+              color: "#64748b",
+              collapsed: false,
+              createdAt: new Date().toISOString(),
+              tasks: [],
+            };
+            state.groups.push(restored);
+          }
+          list = restored.tasks;
+        }
+        list.splice(Math.min(record.source?.index ?? list.length, list.length), 0, record.item);
+      }
+      saveState();
+      render();
+      return true;
+    }
+
+    function purgeTrashRecord(recordId) {
+      const index = state.trash.findIndex((record) => record.id === recordId);
+      if (index < 0) return false;
+      pushUndoState("purge");
+      state.trash.splice(index, 1);
+      saveState();
+      render();
+      return true;
+    }
+
+    function purgeExpiredTrash(now = Date.now()) {
+      const before = state.trash.length;
+      state.trash = state.trash.filter((record) => {
+        if (record.retentionSeconds === null || record.retentionSeconds === "never") return true;
+        const deletedAt = Date.parse(record.deletedAt);
+        return !Number.isFinite(deletedAt) || now < deletedAt + Math.max(0, Number(record.retentionSeconds) || 0) * 1000;
+      });
+      const removed = before - state.trash.length;
+      if (removed) saveState();
+      return removed;
+    }
+
     function isDescendant(source, targetId) {
       return (source.children || []).some((child) => child.id === targetId || isDescendant(child, targetId));
     }
@@ -825,13 +1018,18 @@
       return deletedKeys;
     }
 
-    function deleteTaskAndSelectNeighbor(id) {
+    function deleteTaskAndSelectNeighbor(id, options = {}) {
       const found = findTask(id);
       if (!found) return false;
       const node = { kind: "task", id };
       const target = getNeighborAfterDelete(node, getVisibleNodes(), collectDeletedNodeKeys([node]));
       pushUndoState("delete");
-      removeTask(id);
+      deleteTaskWithPolicy(id, new Date().toISOString(), {
+        pushUndo: false,
+        save: false,
+        render: false,
+        deleteMode: options.forcePermanent ? "permanent" : undefined,
+      });
       if (target) {
         setSingleSelection(target);
       } else {
@@ -970,11 +1168,27 @@
 
       nodes.filter((node) => node.kind === "group").forEach((node) => {
         const index = state.groups.findIndex((group) => group.id === node.id);
-        if (index >= 0) state.groups.splice(index, 1);
+        if (index < 0) return;
+        const [group] = state.groups.splice(index, 1);
+        if (state.settings.deleteMode !== "permanent") {
+          state.trash.push({
+            id: createId("trash"),
+            kind: "group",
+            item: group,
+            deletedAt: new Date().toISOString(),
+            wasCompleted: false,
+            retentionSeconds: state.settings.trashRetentionSeconds,
+            source: { index },
+          });
+        }
       });
 
       nodes.filter((node) => node.kind === "task").forEach((node) => {
-        removeTask(node.id);
+        deleteTaskWithPolicy(node.id, new Date().toISOString(), {
+          pushUndo: false,
+          save: false,
+          render: false,
+        });
       });
 
       const target = getNeighborAfterDelete(nodes[0], visibleBeforeDelete, deletedKeys);
@@ -1380,10 +1594,11 @@
       const nodes = [];
       const query = searchEl.value.trim().toLowerCase();
 
-      function walk(tasks) {
+      function walk(tasks, group) {
         tasks.forEach((item) => {
+          if (isTaskHiddenFromActive(item, group)) return;
           if (taskMatchesFilter(item, query)) nodes.push({ kind: "task", id: item.id });
-          if (!item.collapsed) walk(item.children || []);
+          if (!item.collapsed) walk(item.children || [], group);
         });
       }
 
@@ -1391,7 +1606,7 @@
         const groupMatches = !query || group.title.toLowerCase().includes(query) || group.tasks.some((item) => taskMatchesFilter(item, query));
         if (!groupMatches) return;
         nodes.push({ kind: "group", id: group.id });
-        if (!group.collapsed) walk(group.tasks);
+        if (!group.collapsed) walk(group.tasks, group);
       });
       return nodes;
     }
@@ -1523,7 +1738,7 @@
 
     function deleteTaskIfEmpty(id, valueOrElement) {
       if (!isEditableTextEmpty(valueOrElement)) return false;
-      return deleteTaskAndSelectNeighbor(id);
+      return deleteTaskAndSelectNeighbor(id, { forcePermanent: true });
     }
 
     function updateTaskTextFromEditable(id, valueOrElement) {
@@ -1569,7 +1784,7 @@
       const textEl = event.target.closest("[data-task-text]");
       if (!textEl || !isEditableTextEmpty(textEl)) return false;
       event.preventDefault();
-      deleteTaskAndSelectNeighbor(textEl.dataset.taskText);
+      deleteTaskAndSelectNeighbor(textEl.dataset.taskText, { forcePermanent: true });
       return true;
     }
 
@@ -1707,8 +1922,41 @@
         reference: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
         plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
         trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>',
+        sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>',
       };
       return icons[name] || "";
+    }
+
+    function renderPolicyMenu(kind, id, overrides) {
+      if (!state.settings.policyOverrides) return "";
+      const active = overrides && typeof overrides === "object" ? overrides : {};
+      const completion = hasOwn(active, "completionRetentionSeconds")
+        ? (active.completionRetentionSeconds === null ? "never" : Number(active.completionRetentionSeconds) === 0 ? "immediate" : "custom")
+        : "default";
+      const deleteMode = hasOwn(active, "deleteMode") ? active.deleteMode : "default";
+      const hasOverride = completion !== "default" || deleteMode !== "default";
+      return `
+        <details class="policy-menu">
+          <summary class="icon-button ${hasOverride ? "has-override" : ""}" title="Lifecycle overrides for this ${kind}" aria-label="Lifecycle overrides for this ${kind}">${renderIcon("sliders")}</summary>
+          <div class="policy-panel">
+            <label>Completed
+              <select data-policy-completion data-policy-kind="${kind}" data-policy-id="${id}" aria-label="Completed visibility override">
+                <option value="default"${completion === "default" ? " selected" : ""}>Use global</option>
+                <option value="never"${completion === "never" ? " selected" : ""}>Keep visible</option>
+                <option value="immediate"${completion === "immediate" ? " selected" : ""}>Hide right away</option>
+                ${completion === "custom" ? '<option value="custom" selected>Custom duration</option>' : ""}
+              </select>
+            </label>
+            <label>Delete
+              <select data-policy-delete data-policy-kind="${kind}" data-policy-id="${id}" aria-label="Delete policy override">
+                <option value="default"${deleteMode === "default" ? " selected" : ""}>Use global</option>
+                <option value="trash"${deleteMode === "trash" ? " selected" : ""}>To Trash</option>
+                <option value="permanent"${deleteMode === "permanent" ? " selected" : ""}>Permanent</option>
+              </select>
+            </label>
+          </div>
+        </details>
+      `;
     }
 
     function getTaskOriginLabel(taskId) {
@@ -1874,6 +2122,8 @@
     }
 
     function renderTask(item, groupId, query) {
+      const group = findGroup(groupId);
+      if (isTaskHiddenFromActive(item, group)) return "";
       if (!taskMatchesFilter(item, query)) return "";
       const resolved = resolveTaskItem(item);
       const children = item.linkType === "reference" ? [] : (item.children || []);
@@ -1899,6 +2149,7 @@
             <div class="task-text" data-task-text="${item.id}" contenteditable="true" spellcheck="true">${renderInlineMarkdown(resolved?.text || item.text)}</div>
             ${renderTaskLinkBadge(item, resolved)}
             <div class="task-actions">
+              ${item.linkType ? "" : renderPolicyMenu("task", item.id, item.policyOverrides)}
               <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" data-touch-drag aria-label="Drag task; hold on touch screens">${renderIcon("grip")}</button>
               <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" aria-label="Add subtask">${renderIcon("plus")}</button>
               <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" aria-label="Delete task">${renderIcon("trash")}</button>
@@ -1925,6 +2176,7 @@
               <span class="group-count">${count}</span>
             </div>
             <div class="group-tools">
+              ${renderPolicyMenu("group", group.id, group.policyOverrides)}
               <input class="color-picker" type="color" value="${palette.color}" data-group-color="${group.id}" aria-label="Change group color">
               <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" aria-label="Add task">${renderIcon("plus")}</button>
             </div>
@@ -1947,13 +2199,86 @@
       `).join("");
     }
 
+    function getCompletedEntries(now = Date.now()) {
+      const entries = [];
+      const seen = new Set();
+      function walk(tasks, group, ancestorHidden = false) {
+        (tasks || []).forEach((placement) => {
+          const item = resolveTaskItem(placement);
+          const hidden = isTaskHiddenFromActive(placement, group, now);
+          if (hidden && !ancestorHidden && !placement.linkType && item && !seen.has(item.id)) {
+            seen.add(item.id);
+            entries.push({ item, placement, group });
+          }
+          walk(placement.children, group, ancestorHidden || hidden);
+        });
+      }
+      state.groups.forEach((group) => walk(group.tasks, group));
+      return entries;
+    }
+
+    function renderLifecycleSections() {
+      const completed = getCompletedEntries();
+      const completedRows = completed.length
+        ? completed.map(({ item, group }) => `
+          <div class="lifecycle-row" tabindex="0">
+            <span class="lifecycle-task">${renderInlineMarkdown(item.text)}</span>
+            <span class="lifecycle-context">${escapeHtml(group.title)}</span>
+            <button class="control compact" type="button" data-action="restore-completed" data-task-id="${item.id}">Restore</button>
+          </div>
+        `).join("")
+        : '<p class="empty">No completed tasks are hidden.</p>';
+      const trashRows = state.trash.length
+        ? state.trash.map((record) => {
+          const label = record.kind === "group"
+            ? record.item.title
+            : (resolveTaskItem(record.item)?.text || record.item.text || "Deleted task");
+          return `
+            <div class="lifecycle-row" tabindex="0">
+              <span class="lifecycle-task">${renderInlineMarkdown(label)}</span>
+              <span class="lifecycle-context">${record.wasCompleted ? "Completed and deleted" : "Deleted"}</span>
+              <button class="control compact" type="button" data-action="restore-trash" data-trash-id="${record.id}">Restore</button>
+              <button class="control compact danger" type="button" data-action="purge-trash" data-trash-id="${record.id}">Purge</button>
+            </div>
+          `;
+        }).join("")
+        : '<p class="empty">Trash is empty.</p>';
+      return `
+        <div class="lifecycle-sections">
+          <details class="lifecycle-section" data-completed-section>
+            <summary>Completed</summary>
+            <div class="lifecycle-list">${completedRows}</div>
+          </details>
+          <details class="lifecycle-section" data-trash-section>
+            <summary>Trash</summary>
+            <div class="lifecycle-list">${trashRows}</div>
+          </details>
+        </div>
+      `;
+    }
+
+    function getLifecycleSignature(now = Date.now()) {
+      return `${getCompletedEntries(now).map(({ item }) => item.id).sort().join(",")}|${state.trash.map((record) => record.id).sort().join(",")}`;
+    }
+
+    function runLifecycleMaintenance(now = Date.now()) {
+      purgeExpiredTrash(now);
+      const nextSignature = getLifecycleSignature(now);
+      if (nextSignature === lifecycleSignature) return false;
+      lifecycleSignature = nextSignature;
+      render();
+      return true;
+    }
+
     function render() {
       const query = searchEl.value.trim().toLowerCase();
       const firstGroup = state.groups[0];
       const topDrop = firstGroup
         ? `<div class="group-top-drop" data-board-top-drop data-drop-target="${firstGroup.id}" data-drop-kind="group" data-position="before" aria-label="Move group to top"></div>`
         : "";
-      boardEl.innerHTML = topDrop + state.groups.map((group, index) => renderGroup(group, query, index)).join("");
+      boardEl.innerHTML = topDrop
+        + state.groups.map((group, index) => renderGroup(group, query, index)).join("")
+        + renderLifecycleSections();
       renderNav();
       const totals = state.groups.reduce((acc, group) => {
         acc.total += countTasks(group.tasks);
@@ -1962,6 +2287,7 @@
       }, { total: 0, done: 0 });
       totalCountEl.textContent = totals.total;
       doneCountEl.textContent = totals.done;
+      lifecycleSignature = getLifecycleSignature();
       if (selectedNode) renderSelection();
     }
 
@@ -2116,12 +2442,7 @@
       if (action === "toggle-done") {
         const found = findTask(button.dataset.taskId);
         const item = found ? resolveTaskItem(found.item) : null;
-        if (item) {
-          item.done = !item.done;
-          item.completedAt = item.done ? new Date().toISOString() : null;
-        }
-        saveState();
-        render();
+        if (item) setTaskCompleted(button.dataset.taskId, !item.done);
       }
       if (action === "go-origin") {
         const id = button.dataset.originTaskId;
@@ -2129,6 +2450,9 @@
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       if (action === "delete-task") deleteTask(button.dataset.taskId);
+      if (action === "restore-completed") restoreCompletedTask(button.dataset.taskId);
+      if (action === "restore-trash") restoreTrashRecord(button.dataset.trashId);
+      if (action === "purge-trash") purgeTrashRecord(button.dataset.trashId);
       if (action === "add-child") addTask(button.dataset.groupId, button.dataset.taskId);
       if (action === "add-task") addTask(button.dataset.groupId);
       if (action === "toggle-group") toggleGroup(button.dataset.groupId);
@@ -2173,8 +2497,33 @@
 
     boardEl.addEventListener("change", (event) => {
       const colorInput = event.target.closest("[data-group-color]");
-      if (!colorInput) return;
-      changeGroupColor(colorInput.dataset.groupColor, colorInput.value);
+      if (colorInput) {
+        changeGroupColor(colorInput.dataset.groupColor, colorInput.value);
+        return;
+      }
+      const completionSelect = event.target.closest("[data-policy-completion]");
+      if (completionSelect) {
+        const mode = completionSelect.value;
+        if (mode !== "custom") {
+          setPolicyOverride(
+            completionSelect.dataset.policyKind,
+            completionSelect.dataset.policyId,
+            "completionRetentionSeconds",
+            mode === "default" ? undefined : mode === "never" ? null : 0
+          );
+        }
+        return;
+      }
+      const deleteSelect = event.target.closest("[data-policy-delete]");
+      if (deleteSelect) {
+        const mode = deleteSelect.value;
+        setPolicyOverride(
+          deleteSelect.dataset.policyKind,
+          deleteSelect.dataset.policyId,
+          "deleteMode",
+          mode === "default" ? undefined : mode
+        );
+      }
     });
 
     boardEl.addEventListener("focusin", (event) => {
@@ -2280,6 +2629,68 @@
     focusButtonEl?.addEventListener("click", toggleFocusMode);
     focusExitEl?.addEventListener("click", exitFocusMode);
     window.addEventListener?.("beforeunload", () => stopFocusTimer());
+    function syncSettingsControls() {
+      const settings = state.settings;
+      if (pasteModeEl) pasteModeEl.value = ["alias", "reference", "duplicate", "ask"].includes(settings.pasteMode) ? settings.pasteMode : "alias";
+      const retention = settings.completionRetentionSeconds;
+      const completionMode = retention === null ? "never" : Number(retention) === 0 ? "immediate" : "custom";
+      if (completionModeEl) completionModeEl.value = completionMode;
+      const completionParts = secondsToDurationParts(Number(retention) > 0 ? retention : DEFAULT_SETTINGS.completionRetentionSeconds);
+      if (completionValueEl) completionValueEl.value = String(completionParts.value);
+      if (completionUnitEl) completionUnitEl.value = completionParts.unit;
+      if (completionDurationEl) completionDurationEl.hidden = completionMode !== "custom";
+      const deleteMode = settings.deleteMode === "permanent" ? "permanent" : "trash";
+      if (deleteModeEl) deleteModeEl.value = deleteMode;
+      const trashRetention = settings.trashRetentionSeconds;
+      const trashMode = trashRetention === null ? "forever" : "custom";
+      if (trashModeEl) trashModeEl.value = trashMode;
+      const trashParts = secondsToDurationParts(Number(trashRetention) > 0 ? trashRetention : DEFAULT_SETTINGS.completionRetentionSeconds);
+      if (trashValueEl) trashValueEl.value = String(trashParts.value);
+      if (trashUnitEl) trashUnitEl.value = trashParts.unit;
+      if (trashModeRowEl) trashModeRowEl.hidden = deleteMode === "permanent";
+      if (trashDurationEl) trashDurationEl.hidden = deleteMode === "permanent" || trashMode !== "custom";
+      if (exportCompletedEl) exportCompletedEl.checked = settings.exportCompleted !== false;
+      if (exportTrashEl) exportTrashEl.checked = Boolean(settings.exportTrash);
+      if (policyOverridesEl) policyOverridesEl.checked = Boolean(settings.policyOverrides);
+    }
+
+    function updateSettings(patch) {
+      Object.assign(state.settings, patch);
+      saveState();
+      syncSettingsControls();
+      render();
+    }
+
+    function readCompletionRetentionFromControls() {
+      const mode = completionModeEl?.value || "custom";
+      if (mode === "never") return null;
+      if (mode === "immediate") return 0;
+      const seconds = durationToSeconds(completionValueEl?.value, completionUnitEl?.value || "days");
+      if (seconds > 0) return seconds;
+      const current = state.settings.completionRetentionSeconds;
+      return Number(current) > 0 ? current : DEFAULT_SETTINGS.completionRetentionSeconds;
+    }
+
+    function readTrashRetentionFromControls() {
+      if ((trashModeEl?.value || "forever") === "forever") return null;
+      const seconds = durationToSeconds(trashValueEl?.value, trashUnitEl?.value || "days");
+      if (seconds > 0) return seconds;
+      const current = state.settings.trashRetentionSeconds;
+      return Number(current) > 0 ? current : DEFAULT_SETTINGS.completionRetentionSeconds;
+    }
+
+    pasteModeEl?.addEventListener("change", () => updateSettings({ pasteMode: pasteModeEl.value }));
+    [completionModeEl, completionValueEl, completionUnitEl].forEach((element) => {
+      element?.addEventListener("change", () => updateSettings({ completionRetentionSeconds: readCompletionRetentionFromControls() }));
+    });
+    deleteModeEl?.addEventListener("change", () => updateSettings({ deleteMode: deleteModeEl.value === "permanent" ? "permanent" : "trash" }));
+    [trashModeEl, trashValueEl, trashUnitEl].forEach((element) => {
+      element?.addEventListener("change", () => updateSettings({ trashRetentionSeconds: readTrashRetentionFromControls() }));
+    });
+    exportCompletedEl?.addEventListener("change", () => updateSettings({ exportCompleted: exportCompletedEl.checked }));
+    exportTrashEl?.addEventListener("change", () => updateSettings({ exportTrash: exportTrashEl.checked }));
+    policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
+
     darkModeEl?.addEventListener("change", () => toggleDarkMode(darkModeEl.checked));
     exportBoardEl?.addEventListener("click", downloadBoardState);
     importBoardEl?.addEventListener("click", () => importFileEl?.click());
@@ -2480,8 +2891,10 @@
     searchEl.addEventListener("input", render);
 
     applyTheme(loadTheme());
+    syncSettingsControls();
     updateClock();
     if (typeof window.setInterval === "function") window.setInterval(updateClock, 30000);
+    if (typeof window.setInterval === "function") window.setInterval(runLifecycleMaintenance, 1000);
     render();
     selectedNode = getVisibleNodes()[0] || null;
     if (selectedNode) selectNode(selectedNode);
@@ -2507,6 +2920,21 @@
       selectedNodesToMarkdown,
       rememberInternalClipboard,
       pasteExternalMarkdown,
+      resolveLifecyclePolicy,
+      durationToSeconds,
+      secondsToDurationParts,
+      setPolicyOverride,
+      updateSettings,
+      syncSettingsControls,
+      isTaskHiddenFromActive,
+      setTaskCompleted,
+      restoreCompletedTask,
+      deleteTaskWithPolicy,
+      restoreTrashRecord,
+      purgeTrashRecord,
+      purgeExpiredTrash,
+      getCompletedEntries,
+      runLifecycleMaintenance,
       moveTask,
       ensureDoingNowGroup,
       cloneTaskTree,

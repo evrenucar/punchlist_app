@@ -287,6 +287,109 @@ test("linked paste rejects placing a task beneath its own descendant", async () 
   assert.equal(api.getLinkCount(parent.id), 0);
 });
 
+test("completion retention supports seconds and restores tasks", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const item = group.tasks[0];
+  api.state.settings.completionRetentionSeconds = 10;
+
+  assert.equal(api.setTaskCompleted(item.id, true, "2026-07-11T12:00:00.000Z"), true);
+  assert.equal(api.isTaskHiddenFromActive(item, group, Date.parse("2026-07-11T12:00:09.000Z")), false);
+  assert.equal(api.isTaskHiddenFromActive(item, group, Date.parse("2026-07-11T12:00:10.000Z")), true);
+  assert.equal(api.restoreCompletedTask(item.id), true);
+  assert.equal(item.done, false);
+  assert.equal(item.completedAt, null);
+});
+
+test("task and group lifecycle overrides take precedence over global settings", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const item = group.tasks[0];
+  api.state.settings.completionRetentionSeconds = 50;
+  group.policyOverrides = { completionRetentionSeconds: 5 };
+  item.policyOverrides = { completionRetentionSeconds: 1 };
+
+  assert.equal(api.resolveLifecyclePolicy(item, group, "completionRetentionSeconds"), 1);
+  item.policyOverrides = null;
+  assert.equal(api.resolveLifecyclePolicy(item, group, "completionRetentionSeconds"), 5);
+  group.policyOverrides = null;
+  assert.equal(api.resolveLifecyclePolicy(item, group, "completionRetentionSeconds"), 50);
+});
+
+test("delete moves tasks to restorable trash or permanently removes them by policy", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const first = group.tasks[0];
+  const firstIndex = group.tasks.indexOf(first);
+  api.state.settings.deleteMode = "trash";
+  api.state.settings.trashRetentionSeconds = 300;
+
+  const record = api.deleteTaskWithPolicy(first.id, "2026-07-11T12:00:00.000Z");
+  assert.ok(record.id);
+  assert.equal(record.kind, "task");
+  assert.equal(record.source.groupId, group.id);
+  assert.equal(api.state.trash.length, 1);
+  assert.equal(group.tasks.some((item) => item.id === first.id), false);
+  assert.equal(api.restoreTrashRecord(record.id), true);
+  assert.equal(group.tasks[firstIndex].id, first.id);
+
+  api.state.settings.deleteMode = "permanent";
+  const second = group.tasks[1];
+  assert.equal(api.deleteTaskWithPolicy(second.id, "2026-07-11T12:01:00.000Z"), null);
+  assert.equal(api.state.trash.length, 0);
+  assert.equal(group.tasks.some((item) => item.id === second.id), false);
+});
+
+test("trash retention purges expired records and export inclusion is configurable", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  api.state.settings.deleteMode = "trash";
+  api.state.settings.trashRetentionSeconds = 5;
+  api.deleteTaskWithPolicy(group.tasks[0].id, "2026-07-11T12:00:00.000Z");
+
+  api.state.settings.exportTrash = false;
+  assert.equal(JSON.parse(api.serializeBoardState()).state.trash.length, 0);
+  api.state.settings.exportTrash = true;
+  assert.equal(JSON.parse(api.serializeBoardState()).state.trash.length, 1);
+  assert.equal(api.purgeExpiredTrash(Date.parse("2026-07-11T12:00:04.000Z")), 0);
+  assert.equal(api.purgeExpiredTrash(Date.parse("2026-07-11T12:00:05.000Z")), 1);
+  assert.equal(api.state.trash.length, 0);
+});
+
+test("completed and trash sections expose restore and purge controls", async () => {
+  const html = await readBoard();
+  for (const hook of [
+    "data-completed-section",
+    "data-trash-section",
+    "restore-completed",
+    "restore-trash",
+    "purge-trash",
+    "getCompletedEntries",
+  ]) {
+    assert.match(html, new RegExp(hook));
+  }
+});
+
+test("settings configure lifecycle, export, paste, and optional policy overrides", async () => {
+  const html = await readBoard();
+  const api = await loadBoardApi();
+  for (const hook of [
+    "data-completion-mode",
+    "data-completion-value",
+    "data-delete-mode",
+    "data-trash-mode",
+    "data-export-completed",
+    "data-export-trash",
+    "data-paste-mode",
+    "data-policy-overrides",
+  ]) {
+    assert.match(html, new RegExp(hook));
+  }
+  assert.equal(api.durationToSeconds(5, "minutes"), 300);
+  assert.equal(JSON.stringify(api.secondsToDurationParts(300)), JSON.stringify({ value: 5, unit: "minutes" }));
+  assert.equal(api.durationToSeconds(1, "days"), 86400);
+});
+
 test("task board file contains the seeded task groups and nested tasks", async () => {
   const html = await readBoard();
 
