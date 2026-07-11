@@ -13,7 +13,7 @@ async function readBoard() {
 
 async function loadBoardApi() {
   const html = await readBoard();
-  const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  const script = html.match(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script, "expected inline board script");
 
   const elements = new Map();
@@ -99,6 +99,26 @@ async function loadBoardApi() {
   return context.window.taskBoardTestApi;
 }
 
+test("build emits one standalone task board", async () => {
+  const [template, css, script, build, output] = await Promise.all([
+    readFile(path.join(root, "src", "task-board.html"), "utf8"),
+    readFile(path.join(root, "src", "task-board.css"), "utf8"),
+    readFile(path.join(root, "src", "task-board.js"), "utf8"),
+    readFile(path.join(root, "scripts", "build-task-board.mjs"), "utf8"),
+    readBoard(),
+  ]);
+
+  assert.match(template, /TASK_BOARD_STYLES/);
+  assert.match(template, /TASK_BOARD_SCRIPT/);
+  assert.ok(css.length > 1000);
+  assert.ok(script.length > 1000);
+  assert.match(build, /writeFile/);
+  assert.equal(output.includes("TASK_BOARD_STYLES"), false);
+  assert.equal(output.includes("TASK_BOARD_SCRIPT"), false);
+  assert.match(output, /<style data-task-board-styles>/);
+  assert.match(output, /<script data-task-board-script>/);
+});
+
 test("task board file contains the seeded task groups and nested tasks", async () => {
   const html = await readBoard();
 
@@ -141,7 +161,7 @@ test("task board includes real editing, persistence, delete, collapse, keyboard,
 
 test("task board inline script parses as JavaScript", async () => {
   const html = await readBoard();
-  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
 
   assert.ok(scripts.length > 0, "expected at least one inline script");
   for (const script of scripts) {

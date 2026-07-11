@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Scheduling Task Board</title>
+  <!-- TASK_BOARD_STYLES -->
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <h1>Task Board</h1>
+          <p>Local editable organizer</p>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <button class="control primary" type="button" data-action="add-group" title="Create a new top-level group">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Add group
+        </button>
+        <button class="control" type="button" data-action="expand-all" title="Expand every group and task">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+          Expand all
+        </button>
+        <button class="control" type="button" data-action="collapse-all" title="Collapse every group and task">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m17 14-5-5-5 5"/></svg>
+          Collapse all
+        </button>
+        <button class="control" type="button" data-focus-button title="Open focus mode for the selected task (Shift+F)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+          Focus
+        </button>
+        <button class="control" type="button" data-export-board title="Download this board as a JSON backup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Export JSON
+        </button>
+        <button class="control" type="button" data-import-board title="Load a board from a JSON backup">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Import JSON
+        </button>
+        <input type="file" accept="application/json,.json" data-import-file hidden>
+        <details class="settings-menu" data-settings-menu>
+          <summary class="control" title="Open board settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.4 7A2 2 0 1 1 7.2 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 20 7.2l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.8.8Z"/></svg>
+            Settings
+          </summary>
+          <div class="settings-panel">
+            <label class="settings-row" title="Switch between light and dark theme">
+              Dark mode
+              <input type="checkbox" data-dark-mode>
+            </label>
+          </div>
+        </details>
+        <button class="control danger" type="button" data-action="reset" title="Restore the original seeded board">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
+          Reset seed
+        </button>
+      </div>
+
+      <div class="summary" aria-label="Task summary">
+        <div class="metric">
+          <strong data-total-count>0</strong>
+          <span>Total</span>
+        </div>
+        <div class="metric">
+          <strong data-done-count>0</strong>
+          <span>Done</span>
+        </div>
+      </div>
+
+      <nav class="section-nav" aria-label="Task groups" data-section-nav></nav>
+    </aside>
+
+    <main>
+      <div class="topbar">
+        <div>
+          <h2>Scheduling and Task Management</h2>
+          <p>Use arrows to browse. Alt+arrows moves items. Ctrl+Up/Down collapses or expands. Shift+F opens focus.</p>
+        </div>
+        <div class="topbar-tools">
+          <div class="clock" data-clock aria-label="Current time">--:--</div>
+          <input class="search" type="search" placeholder="Filter tasks" aria-label="Filter tasks" data-search>
+        </div>
+      </div>
+
+      <section class="board" aria-label="Editable task groups" data-board></section>
+    </main>
+  </div>
+
+  <section class="focus-mode" data-focus-mode hidden>
+    <div class="focus-mode__bar">
+      <button type="button" class="control" data-focus-exit title="Exit focus mode">Back</button>
+    </div>
+    <article class="focus-mode__task" data-focus-task></article>
+    <div class="focus-mode__timer" data-focus-timer>00:00</div>
+  </section>
+
+  <!-- TASK_BOARD_SCRIPT -->
+</body>
+</html>

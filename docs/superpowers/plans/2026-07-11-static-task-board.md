@@ -31,7 +31,7 @@
 - Modify: `tests/task-board.static.test.mjs`
 - Generate: `outputs/task-board.html`
 
-- [ ] **Step 1: Write a failing build-contract test**
+- [x] **Step 1: Write a failing build-contract test**
 
 Add assertions that the source files and build script exist, the generated file contains no insertion markers, contains exactly one app stylesheet/script, and its inline script parses with `vm.Script`.
 
@@ -45,13 +45,13 @@ test("build emits one standalone task board", async () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and confirm the source contract is missing**
+- [x] **Step 2: Run the focused test and confirm the source contract is missing**
 
 Run: `node --test --test-name-pattern="build emits" tests/task-board.static.test.mjs`
 
 Expected: FAIL because `src/` and the build markers do not exist.
 
-- [ ] **Step 3: Split the current file mechanically and add the build script**
+- [x] **Step 3: Split the current file mechanically and add the build script**
 
 The build script must use only `node:fs/promises` and exact markers:
 
@@ -62,7 +62,7 @@ const output = template
 await writeFile(outputPath, output, "utf8");
 ```
 
-- [ ] **Step 4: Build and run the complete baseline suite**
+- [x] **Step 4: Build and run the complete baseline suite**
 
 Run: `node scripts/build-task-board.mjs`
 
@@ -72,7 +72,7 @@ Run: `node --test tests/task-board.static.test.mjs`
 
 Expected: all baseline and build-contract tests pass.
 
-- [ ] **Step 5: Commit the source split**
+- [x] **Step 5: Commit the source split**
 
 ```powershell
 git add src scripts/build-task-board.mjs outputs/task-board.html tests/task-board.static.test.mjs
