@@ -2,7 +2,7 @@
 
 Priority is based on data safety, frequency of use, and dependency order.
 
-**Status (2026-07-11):** P0 through P3 are implemented and verified in `outputs/task-board.html` (54 static tests plus an optional Playwright smoke test that skips when no Playwright runtime is installed). Browser acceptance ran through the Chrome DevTools MCP at 1440x900 and 390x844 in both themes. Remaining open work: the research backlog below, the deferred JSON-file sync helper, PWA/server-capable reminders, and calendar integration.
+**Status (2026-07-11, end of first build day):** P0 through P3 shipped, plus six live-feedback iteration rounds (Punchlist branding, side-docked timeline, history panel with restore, task images with captions and lightbox, focus-mode editing parity, keyboard-zone navigation, settings export). 67 static tests pass; the optional Playwright smoke test skips when no runtime is installed. Browser acceptance ran through the Chrome DevTools MCP at 1440x900 and 390x844 in both themes. Remaining open work: the research backlog below, the deferred JSON-file sync helper, PWA/server-capable reminders, calendar integration, and the rough edges listed at the end of `docs/AGENT_HANDOFF.md`.
 
 ## P0 - Trust and editing
 

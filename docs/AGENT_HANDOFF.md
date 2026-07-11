@@ -27,11 +27,42 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
-`outputs/task-board.html` is generated from `src/` by `scripts/build-task-board.mjs` and implements the full agreed scope: nested outline editing with undo and drag/drop (mouse and long-press touch), versioned schema (v2) with migration, Markdown clipboard interchange, alias/reference placements, configurable Completed/Trash lifecycle with `task > group > global` policy overrides, optional scheduling (date, start time, planned minutes, reminders, day Timeline with drag rescheduling and Alt+arrow nudging), planned-versus-actual focus variance, a collapsible sidebar with Views/Groups navigation and phone drawer, dark-mode group tints, help panel, favicon, and "Restore example board" with confirmation.
+`outputs/task-board.html` is generated from `src/` by `scripts/build-task-board.mjs` (which also refreshes `website/task-board.html`). Everything in the original scope shipped, plus several iteration rounds driven by the user's live usage:
 
-Verification as of 2026-07-11: 54 tests in `tests/task-board.static.test.mjs` pass; `tests/task-board.browser.smoke.mjs` is a reusable Playwright smoke workflow that skips cleanly when no Playwright runtime is installed (none is currently installed here — real-browser acceptance ran through the Chrome DevTools MCP instead, at 1440x900 and 390x844, light and dark, covering editing, keyboard navigation, alias sync, Markdown paste, lifecycle restore, feature-flag invisibility, timeline drag rescheduling, sidebar collapse/drawer, focus timing persistence, reload persistence, and console/overflow checks).
+- Outline editing with 40-step undo, mouse and long-press touch drag, caret-aware Enter, Shift+Enter line breaks (with an end-of-content `<br>` sentinel because `pre-wrap` swallows a trailing newline), Ctrl+Enter completes, Alt+A adds a group, Ctrl+Shift+Down/Up expands/collapses all.
+- Markdown clipboard (groups copy as `## Heading` with full contents even when collapsed), linked copies (`alias`) and shortcuts (`reference`), external Markdown paste.
+- Lifecycle: Completed/Trash as expandable rows (newest first) showing origin group/parent and time; `task > group > global` policy overrides whose "Use global (…)" options name the current global value; slide-away animation when completion hides a task.
+- Planning (all behind flags, off by default): task details panel (also shows group info; date/reminder auto-fill with relative-date hints), day timeline docked as a right-hand pane (List and Timeline independently toggleable, one always on), reminders with toasts/notifications.
+- Task images: paste attaches (canvas-compressed to max 800px WebP/JPEG), drag side-bars to resize, editable caption line under each image (typing/pasting text on a selected image goes to the caption; pasting an image anywhere in the block attaches separately), double-click opens a zoom/pan lightbox, images are arrow-selectable nodes and Delete removes one at a time.
+- Focus mode: full editor (Enter on title creates a first child, Enter splits children, Tab/Shift+Tab indent, Backspace-on-empty deletes, square checkboxes toggle done); works for groups (editable title, adds tasks); hides retention-hidden tasks like the main view; shows the clock; empty-text rows render (they must — new tasks start empty).
+- Shell: resizable sidebar (drag divider, 200–420px, persisted), collapsible Views/Settings/Help/History sections with rotating triangles, History panel with per-entry expansion and Restore buttons for deletions (exact via `entry.trashId`, fuzzy name-match fallback for older entries), search that expands everything non-destructively while typing, one-keyboard-zone-at-a-time navigation reaching sidebar, hamburger, topbar toggles, search, and the Completed/Trash sections.
+- Settings sharing: username field + "Export settings" (`punchlist-settings-{user}-{date}.json`, kind `punchlist-settings`); the regular Import JSON button recognizes settings files and applies only settings. Board exports exclude settings; importing a board backup keeps local settings.
+
+Verification as of retirement (2026-07-11 evening): 67 tests in `tests/task-board.static.test.mjs` pass; the Playwright smoke test skips (no runtime installed); browser acceptance ran continuously through the Chrome DevTools MCP against the built file at desktop and phone widths in both themes.
 
 Do not encode mutable placement into task IDs; aliases/references, lifecycle history, and scheduling all rely on stable task identity.
+
+## Hard-won working notes (read before touching code)
+
+- **Never write `src/` files with PowerShell 5.1 `-Encoding utf8`** — it prepends a BOM, the build inlines it mid-document, the browser drops the `:root` rule, and every font falls back to serif. Use `[System.IO.File]::WriteAllText` (BOM-free) or the Write tool. This actually happened; the fix was stripping the BOM.
+- **The user's live board is in this machine's browser localStorage under the `file://` origin** (key `scheduling-task-management-board-v1`). Any browser-based testing mutates their real data: revert every test mutation (tasks, images, history entries, trash records, settings) before ending a session.
+- **The vm test harness** (`loadBoardApi` in the static test file) stubs a minimal DOM: no `document.body`, no `documentElement`, `document.querySelectorAll` returns `[]`. All new element access must be null-guarded; `window.setTimeout` may be absent. Objects returned across the vm boundary fail `assert.deepEqual` (realm prototypes) — compare via `JSON.stringify`.
+- **Synthetic keyboard events targeted at `document` throw** in handlers that call `event.target.matches` — they are now `?.`-guarded, but when testing, dispatch on the focused element like real events do.
+- **`renderSelection(forceFocus)`**: without `true` it will not steal focus from inputs/sidebar (that guard fixed search typing being hijacked); the deliberate "return to board" keyboard flows must pass `true`.
+- **Keyboard zones**: the global keydown handler early-returns for events originating in `.sidebar` and for interactive elements outside the board — that is what keeps Enter working on the hamburger and stops dual-zone selection. Don't add global key handling above those guards without checking both.
+- **`getVisibleNodes()` is the single source of keyboard order** and now yields four node kinds: `group`, `task`, `image` (with `taskId`), `section` (`completed`/`trash`). Every consumer must tolerate all kinds.
+- **History**: `pushUndoState(action, detail)` logs to `state.history` (capped 50, persisted). Deletion entries carry `trashId` for precise restore. The `collapse` action logs nothing on purpose. History survives undo (log first, then snapshot).
+- **Images** live on tasks as `{id, src(dataURL), width, caption}`. localStorage caps around 5 MB per origin — compressed screenshots run 50–200 KB, so warn the user before they hoard. `normalizeTask` drops non-`data:image/` sources.
+- **Artifact hosting**: the built file is republished (same URL) by stripping the outer `doctype/html/head/body` wrapper and calling the Artifact tool with the same scratchpad path: https://claude.ai/code/artifact/df565bd3-dabf-4e57-af42-a2eef8e3a27f — its board data is a separate localStorage origin from the local file.
+- **Website** (`website/index.html`): static landing page, zero external requests by design (claims so in its footer — keep it true). Copy follows the `no-ai-slop` + `rossmann-voice` skills in `.claude/skills/` (also `ponytail`). Email capture posts to `FORM_ENDPOINT` (empty → mailto fallback).
+
+## Known rough edges
+
+- Chrome DevTools flags two benign a11y issues: interactive buttons inside `<summary>` (lifecycle/history rows; activation is preventDefault-handled) and form fields without ids.
+- Enter on a selected image is a no-op by choice; the user may later want it to create a sibling task.
+- History restore fallback matches by displayed name; duplicate-named trash records may restore the wrong instance (fresh deletions always link precisely by `trashId`).
+- On phones, task action buttons appear only on the selected row (deliberate de-clutter).
+- Group focus mode has no timer (focus time stays a per-task concept).
 
 ## Agreed behavior
 
