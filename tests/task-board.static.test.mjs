@@ -584,6 +584,66 @@ test("details panel shows identity and location for tasks and groups", async () 
   assert.match(html, /data-focus-clock/);
 });
 
+test("deleting a group requires confirmation before it reaches the trash", async () => {
+  const api = await loadBoardApi();
+  api.selectNode("group", "group-kora");
+  api.deleteSelectedNodes();
+  assert.equal(api.state.groups.some((group) => group.id === "group-kora"), true);
+  assert.ok(api.pendingGroupDelete);
+  assert.equal(api.pendingGroupDelete.groupId, "group-kora");
+  api.deleteSelectedNodesConfirmed(api.pendingGroupDelete.nodes);
+  assert.equal(api.state.groups.some((group) => group.id === "group-kora"), false);
+  assert.equal(api.state.trash.some((record) => record.kind === "group"), true);
+});
+
+test("focus mode accepts groups and hides blank children", async () => {
+  const api = await loadBoardApi();
+  assert.equal(api.enterGroupFocusMode("group-kora"), true);
+  assert.equal(api.toggleFocusMode(), false);
+  const html = api.renderFocusChildren([
+    { id: "a", text: "", children: [] },
+    { id: "b", text: "Real child", children: [] },
+  ]);
+  assert.equal((html.match(/<li/g) || []).length, 1);
+  assert.match(html, /Real child/);
+});
+
+test("history records completions and deletions with task names", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+  api.setTaskCompleted(item.id, true);
+  assert.match(api.state.history.at(-1).text, /^Completed /);
+  api.deleteTaskWithPolicy(group.tasks[1].id);
+  assert.match(api.state.history.at(-1).text, /^Deleted /);
+  assert.equal(api.state.history.length <= 50, true);
+});
+
+test("policy override menus name the current global policy", async () => {
+  const api = await loadBoardApi();
+  api.state.settings.completionRetentionSeconds = 7 * 24 * 60 * 60;
+  assert.equal(api.describeGlobalCompletionPolicy(), "hide after 7 days");
+  api.state.settings.completionRetentionSeconds = 0;
+  assert.equal(api.describeGlobalCompletionPolicy(), "hide right away");
+  api.state.settings.completionRetentionSeconds = null;
+  assert.equal(api.describeGlobalCompletionPolicy(), "keep visible");
+});
+
+test("board shell brands as Punchlist with a timeline pane and history tab", async () => {
+  const html = await readBoard();
+  for (const hook of [
+    "<title>Punchlist</title>",
+    "data-board-split",
+    "data-timeline-pane",
+    "data-sidebar-tabs",
+    "data-history-list",
+    "Ctrl\\+Enter",
+    "Use global \\(",
+  ]) {
+    assert.match(html, new RegExp(hook));
+  }
+});
+
 test("shell provides a collapsible sidebar, views navigation, help, and a favicon", async () => {
   const html = await readBoard();
   for (const hook of [

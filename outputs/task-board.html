@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Scheduling Task Board</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23246bfe'/%3E%3Cpath d='M7 12.5l3.2 3.2L17 8.5' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <title>Punchlist</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
   <style data-task-board-styles>
     :root {
       color-scheme: light;
@@ -86,20 +86,46 @@
     }
 
     .brand-mark {
+      position: relative;
       display: grid;
       width: 34px;
       height: 34px;
       place-items: center;
-      border-radius: 8px;
-      background: #202422;
+      border-radius: 9px;
+      background: #191b1a;
       color: #ffffff;
-      font-weight: 800;
+      transform: rotate(-4deg);
+    }
+
+    .brand-mark svg {
+      width: 19px;
+      height: 19px;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      background: var(--danger);
+    }
+
+    body[data-theme="dark"] .brand-mark {
+      background: #f1f4ef;
+      color: #191b1a;
     }
 
     .brand h1 {
       margin: 0;
-      font-size: 18px;
+      font-size: 19px;
+      font-weight: 900;
+      letter-spacing: -0.015em;
       line-height: 1.1;
+      text-transform: uppercase;
     }
 
     .brand p {
@@ -223,12 +249,41 @@
     }
 
     .settings-section summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       cursor: pointer;
+      list-style: none;
       color: var(--muted);
       font-size: 12px;
       font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+    }
+
+    .settings-section summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .settings-section summary::after {
+      content: "";
+      flex: 0 0 auto;
+      width: 7px;
+      height: 7px;
+      margin-right: 3px;
+      border-right: 2px solid var(--muted);
+      border-bottom: 2px solid var(--muted);
+      transform: rotate(45deg);
+      transition: transform 140ms ease;
+    }
+
+    .settings-section[open] > summary::after {
+      transform: rotate(-135deg);
+    }
+
+    .settings-section summary:hover {
+      color: var(--text);
     }
 
     .settings-duration {
@@ -469,7 +524,10 @@
     .topbar h2 {
       margin: 0;
       font-size: 26px;
+      font-weight: 900;
+      letter-spacing: -0.015em;
       line-height: 1.15;
+      text-transform: uppercase;
     }
 
     .topbar p {
@@ -1016,6 +1074,93 @@
       font-weight: 700;
     }
 
+    .board-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .board-split.with-timeline {
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+    }
+
+    .timeline-pane {
+      position: sticky;
+      top: 76px;
+      max-height: calc(100vh - 96px);
+      overflow-y: auto;
+      padding-bottom: 8px;
+    }
+
+    .timeline-pane[hidden] {
+      display: none;
+    }
+
+    .board[hidden] {
+      display: none;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .sidebar-tabs button {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--muted);
+      padding: 5px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .sidebar-tabs button:hover {
+      color: var(--text);
+    }
+
+    .sidebar-tabs button.active {
+      border-color: var(--line);
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .history-list {
+      display: grid;
+      gap: 2px;
+    }
+
+    .history-row {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 8px;
+      border-radius: 6px;
+      padding: 5px 6px;
+      font-size: 12.5px;
+    }
+
+    .history-row:hover {
+      background: var(--surface-2);
+    }
+
+    .history-time {
+      color: var(--muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 11px;
+      padding-top: 1px;
+      white-space: nowrap;
+    }
+
+    .history-text {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      color: var(--text);
+    }
+
     .timeline {
       display: grid;
       gap: 16px;
@@ -1235,6 +1380,33 @@
       padding-left: 22px;
     }
 
+    .delete-confirm {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--danger);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 3px 6px 3px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--danger);
+      white-space: nowrap;
+    }
+
+    .focus-mode__group-title {
+      min-height: 0;
+      font-weight: 900;
+      font-size: clamp(26px, 4.5vw, 52px);
+    }
+
+    .focus-mode.group-focus .focus-mode__children {
+      width: min(820px, 100%);
+      color: var(--text);
+      font-size: 20px;
+      line-height: 1.6;
+    }
+
     .focus-mode__clock {
       color: var(--muted);
       font-size: 18px;
@@ -1329,6 +1501,15 @@
       .board {
         grid-template-columns: 1fr;
       }
+
+      .board-split.with-timeline {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .timeline-pane {
+        position: static;
+        max-height: none;
+      }
     }
 
     @media (max-width: 640px) {
@@ -1399,10 +1580,12 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">S</div>
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
+        </div>
         <div>
-          <h1>Task Board</h1>
-          <p>Local editable organizer</p>
+          <h1>Punchlist</h1>
+          <p>One-file task board</p>
         </div>
       </div>
 
@@ -1442,12 +1625,12 @@
               Dark mode
               <input type="checkbox" data-dark-mode>
             </label>
-            <label class="settings-row" title="Choose how copied tasks are placed inside this board">
-              Internal paste
+            <label class="settings-row" title="Choose what pasting a copied task inside this board creates">
+              Paste creates
               <select data-paste-mode>
-                <option value="alias">Alias</option>
-                <option value="reference">Reference</option>
-                <option value="duplicate">Duplicate</option>
+                <option value="alias">Linked copy (stays in sync)</option>
+                <option value="reference">Shortcut to original</option>
+                <option value="duplicate">Independent duplicate</option>
                 <option value="ask">Ask each time</option>
               </select>
             </label>
@@ -1528,6 +1711,10 @@
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
             </label>
+            <button class="control danger" type="button" data-action="reset" title="Replace the current board with the built-in example board">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
+              Restore example board
+            </button>
           </div>
         </details>
         <details class="settings-menu" data-help>
@@ -1536,18 +1723,14 @@
             Help
           </summary>
           <div class="settings-panel help-panel">
-            <p><strong>Basics.</strong> Enter adds a task, Tab and Shift+Tab indent or outdent, arrows browse, Alt+arrows move items, Ctrl+Up/Down collapses or expands, Shift+F opens focus mode.</p>
-            <p><strong>Clipboard.</strong> Ctrl+C copies selected tasks as clean Markdown. Pasting inside the board places an alias by default; change this in Settings. Ctrl+X then paste moves tasks. Pasting Markdown from outside creates new tasks.</p>
-            <p><strong>Links.</strong> An alias shares one underlying task, so edits and completion stay in sync. A reference is a compact pointer that jumps to the original.</p>
+            <p><strong>Basics.</strong> Enter adds a task, Tab and Shift+Tab indent or outdent, arrows browse, Alt+arrows move items, Ctrl+Up/Down collapses or expands, Ctrl+Enter marks the selected task done, Shift+F opens focus mode (works on groups too).</p>
+            <p><strong>Clipboard.</strong> Ctrl+C copies selected tasks as clean Markdown. Pasting inside the board places a linked copy by default; change this in Settings. Ctrl+X then paste moves tasks. Pasting Markdown from outside creates new tasks.</p>
+            <p><strong>Linked copies.</strong> A linked copy is one task shown in two places: edit or complete either one and both update. A shortcut is a small pointer that jumps to the original instead.</p>
             <p><strong>Your data.</strong> Everything stays in this browser. Use Export JSON for a lossless backup and Import JSON to load it elsewhere.</p>
             <p><strong>Reminders.</strong> Alerts and browser notifications only fire while this page is open.</p>
             <p><strong>Touch.</strong> Press and hold a task or timeline block, then drag it.</p>
           </div>
         </details>
-        <button class="control danger" type="button" data-action="reset" title="Replace the current board with the built-in example board">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
-          Restore example board
-        </button>
       </div>
 
       <nav class="views-nav" aria-label="Views" data-views-nav>
@@ -1558,8 +1741,12 @@
         <button type="button" data-view-nav="trash" title="Show deleted tasks">Trash</button>
       </nav>
 
-      <h3 class="sidebar-heading">Groups</h3>
+      <div class="sidebar-tabs" data-sidebar-tabs role="tablist" aria-label="Sidebar content">
+        <button type="button" class="active" data-sidebar-tab="groups" role="tab" aria-selected="true">Groups</button>
+        <button type="button" data-sidebar-tab="history" role="tab" aria-selected="false" title="Recent changes on this board">History</button>
+      </div>
       <nav class="section-nav" aria-label="Task groups" data-section-nav></nav>
+      <div class="history-list" data-history-list hidden></div>
     </aside>
 
     <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
@@ -1571,14 +1758,14 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
           </button>
           <div>
-            <h2>Scheduling and Task Management</h2>
-            <p>Use arrows to browse. Alt+arrows moves items. Ctrl+Up/Down collapses or expands. Shift+F opens focus.</p>
+            <h2>Punchlist</h2>
+            <p>Arrows browse. Alt+arrows moves items. Ctrl+Enter completes. Shift+F opens focus.</p>
           </div>
         </div>
         <div class="topbar-tools">
           <div class="view-toggle" data-view-toggle hidden>
-            <button type="button" data-view-list class="active" title="Show the outline of all groups">List</button>
-            <button type="button" data-view-timeline title="Show scheduled tasks on a day timeline">Timeline</button>
+            <button type="button" data-view-list class="active" title="Show or hide the task outline">List</button>
+            <button type="button" data-view-timeline title="Show or hide the day timeline beside the tasks">Timeline</button>
             <input type="date" data-timeline-date aria-label="Timeline day" hidden>
           </div>
           <div class="clock" data-clock aria-label="Current time">--:--</div>
@@ -1587,7 +1774,10 @@
       </div>
 
       <div data-task-details-host></div>
-      <section class="board" aria-label="Editable task groups" data-board></section>
+      <div class="board-split" data-board-split>
+        <section class="board" aria-label="Editable task groups" data-board></section>
+        <aside class="timeline-pane" data-timeline-pane aria-label="Day timeline panel" hidden></aside>
+      </div>
     </main>
   </div>
 
@@ -1691,6 +1881,10 @@
     const viewTimelineEl = document.querySelector("[data-view-timeline]");
     const timelineDateEl = document.querySelector("[data-timeline-date]");
     const taskDetailsHostEl = document.querySelector("[data-task-details-host]");
+    const boardSplitEl = document.querySelector("[data-board-split]");
+    const timelinePaneEl = document.querySelector("[data-timeline-pane]");
+    const historyListEl = document.querySelector("[data-history-list]");
+    const sidebarTabsEl = document.querySelector("[data-sidebar-tabs]");
     const toastEl = document.querySelector("[data-toast]");
     const focusModeEl = document.querySelector("[data-focus-mode]");
     const focusButtonEl = document.querySelector("[data-focus-button]");
@@ -1715,7 +1909,11 @@
     let internalClipboard = null;
     let lifecycleSignature = "";
     let announcedReminders = new Set();
-    let activeView = "list";
+    let pendingGroupDelete = null;
+    let focusModeGroupId = null;
+    let showList = true;
+    let showTimeline = false;
+    let sidebarTab = "groups";
     let timelineDate = localDateString();
     let timelineDrag = null;
     let toastTimer = null;
@@ -2063,7 +2261,31 @@
       reader.readAsText(file);
     }
 
-    function pushUndoState(action = "board") {
+    const HISTORY_LABELS = {
+      board: "Changed the board",
+      delete: "Deleted items",
+      complete: "Toggled a task",
+      move: "Moved items",
+      split: "Edited the outline",
+      restore: "Restored items",
+      link: "Pasted linked items",
+      color: "Changed a group color",
+      paste: "Pasted tasks",
+    };
+
+    function shortText(value, max = 34) {
+      const text = String(value || "").trim();
+      return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+    }
+
+    function logHistory(text) {
+      if (!Array.isArray(state.history)) state.history = [];
+      state.history.push({ at: new Date().toISOString(), text: String(text) });
+      if (state.history.length > 50) state.history.shift();
+    }
+
+    function pushUndoState(action = "board", detail = null) {
+      logHistory(detail || HISTORY_LABELS[action] || "Changed the board");
       undoStack.push(JSON.stringify(state));
       undoActions.push(action);
       if (undoStack.length > 40) {
@@ -2324,8 +2546,9 @@
     function resolvePasteMode() {
       if (internalClipboard?.mode === "cut") return "move";
       if (state.settings.pasteMode !== "ask") return state.settings.pasteMode;
-      const answer = window.prompt?.("Paste as alias, reference, or duplicate?", "alias")?.toLowerCase();
-      return ["alias", "reference", "duplicate"].includes(answer) ? answer : "alias";
+      const answer = window.prompt?.("Paste as: linked (stays in sync), shortcut (jumps to original), or duplicate?", "linked")?.toLowerCase();
+      const modes = { linked: "alias", alias: "alias", shortcut: "reference", reference: "reference", duplicate: "duplicate" };
+      return modes[answer] || "alias";
     }
 
     function pasteExternalMarkdown(markdown, targetNode = selectedNode) {
@@ -2532,7 +2755,7 @@
       const item = resolveTaskItem(found.item);
       const nextDone = Boolean(done);
       if (item.done === nextDone && (nextDone ? Boolean(item.completedAt) : !item.completedAt)) return false;
-      if (options.pushUndo !== false) pushUndoState("complete");
+      if (options.pushUndo !== false) pushUndoState("complete", `${nextDone ? "Completed" : "Reopened"} "${shortText(item.text)}"`);
       item.done = nextDone;
       item.completedAt = nextDone ? now : null;
       if (options.save !== false) saveState();
@@ -2550,7 +2773,7 @@
       const resolved = resolveTaskItem(found.item);
       const deleteMode = options.deleteMode || resolveLifecyclePolicy(found.item, found.group, "deleteMode") || "trash";
       const retention = resolveLifecyclePolicy(found.item, found.group, "trashRetentionSeconds");
-      if (options.pushUndo !== false) pushUndoState("delete");
+      if (options.pushUndo !== false) pushUndoState("delete", `Deleted "${shortText(resolved?.text || found.item.text)}"`);
       const source = {
         groupId: found.group?.id || null,
         parentId: found.parent?.id || null,
@@ -2913,10 +3136,20 @@
       render();
     }
 
-    function deleteSelectedNodes() {
-      const nodes = getSelectedNodes();
+    function deleteSelectedNodes(nodes = getSelectedNodes(), options = {}) {
       if (!nodes.length) return;
-      pushUndoState("delete");
+      const groupsToDelete = nodes.filter((node) => node.kind === "group");
+      if (groupsToDelete.length && !options.confirmed) {
+        pendingGroupDelete = { nodes: nodes.map((node) => ({ ...node })), groupId: groupsToDelete[0].id };
+        render();
+        document.querySelector('[data-action="confirm-delete"]')?.focus();
+        return;
+      }
+      pendingGroupDelete = null;
+      const firstGroup = groupsToDelete.length ? findGroup(groupsToDelete[0].id) : null;
+      pushUndoState("delete", nodes.length === 1 && firstGroup
+        ? `Deleted group "${shortText(firstGroup.title)}"`
+        : `Deleted ${nodes.length} item${nodes.length === 1 ? "" : "s"}`);
       const visibleBeforeDelete = getVisibleNodes();
       const deletedKeys = collectDeletedNodeKeys(nodes);
 
@@ -3392,6 +3625,9 @@
       if (taskDetailsHostEl && !taskDetailsHostEl.contains(document.activeElement)) {
         taskDetailsHostEl.innerHTML = renderDetailsPanel();
       }
+      if (timelinePaneEl && !timelinePaneEl.hidden && !timelineDrag) {
+        timelinePaneEl.innerHTML = renderTimelineSection(timelineDate);
+      }
 
       const row = getNodeRow(selectedNode);
       if (row) {
@@ -3598,6 +3834,16 @@
       range.deleteContents();
       const lineBreak = document.createTextNode("\n");
       range.insertNode(lineBreak);
+      let hasContentAfter = false;
+      for (let node = lineBreak.nextSibling; node; node = node.nextSibling) {
+        if ((node.textContent || "").length || node.tagName === "BR") {
+          hasContentAfter = true;
+          break;
+        }
+      }
+      if (!hasContentAfter) {
+        lineBreak.parentNode.insertBefore(document.createElement("br"), lineBreak.nextSibling);
+      }
       range.setStartAfter(lineBreak);
       range.collapse(true);
       selection.removeAllRanges();
@@ -3675,6 +3921,14 @@
       return icons[name] || "";
     }
 
+    function describeGlobalCompletionPolicy() {
+      const retention = state.settings.completionRetentionSeconds;
+      if (retention === null) return "keep visible";
+      if (Number(retention) === 0) return "hide right away";
+      const parts = secondsToDurationParts(retention);
+      return `hide after ${parts.value} ${parts.value === 1 ? parts.unit.replace(/s$/, "") : parts.unit}`;
+    }
+
     function renderPolicyMenu(kind, id, overrides) {
       if (!state.settings.policyOverrides) return "";
       const active = overrides && typeof overrides === "object" ? overrides : {};
@@ -3683,13 +3937,14 @@
         : "default";
       const deleteMode = hasOwn(active, "deleteMode") ? active.deleteMode : "default";
       const hasOverride = completion !== "default" || deleteMode !== "default";
+      const globalDelete = state.settings.deleteMode === "permanent" ? "delete permanently" : "to Trash";
       return `
         <details class="policy-menu">
           <summary class="icon-button ${hasOverride ? "has-override" : ""}" title="Lifecycle overrides for this ${kind}" aria-label="Lifecycle overrides for this ${kind}">${renderIcon("sliders")}</summary>
           <div class="policy-panel">
             <label>Completed
               <select data-policy-completion data-policy-kind="${kind}" data-policy-id="${id}" aria-label="Completed visibility override">
-                <option value="default"${completion === "default" ? " selected" : ""}>Use global</option>
+                <option value="default"${completion === "default" ? " selected" : ""}>Use global (${describeGlobalCompletionPolicy()})</option>
                 <option value="never"${completion === "never" ? " selected" : ""}>Keep visible</option>
                 <option value="immediate"${completion === "immediate" ? " selected" : ""}>Hide right away</option>
                 ${completion === "custom" ? '<option value="custom" selected>Custom duration</option>' : ""}
@@ -3697,7 +3952,7 @@
             </label>
             <label>Delete
               <select data-policy-delete data-policy-kind="${kind}" data-policy-id="${id}" aria-label="Delete policy override">
-                <option value="default"${deleteMode === "default" ? " selected" : ""}>Use global</option>
+                <option value="default"${deleteMode === "default" ? " selected" : ""}>Use global (${globalDelete})</option>
                 <option value="trash"${deleteMode === "trash" ? " selected" : ""}>To Trash</option>
                 <option value="permanent"${deleteMode === "permanent" ? " selected" : ""}>Permanent</option>
               </select>
@@ -3714,7 +3969,7 @@
 
     function renderTaskLinkBadge(placement, resolved) {
       if (placement.linkType) {
-        const label = placement.linkType === "alias" ? "Alias" : "Reference";
+        const label = placement.linkType === "alias" ? "Linked copy" : "Shortcut";
         return `<button class="placement-badge ${placement.linkType}" type="button" data-action="go-origin" data-origin-task-id="${resolved?.id || placement.targetTaskId}" title="${label} of task in ${escapeHtml(getTaskOriginLabel(resolved?.id || placement.targetTaskId))}" aria-label="${label}; jump to original">${renderIcon(placement.linkType === "alias" ? "link" : "reference")}</button>`;
       }
       const count = resolved ? getLinkCount(resolved.id) : 0;
@@ -3787,6 +4042,7 @@
         ...(boardState.settings && typeof boardState.settings === "object" ? boardState.settings : {}),
       };
       boardState.trash = Array.isArray(boardState.trash) ? boardState.trash : [];
+      boardState.history = Array.isArray(boardState.history) ? boardState.history.slice(-50) : [];
       boardState.groups = Array.isArray(boardState.groups) ? boardState.groups : [];
       boardState.groups.forEach((group, index) => {
         group.id = typeof group.id === "string" && group.id ? group.id : createId("group");
@@ -3932,6 +4188,12 @@
               <span class="group-count">${count}</span>
             </div>
             <div class="group-tools">
+              ${pendingGroupDelete?.groupId === group.id ? `
+                <span class="delete-confirm" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
+                  <span class="delete-confirm-text">Delete ${pendingGroupDelete.nodes.length > 1 ? `${pendingGroupDelete.nodes.length} selected items` : "this group"}?</span>
+                  <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
+                  <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
+                </span>` : ""}
               ${renderPolicyMenu("group", group.id, group.policyOverrides)}
               <input class="color-picker" type="color" value="${palette.color}" data-group-color="${group.id}" aria-label="Change group color">
               <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" aria-label="Add task">${renderIcon("plus")}</button>
@@ -3944,6 +4206,24 @@
           ${group.collapsed ? "" : empty}
         </article>
       `;
+    }
+
+    function renderHistoryList() {
+      if (!historyListEl) return;
+      const showHistory = sidebarTab === "history";
+      historyListEl.hidden = !showHistory;
+      if (navEl) navEl.hidden = showHistory;
+      if (!showHistory) return;
+      const today = localDateString();
+      historyListEl.innerHTML = (state.history || []).slice().reverse().map((entry) => {
+        const at = new Date(Date.parse(entry.at));
+        const label = Number.isFinite(at.getTime())
+          ? (localDateString(at) === today
+            ? formatClockTime(at)
+            : at.toLocaleDateString([], { month: "short", day: "numeric" }))
+          : "";
+        return `<div class="history-row"><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></div>`;
+      }).join("") || '<p class="empty">No changes recorded yet.</p>';
     }
 
     function renderNav() {
@@ -4194,21 +4474,28 @@
 
     function render() {
       const query = searchEl.value.trim().toLowerCase();
-      if (!state.settings.timelineView) activeView = "list";
+      if (!state.settings.timelineView) showTimeline = false;
+      if (!showList && !showTimeline) showList = true;
       document.body?.classList.toggle("app-sidebar-collapsed", Boolean(state.settings.sidebarCollapsed));
       if (viewsTimelineNavEl) viewsTimelineNavEl.hidden = !state.settings.timelineView;
       if (viewToggleEl) {
         viewToggleEl.hidden = !state.settings.timelineView;
-        viewListEl?.classList.toggle("active", activeView === "list");
-        viewTimelineEl?.classList.toggle("active", activeView === "timeline");
+        viewListEl?.classList.toggle("active", showList);
+        viewTimelineEl?.classList.toggle("active", showTimeline);
         if (timelineDateEl) {
-          timelineDateEl.hidden = activeView !== "timeline";
+          timelineDateEl.hidden = !showTimeline;
           timelineDateEl.value = timelineDate;
         }
       }
       if (taskDetailsHostEl) taskDetailsHostEl.innerHTML = renderDetailsPanel();
-      if (activeView === "timeline") {
-        boardEl.innerHTML = renderTimelineSection(timelineDate);
+      if (boardSplitEl) boardSplitEl.classList.toggle("with-timeline", showTimeline && showList);
+      if (timelinePaneEl) {
+        timelinePaneEl.hidden = !showTimeline;
+        timelinePaneEl.innerHTML = showTimeline ? renderTimelineSection(timelineDate) : "";
+      }
+      boardEl.hidden = !showList;
+      renderHistoryList();
+      if (!showList) {
         renderNav();
         lifecycleSignature = getLifecycleSignature();
         return;
@@ -4251,8 +4538,12 @@
     }
 
     function renderFocusChildren(tasks, depth = 0) {
-      if (!tasks.length) return "";
-      const items = tasks.map((item) => {
+      const visible = (tasks || []).filter((item) => {
+        const resolved = resolveTaskItem(item);
+        return (resolved?.text || item.text || "").trim() || (item.children || []).length;
+      });
+      if (!visible.length) return "";
+      const items = visible.map((item) => {
         const resolved = resolveTaskItem(item);
         return `
         <li style="margin-left: ${depth * 18}px">
@@ -4317,7 +4608,23 @@
     }
 
     function renderFocusMode() {
-      if (!focusModeEl || !focusTaskEl || !focusModeTaskId) return;
+      if (!focusModeEl || !focusTaskEl) return;
+      if (focusModeGroupId) {
+        const group = findGroup(focusModeGroupId);
+        if (!group) {
+          exitFocusMode();
+          return;
+        }
+        focusModeEl.hidden = false;
+        focusModeEl.classList.add("group-focus");
+        if (focusTimerEl) focusTimerEl.hidden = true;
+        focusTaskEl.innerHTML = `
+          <div class="focus-mode__text focus-mode__group-title">${escapeHtml(group.title)}</div>
+          <div class="focus-mode__children">${renderFocusChildren(group.tasks) || '<p class="empty">This group is empty.</p>'}</div>
+        `;
+        return;
+      }
+      if (!focusModeTaskId) return;
       const found = findTask(focusModeTaskId);
       if (!found) {
         exitFocusMode();
@@ -4325,6 +4632,8 @@
       }
 
       focusModeEl.hidden = false;
+      focusModeEl.classList.remove("group-focus");
+      if (focusTimerEl) focusTimerEl.hidden = false;
       const item = resolveTaskItem(found.item);
       focusTaskEl.innerHTML = `
         <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${item.id}">${renderInlineMarkdown(item.text)}</div>
@@ -4335,28 +4644,47 @@
 
     function enterFocusMode(taskId = null) {
       const node = taskId ? { kind: "task", id: taskId } : selectedNode;
-      if (!node || node.kind !== "task") return false;
+      if (!node) return false;
+      if (node.kind === "group") return enterGroupFocusMode(node.id);
+      if (node.kind !== "task") return false;
       const found = findTask(node.id);
       if (!found) return false;
       const item = resolveTaskItem(found.item);
       if (focusModeTaskId && focusModeStartedAt) stopFocusTimer();
       focusModeTaskId = item.id;
+      focusModeGroupId = null;
       setSingleSelection(node);
       renderFocusMode();
       startFocusTimer();
       return true;
     }
 
+    function enterGroupFocusMode(groupId) {
+      const group = findGroup(groupId);
+      if (!group) return false;
+      if (focusModeTaskId && focusModeStartedAt) stopFocusTimer();
+      focusModeTaskId = null;
+      focusModeGroupId = group.id;
+      setSingleSelection({ kind: "group", id: group.id });
+      renderFocusMode();
+      return true;
+    }
+
     function exitFocusMode() {
       stopFocusTimer();
       focusModeTaskId = null;
-      if (focusModeEl) focusModeEl.hidden = true;
+      focusModeGroupId = null;
+      if (focusModeEl) {
+        focusModeEl.hidden = true;
+        focusModeEl.classList.remove("group-focus");
+      }
       if (focusTaskEl) focusTaskEl.innerHTML = "";
+      if (focusTimerEl) focusTimerEl.hidden = false;
       renderSelection();
     }
 
     function toggleFocusMode() {
-      if (focusModeTaskId) {
+      if (focusModeTaskId || focusModeGroupId) {
         exitFocusMode();
         return false;
       }
@@ -4384,6 +4712,15 @@
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       if (action === "delete-task") deleteTask(button.dataset.taskId);
+      if (action === "confirm-delete" && pendingGroupDelete) {
+        deleteSelectedNodes(pendingGroupDelete.nodes, { confirmed: true });
+        return;
+      }
+      if (action === "cancel-delete") {
+        pendingGroupDelete = null;
+        render();
+        return;
+      }
       if (action === "restore-completed") restoreCompletedTask(button.dataset.taskId);
       if (action === "restore-trash") restoreTrashRecord(button.dataset.trashId);
       if (action === "purge-trash") purgeTrashRecord(button.dataset.trashId);
@@ -4655,13 +4992,25 @@
 
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
 
+    sidebarTabsEl?.addEventListener("click", (event) => {
+      const tab = event.target.closest("[data-sidebar-tab]");
+      if (!tab) return;
+      sidebarTab = tab.dataset.sidebarTab === "history" ? "history" : "groups";
+      sidebarTabsEl.querySelectorAll("[data-sidebar-tab]").forEach((button) => {
+        const active = button === tab;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      renderHistoryList();
+    });
+
     viewsNavEl?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-view-nav]");
       if (!button) return;
       const target = button.dataset.viewNav;
-      if (target === "board") activeView = "list";
-      if (target === "timeline") activeView = "timeline";
-      if (target === "completed" || target === "trash") activeView = "list";
+      if (target === "board") showList = true;
+      if (target === "timeline") showTimeline = true;
+      if (target === "completed" || target === "trash") showList = true;
       render();
       closeSidebarDrawer();
       if (target === "completed" || target === "trash") {
@@ -4676,11 +5025,11 @@
     });
 
     viewListEl?.addEventListener("click", () => {
-      activeView = "list";
+      showList = !showList;
       render();
     });
     viewTimelineEl?.addEventListener("click", () => {
-      activeView = "timeline";
+      showTimeline = !showTimeline;
       render();
     });
     timelineDateEl?.addEventListener("change", () => {
@@ -4735,7 +5084,7 @@
       if (saved !== null) render();
     });
 
-    boardEl.addEventListener("pointerdown", (event) => {
+    boardSplitEl?.addEventListener("pointerdown", (event) => {
       const block = event.target.closest("[data-timeline-block]");
       if (!block || (event.pointerType === "mouse" && event.button !== 0)) return;
       timelineDrag = {
@@ -4764,7 +5113,7 @@
       }
     });
 
-    boardEl.addEventListener("pointermove", (event) => {
+    boardSplitEl?.addEventListener("pointermove", (event) => {
       if (!timelineDrag || event.pointerId !== timelineDrag.pointerId) return;
       const delta = event.clientY - timelineDrag.startY;
       if (!timelineDrag.armed) {
@@ -4795,10 +5144,19 @@
       render();
     }
 
-    boardEl.addEventListener("pointerup", (event) => finishTimelineDrag(event));
-    boardEl.addEventListener("pointercancel", (event) => finishTimelineDrag(event, true));
+    boardSplitEl?.addEventListener("pointerup", (event) => finishTimelineDrag(event));
+    boardSplitEl?.addEventListener("pointercancel", (event) => finishTimelineDrag(event, true));
 
-    boardEl.addEventListener("keydown", (event) => {
+    boardSplitEl?.addEventListener("keydown", (event) => {
+      const confirmWrap = event.target.closest?.("[data-delete-confirm]");
+      if (confirmWrap && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        event.preventDefault();
+        event.stopPropagation();
+        const buttons = [...confirmWrap.querySelectorAll("button")];
+        const index = Math.max(0, buttons.indexOf(document.activeElement));
+        buttons[(index + (event.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
+        return;
+      }
       const block = event.target.closest?.("[data-timeline-block]");
       if (!block || !event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
       event.preventDefault();
@@ -4810,7 +5168,7 @@
       document.querySelector(`[data-timeline-block="${block.dataset.timelineBlock}"]`)?.focus();
     });
 
-    boardEl.addEventListener("click", (event) => {
+    boardSplitEl?.addEventListener("click", (event) => {
       const unscheduledItem = event.target.closest("[data-timeline-unscheduled]");
       if (unscheduledItem) selectNode("task", unscheduledItem.dataset.timelineUnscheduled);
     });
@@ -4879,9 +5237,27 @@
     });
 
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && focusModeTaskId) {
+      if (event.key === "Escape" && pendingGroupDelete) {
+        event.preventDefault();
+        pendingGroupDelete = null;
+        render();
+        return;
+      }
+      if (event.target.closest?.("[data-delete-confirm]")) return;
+      if (event.key === "Escape" && (focusModeTaskId || focusModeGroupId)) {
         event.preventDefault();
         exitFocusMode();
+        return;
+      }
+
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        const node = focusModeTaskId ? { kind: "task", id: focusModeTaskId } : selectedNode;
+        if (node?.kind === "task") {
+          const found = findTask(node.id);
+          const item = found ? resolveTaskItem(found.item) : null;
+          if (item) setTaskCompleted(node.id, !item.done);
+        }
         return;
       }
 
@@ -5075,6 +5451,15 @@
       renderTaskDetailsPanel,
       renderGroupDetailsPanel,
       renderDetailsPanel,
+      renderFocusChildren,
+      enterGroupFocusMode,
+      toggleFocusMode,
+      describeGlobalCompletionPolicy,
+      logHistory,
+      deleteSelectedNodesConfirmed: (nodes) => deleteSelectedNodes(nodes, { confirmed: true }),
+      get pendingGroupDelete() {
+        return pendingGroupDelete;
+      },
       describeRelativeDate,
       describeRelativeDateTime,
       renderTimelineSection,

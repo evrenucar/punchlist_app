@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Task Board: a day planner that's one HTML file</title>
-  <meta name="description" content="A 182 KB task organizer that runs from a single HTML file. No account, no server, no network requests. Nested outlining, day timeline, focus timing, Markdown export.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23246bfe'/%3E%3Cpath d='M7 12.5l3.2 3.2L17 8.5' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <title>Punchlist: a day planner that's one HTML file</title>
+  <meta name="description" content="Punchlist is a 182 KB task organizer that runs from a single HTML file. No account, no server, no network requests. Nested outlining, day timeline, focus timing, Markdown export.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
   <style>
     :root {
       --bg: #f6f7f2;
@@ -99,18 +99,39 @@
     }
 
     .brand-mark {
+      position: relative;
       display: grid;
       place-items: center;
       width: 32px;
       height: 32px;
       border-radius: 8px;
-      background: var(--accent);
+      background: #191b1a;
       color: #fff;
-      font-weight: 800;
-      font-size: 15px;
+      transform: rotate(-4deg);
     }
 
-    .brand-name { font-weight: 800; }
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      background: var(--g-red);
+    }
+
+    :root[data-theme="dark"] .brand-mark { background: #f1f4ef; color: #191b1a; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) .brand-mark { background: #f1f4ef; color: #191b1a; }
+    }
+
+    .brand-name {
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
 
     .topbar .clock {
       margin-left: auto;
@@ -405,8 +426,10 @@
 <body>
   <div class="topbar">
     <div class="topbar-inner">
-      <div class="brand-mark" aria-hidden="true">S</div>
-      <div class="brand-name">Task Board</div>
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
+      </div>
+      <div class="brand-name">Punchlist</div>
       <div class="clock" data-clock aria-label="Current time">--:--</div>
       <button class="theme-toggle" type="button" data-theme-toggle>Theme</button>
     </div>
@@ -441,7 +464,7 @@
         <div class="demo-head">Backlog <span class="demo-count">2</span></div>
         <div class="demo-rows">
           <div class="demo-row"><span class="demo-check"></span><span>Compare bike insurance quotes</span></div>
-          <div class="demo-row"><span class="demo-check"></span><span>Fix the balcony door hinge</span><span class="demo-chip">alias in Today</span></div>
+          <div class="demo-row"><span class="demo-check"></span><span>Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
         </div>
       </div>
     </div>
@@ -468,7 +491,7 @@
         <div class="tl-row" role="listitem" style="--dot: var(--g-orange)"><span class="tl-time">14:37</span><span class="tl-body"><strong>Build script</strong><small>Three source files inlined into one output file. Node standard library only.</small></span></div>
         <div class="tl-row" role="listitem" style="--dot: var(--g-teal)"><span class="tl-time">14:41</span><span class="tl-body"><strong>Schema v2</strong><small>Immutable task IDs & creation metadata, with migration that keeps existing boards intact.</small></span></div>
         <div class="tl-row" role="listitem" style="--dot: var(--g-teal)"><span class="tl-time">14:46</span><span class="tl-body"><strong>Editor fixes</strong><small>Caret-aware Enter, deterministic Shift+Tab, long-press touch drag that doesn't block scrolling.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-blue)"><span class="tl-time">14:54</span><span class="tl-body"><strong>Markdown & links</strong><small>Clipboard interchange, plus aliases & references: one task, several placements.</small></span></div>
+        <div class="tl-row" role="listitem" style="--dot: var(--g-blue)"><span class="tl-time">14:54</span><span class="tl-body"><strong>Markdown & links</strong><small>Clipboard interchange, plus linked copies & shortcuts: one task, several placements.</small></span></div>
         <div class="tl-row" role="listitem" style="--dot: var(--g-blue)"><span class="tl-time">15:20</span><span class="tl-body"><strong>Lifecycle</strong><small>Completed & Trash views with retention policies. Task overrides beat group overrides beat globals.</small></span></div>
         <div class="tl-row" role="listitem" style="--dot: var(--g-purple)"><span class="tl-time">15:30</span><span class="tl-body"><strong>Day planning</strong><small>Timeline from 06:00 to midnight, drag rescheduling snapped to 15 minutes, focus timing, planned-versus-actual variance.</small></span></div>
         <div class="tl-row" role="listitem" style="--dot: var(--g-purple)"><span class="tl-time">16:00</span><span class="tl-body"><strong>Responsive shell</strong><small>Collapsible sidebar, phone drawer, dark-mode group tints, 44 px touch targets.</small></span></div>
@@ -482,7 +505,7 @@
       <div class="feature-list">
         <div class="feature-row"><span class="demo-check done">✓</span><span><b>Nested outline.</b> Enter splits a task at the caret, Tab indents, Alt+arrows move items, & undo holds your last 40 board actions.</span></div>
         <div class="feature-row"><span class="demo-check done">✓</span><span><b>Markdown clipboard.</b> Ctrl+C turns any selection into clean indented Markdown. Collapsed groups copy in full, children included.</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Aliases & references.</b> Put one task in two places; edit either placement & both update. A reference jumps to the original instead.</span></div>
+        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Linked copies & shortcuts.</b> Put one task in two places; edit either copy & both update. A shortcut jumps to the original instead.</span></div>
         <div class="feature-row"><span class="demo-check done">✓</span><span><b>Completed & Trash.</b> Finished tasks hide on your schedule: immediately, after 7 days, or never. Deletes go to a restorable Trash by default.</span></div>
         <div class="feature-row"><span class="demo-check done">✓</span><span><b>Day timeline.</b> Optional view from 06:00 to midnight with a current-time line & drag rescheduling snapped to 15 minutes.</span></div>
         <div class="feature-row"><span class="demo-check done">✓</span><span><b>Focus mode.</b> One task full-screen with a running timer. Time accumulates per task & reads out against your plan, like "+10m vs plan".</span></div>
@@ -507,7 +530,7 @@
 
   <footer>
     <div class="wrap">
-      <span>Task Board, built July 2026.</span>
+      <span>Punchlist, built July 2026.</span>
       <span>This page makes zero external requests. View source; it's one file too.</span>
     </div>
   </footer>

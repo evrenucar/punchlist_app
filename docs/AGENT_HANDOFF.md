@@ -1,5 +1,7 @@
 # Agent Handoff
 
+The product is branded **Punchlist** (renamed 2026-07-11; file and repo names predate the branding). User-facing copy says "linked copy" for alias placements and "shortcut" for references; the internal schema keeps `alias`/`reference`.
+
 ## Purpose
 
 This project is a personal task organizer optimized for fast capture, nested outlining, daily selection, scheduling, and focus. It is not a team project manager, cloud service, or general knowledge database.

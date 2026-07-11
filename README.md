@@ -1,6 +1,6 @@
-# Scheduling & Task Management
+# Punchlist
 
-A lightweight, local-first task organizer for capturing, structuring, scheduling, and completing work. The distributable app is a single static HTML file that opens directly in a browser; it has no database, required server, runtime dependencies, or account.
+Punchlist is a lightweight, local-first task organizer for capturing, structuring, scheduling, and completing work. The distributable app is a single static HTML file that opens directly in a browser; it has no database, required server, runtime dependencies, or account. (Repository name predates the branding.)
 
 ## Open the app
 

@@ -86,6 +86,10 @@
     const viewTimelineEl = document.querySelector("[data-view-timeline]");
     const timelineDateEl = document.querySelector("[data-timeline-date]");
     const taskDetailsHostEl = document.querySelector("[data-task-details-host]");
+    const boardSplitEl = document.querySelector("[data-board-split]");
+    const timelinePaneEl = document.querySelector("[data-timeline-pane]");
+    const historyListEl = document.querySelector("[data-history-list]");
+    const sidebarTabsEl = document.querySelector("[data-sidebar-tabs]");
     const toastEl = document.querySelector("[data-toast]");
     const focusModeEl = document.querySelector("[data-focus-mode]");
     const focusButtonEl = document.querySelector("[data-focus-button]");
@@ -110,7 +114,11 @@
     let internalClipboard = null;
     let lifecycleSignature = "";
     let announcedReminders = new Set();
-    let activeView = "list";
+    let pendingGroupDelete = null;
+    let focusModeGroupId = null;
+    let showList = true;
+    let showTimeline = false;
+    let sidebarTab = "groups";
     let timelineDate = localDateString();
     let timelineDrag = null;
     let toastTimer = null;
@@ -458,7 +466,31 @@
       reader.readAsText(file);
     }
 
-    function pushUndoState(action = "board") {
+    const HISTORY_LABELS = {
+      board: "Changed the board",
+      delete: "Deleted items",
+      complete: "Toggled a task",
+      move: "Moved items",
+      split: "Edited the outline",
+      restore: "Restored items",
+      link: "Pasted linked items",
+      color: "Changed a group color",
+      paste: "Pasted tasks",
+    };
+
+    function shortText(value, max = 34) {
+      const text = String(value || "").trim();
+      return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+    }
+
+    function logHistory(text) {
+      if (!Array.isArray(state.history)) state.history = [];
+      state.history.push({ at: new Date().toISOString(), text: String(text) });
+      if (state.history.length > 50) state.history.shift();
+    }
+
+    function pushUndoState(action = "board", detail = null) {
+      logHistory(detail || HISTORY_LABELS[action] || "Changed the board");
       undoStack.push(JSON.stringify(state));
       undoActions.push(action);
       if (undoStack.length > 40) {
@@ -719,8 +751,9 @@
     function resolvePasteMode() {
       if (internalClipboard?.mode === "cut") return "move";
       if (state.settings.pasteMode !== "ask") return state.settings.pasteMode;
-      const answer = window.prompt?.("Paste as alias, reference, or duplicate?", "alias")?.toLowerCase();
-      return ["alias", "reference", "duplicate"].includes(answer) ? answer : "alias";
+      const answer = window.prompt?.("Paste as: linked (stays in sync), shortcut (jumps to original), or duplicate?", "linked")?.toLowerCase();
+      const modes = { linked: "alias", alias: "alias", shortcut: "reference", reference: "reference", duplicate: "duplicate" };
+      return modes[answer] || "alias";
     }
 
     function pasteExternalMarkdown(markdown, targetNode = selectedNode) {
@@ -927,7 +960,7 @@
       const item = resolveTaskItem(found.item);
       const nextDone = Boolean(done);
       if (item.done === nextDone && (nextDone ? Boolean(item.completedAt) : !item.completedAt)) return false;
-      if (options.pushUndo !== false) pushUndoState("complete");
+      if (options.pushUndo !== false) pushUndoState("complete", `${nextDone ? "Completed" : "Reopened"} "${shortText(item.text)}"`);
       item.done = nextDone;
       item.completedAt = nextDone ? now : null;
       if (options.save !== false) saveState();
@@ -945,7 +978,7 @@
       const resolved = resolveTaskItem(found.item);
       const deleteMode = options.deleteMode || resolveLifecyclePolicy(found.item, found.group, "deleteMode") || "trash";
       const retention = resolveLifecyclePolicy(found.item, found.group, "trashRetentionSeconds");
-      if (options.pushUndo !== false) pushUndoState("delete");
+      if (options.pushUndo !== false) pushUndoState("delete", `Deleted "${shortText(resolved?.text || found.item.text)}"`);
       const source = {
         groupId: found.group?.id || null,
         parentId: found.parent?.id || null,
@@ -1308,10 +1341,20 @@
       render();
     }
 
-    function deleteSelectedNodes() {
-      const nodes = getSelectedNodes();
+    function deleteSelectedNodes(nodes = getSelectedNodes(), options = {}) {
       if (!nodes.length) return;
-      pushUndoState("delete");
+      const groupsToDelete = nodes.filter((node) => node.kind === "group");
+      if (groupsToDelete.length && !options.confirmed) {
+        pendingGroupDelete = { nodes: nodes.map((node) => ({ ...node })), groupId: groupsToDelete[0].id };
+        render();
+        document.querySelector('[data-action="confirm-delete"]')?.focus();
+        return;
+      }
+      pendingGroupDelete = null;
+      const firstGroup = groupsToDelete.length ? findGroup(groupsToDelete[0].id) : null;
+      pushUndoState("delete", nodes.length === 1 && firstGroup
+        ? `Deleted group "${shortText(firstGroup.title)}"`
+        : `Deleted ${nodes.length} item${nodes.length === 1 ? "" : "s"}`);
       const visibleBeforeDelete = getVisibleNodes();
       const deletedKeys = collectDeletedNodeKeys(nodes);
 
@@ -1787,6 +1830,9 @@
       if (taskDetailsHostEl && !taskDetailsHostEl.contains(document.activeElement)) {
         taskDetailsHostEl.innerHTML = renderDetailsPanel();
       }
+      if (timelinePaneEl && !timelinePaneEl.hidden && !timelineDrag) {
+        timelinePaneEl.innerHTML = renderTimelineSection(timelineDate);
+      }
 
       const row = getNodeRow(selectedNode);
       if (row) {
@@ -1993,6 +2039,16 @@
       range.deleteContents();
       const lineBreak = document.createTextNode("\n");
       range.insertNode(lineBreak);
+      let hasContentAfter = false;
+      for (let node = lineBreak.nextSibling; node; node = node.nextSibling) {
+        if ((node.textContent || "").length || node.tagName === "BR") {
+          hasContentAfter = true;
+          break;
+        }
+      }
+      if (!hasContentAfter) {
+        lineBreak.parentNode.insertBefore(document.createElement("br"), lineBreak.nextSibling);
+      }
       range.setStartAfter(lineBreak);
       range.collapse(true);
       selection.removeAllRanges();
@@ -2070,6 +2126,14 @@
       return icons[name] || "";
     }
 
+    function describeGlobalCompletionPolicy() {
+      const retention = state.settings.completionRetentionSeconds;
+      if (retention === null) return "keep visible";
+      if (Number(retention) === 0) return "hide right away";
+      const parts = secondsToDurationParts(retention);
+      return `hide after ${parts.value} ${parts.value === 1 ? parts.unit.replace(/s$/, "") : parts.unit}`;
+    }
+
     function renderPolicyMenu(kind, id, overrides) {
       if (!state.settings.policyOverrides) return "";
       const active = overrides && typeof overrides === "object" ? overrides : {};
@@ -2078,13 +2142,14 @@
         : "default";
       const deleteMode = hasOwn(active, "deleteMode") ? active.deleteMode : "default";
       const hasOverride = completion !== "default" || deleteMode !== "default";
+      const globalDelete = state.settings.deleteMode === "permanent" ? "delete permanently" : "to Trash";
       return `
         <details class="policy-menu">
           <summary class="icon-button ${hasOverride ? "has-override" : ""}" title="Lifecycle overrides for this ${kind}" aria-label="Lifecycle overrides for this ${kind}">${renderIcon("sliders")}</summary>
           <div class="policy-panel">
             <label>Completed
               <select data-policy-completion data-policy-kind="${kind}" data-policy-id="${id}" aria-label="Completed visibility override">
-                <option value="default"${completion === "default" ? " selected" : ""}>Use global</option>
+                <option value="default"${completion === "default" ? " selected" : ""}>Use global (${describeGlobalCompletionPolicy()})</option>
                 <option value="never"${completion === "never" ? " selected" : ""}>Keep visible</option>
                 <option value="immediate"${completion === "immediate" ? " selected" : ""}>Hide right away</option>
                 ${completion === "custom" ? '<option value="custom" selected>Custom duration</option>' : ""}
@@ -2092,7 +2157,7 @@
             </label>
             <label>Delete
               <select data-policy-delete data-policy-kind="${kind}" data-policy-id="${id}" aria-label="Delete policy override">
-                <option value="default"${deleteMode === "default" ? " selected" : ""}>Use global</option>
+                <option value="default"${deleteMode === "default" ? " selected" : ""}>Use global (${globalDelete})</option>
                 <option value="trash"${deleteMode === "trash" ? " selected" : ""}>To Trash</option>
                 <option value="permanent"${deleteMode === "permanent" ? " selected" : ""}>Permanent</option>
               </select>
@@ -2109,7 +2174,7 @@
 
     function renderTaskLinkBadge(placement, resolved) {
       if (placement.linkType) {
-        const label = placement.linkType === "alias" ? "Alias" : "Reference";
+        const label = placement.linkType === "alias" ? "Linked copy" : "Shortcut";
         return `<button class="placement-badge ${placement.linkType}" type="button" data-action="go-origin" data-origin-task-id="${resolved?.id || placement.targetTaskId}" title="${label} of task in ${escapeHtml(getTaskOriginLabel(resolved?.id || placement.targetTaskId))}" aria-label="${label}; jump to original">${renderIcon(placement.linkType === "alias" ? "link" : "reference")}</button>`;
       }
       const count = resolved ? getLinkCount(resolved.id) : 0;
@@ -2182,6 +2247,7 @@
         ...(boardState.settings && typeof boardState.settings === "object" ? boardState.settings : {}),
       };
       boardState.trash = Array.isArray(boardState.trash) ? boardState.trash : [];
+      boardState.history = Array.isArray(boardState.history) ? boardState.history.slice(-50) : [];
       boardState.groups = Array.isArray(boardState.groups) ? boardState.groups : [];
       boardState.groups.forEach((group, index) => {
         group.id = typeof group.id === "string" && group.id ? group.id : createId("group");
@@ -2327,6 +2393,12 @@
               <span class="group-count">${count}</span>
             </div>
             <div class="group-tools">
+              ${pendingGroupDelete?.groupId === group.id ? `
+                <span class="delete-confirm" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
+                  <span class="delete-confirm-text">Delete ${pendingGroupDelete.nodes.length > 1 ? `${pendingGroupDelete.nodes.length} selected items` : "this group"}?</span>
+                  <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
+                  <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
+                </span>` : ""}
               ${renderPolicyMenu("group", group.id, group.policyOverrides)}
               <input class="color-picker" type="color" value="${palette.color}" data-group-color="${group.id}" aria-label="Change group color">
               <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" aria-label="Add task">${renderIcon("plus")}</button>
@@ -2339,6 +2411,24 @@
           ${group.collapsed ? "" : empty}
         </article>
       `;
+    }
+
+    function renderHistoryList() {
+      if (!historyListEl) return;
+      const showHistory = sidebarTab === "history";
+      historyListEl.hidden = !showHistory;
+      if (navEl) navEl.hidden = showHistory;
+      if (!showHistory) return;
+      const today = localDateString();
+      historyListEl.innerHTML = (state.history || []).slice().reverse().map((entry) => {
+        const at = new Date(Date.parse(entry.at));
+        const label = Number.isFinite(at.getTime())
+          ? (localDateString(at) === today
+            ? formatClockTime(at)
+            : at.toLocaleDateString([], { month: "short", day: "numeric" }))
+          : "";
+        return `<div class="history-row"><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></div>`;
+      }).join("") || '<p class="empty">No changes recorded yet.</p>';
     }
 
     function renderNav() {
@@ -2589,21 +2679,28 @@
 
     function render() {
       const query = searchEl.value.trim().toLowerCase();
-      if (!state.settings.timelineView) activeView = "list";
+      if (!state.settings.timelineView) showTimeline = false;
+      if (!showList && !showTimeline) showList = true;
       document.body?.classList.toggle("app-sidebar-collapsed", Boolean(state.settings.sidebarCollapsed));
       if (viewsTimelineNavEl) viewsTimelineNavEl.hidden = !state.settings.timelineView;
       if (viewToggleEl) {
         viewToggleEl.hidden = !state.settings.timelineView;
-        viewListEl?.classList.toggle("active", activeView === "list");
-        viewTimelineEl?.classList.toggle("active", activeView === "timeline");
+        viewListEl?.classList.toggle("active", showList);
+        viewTimelineEl?.classList.toggle("active", showTimeline);
         if (timelineDateEl) {
-          timelineDateEl.hidden = activeView !== "timeline";
+          timelineDateEl.hidden = !showTimeline;
           timelineDateEl.value = timelineDate;
         }
       }
       if (taskDetailsHostEl) taskDetailsHostEl.innerHTML = renderDetailsPanel();
-      if (activeView === "timeline") {
-        boardEl.innerHTML = renderTimelineSection(timelineDate);
+      if (boardSplitEl) boardSplitEl.classList.toggle("with-timeline", showTimeline && showList);
+      if (timelinePaneEl) {
+        timelinePaneEl.hidden = !showTimeline;
+        timelinePaneEl.innerHTML = showTimeline ? renderTimelineSection(timelineDate) : "";
+      }
+      boardEl.hidden = !showList;
+      renderHistoryList();
+      if (!showList) {
         renderNav();
         lifecycleSignature = getLifecycleSignature();
         return;
@@ -2646,8 +2743,12 @@
     }
 
     function renderFocusChildren(tasks, depth = 0) {
-      if (!tasks.length) return "";
-      const items = tasks.map((item) => {
+      const visible = (tasks || []).filter((item) => {
+        const resolved = resolveTaskItem(item);
+        return (resolved?.text || item.text || "").trim() || (item.children || []).length;
+      });
+      if (!visible.length) return "";
+      const items = visible.map((item) => {
         const resolved = resolveTaskItem(item);
         return `
         <li style="margin-left: ${depth * 18}px">
@@ -2712,7 +2813,23 @@
     }
 
     function renderFocusMode() {
-      if (!focusModeEl || !focusTaskEl || !focusModeTaskId) return;
+      if (!focusModeEl || !focusTaskEl) return;
+      if (focusModeGroupId) {
+        const group = findGroup(focusModeGroupId);
+        if (!group) {
+          exitFocusMode();
+          return;
+        }
+        focusModeEl.hidden = false;
+        focusModeEl.classList.add("group-focus");
+        if (focusTimerEl) focusTimerEl.hidden = true;
+        focusTaskEl.innerHTML = `
+          <div class="focus-mode__text focus-mode__group-title">${escapeHtml(group.title)}</div>
+          <div class="focus-mode__children">${renderFocusChildren(group.tasks) || '<p class="empty">This group is empty.</p>'}</div>
+        `;
+        return;
+      }
+      if (!focusModeTaskId) return;
       const found = findTask(focusModeTaskId);
       if (!found) {
         exitFocusMode();
@@ -2720,6 +2837,8 @@
       }
 
       focusModeEl.hidden = false;
+      focusModeEl.classList.remove("group-focus");
+      if (focusTimerEl) focusTimerEl.hidden = false;
       const item = resolveTaskItem(found.item);
       focusTaskEl.innerHTML = `
         <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${item.id}">${renderInlineMarkdown(item.text)}</div>
@@ -2730,28 +2849,47 @@
 
     function enterFocusMode(taskId = null) {
       const node = taskId ? { kind: "task", id: taskId } : selectedNode;
-      if (!node || node.kind !== "task") return false;
+      if (!node) return false;
+      if (node.kind === "group") return enterGroupFocusMode(node.id);
+      if (node.kind !== "task") return false;
       const found = findTask(node.id);
       if (!found) return false;
       const item = resolveTaskItem(found.item);
       if (focusModeTaskId && focusModeStartedAt) stopFocusTimer();
       focusModeTaskId = item.id;
+      focusModeGroupId = null;
       setSingleSelection(node);
       renderFocusMode();
       startFocusTimer();
       return true;
     }
 
+    function enterGroupFocusMode(groupId) {
+      const group = findGroup(groupId);
+      if (!group) return false;
+      if (focusModeTaskId && focusModeStartedAt) stopFocusTimer();
+      focusModeTaskId = null;
+      focusModeGroupId = group.id;
+      setSingleSelection({ kind: "group", id: group.id });
+      renderFocusMode();
+      return true;
+    }
+
     function exitFocusMode() {
       stopFocusTimer();
       focusModeTaskId = null;
-      if (focusModeEl) focusModeEl.hidden = true;
+      focusModeGroupId = null;
+      if (focusModeEl) {
+        focusModeEl.hidden = true;
+        focusModeEl.classList.remove("group-focus");
+      }
       if (focusTaskEl) focusTaskEl.innerHTML = "";
+      if (focusTimerEl) focusTimerEl.hidden = false;
       renderSelection();
     }
 
     function toggleFocusMode() {
-      if (focusModeTaskId) {
+      if (focusModeTaskId || focusModeGroupId) {
         exitFocusMode();
         return false;
       }
@@ -2779,6 +2917,15 @@
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       if (action === "delete-task") deleteTask(button.dataset.taskId);
+      if (action === "confirm-delete" && pendingGroupDelete) {
+        deleteSelectedNodes(pendingGroupDelete.nodes, { confirmed: true });
+        return;
+      }
+      if (action === "cancel-delete") {
+        pendingGroupDelete = null;
+        render();
+        return;
+      }
       if (action === "restore-completed") restoreCompletedTask(button.dataset.taskId);
       if (action === "restore-trash") restoreTrashRecord(button.dataset.trashId);
       if (action === "purge-trash") purgeTrashRecord(button.dataset.trashId);
@@ -3050,13 +3197,25 @@
 
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
 
+    sidebarTabsEl?.addEventListener("click", (event) => {
+      const tab = event.target.closest("[data-sidebar-tab]");
+      if (!tab) return;
+      sidebarTab = tab.dataset.sidebarTab === "history" ? "history" : "groups";
+      sidebarTabsEl.querySelectorAll("[data-sidebar-tab]").forEach((button) => {
+        const active = button === tab;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      renderHistoryList();
+    });
+
     viewsNavEl?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-view-nav]");
       if (!button) return;
       const target = button.dataset.viewNav;
-      if (target === "board") activeView = "list";
-      if (target === "timeline") activeView = "timeline";
-      if (target === "completed" || target === "trash") activeView = "list";
+      if (target === "board") showList = true;
+      if (target === "timeline") showTimeline = true;
+      if (target === "completed" || target === "trash") showList = true;
       render();
       closeSidebarDrawer();
       if (target === "completed" || target === "trash") {
@@ -3071,11 +3230,11 @@
     });
 
     viewListEl?.addEventListener("click", () => {
-      activeView = "list";
+      showList = !showList;
       render();
     });
     viewTimelineEl?.addEventListener("click", () => {
-      activeView = "timeline";
+      showTimeline = !showTimeline;
       render();
     });
     timelineDateEl?.addEventListener("change", () => {
@@ -3130,7 +3289,7 @@
       if (saved !== null) render();
     });
 
-    boardEl.addEventListener("pointerdown", (event) => {
+    boardSplitEl?.addEventListener("pointerdown", (event) => {
       const block = event.target.closest("[data-timeline-block]");
       if (!block || (event.pointerType === "mouse" && event.button !== 0)) return;
       timelineDrag = {
@@ -3159,7 +3318,7 @@
       }
     });
 
-    boardEl.addEventListener("pointermove", (event) => {
+    boardSplitEl?.addEventListener("pointermove", (event) => {
       if (!timelineDrag || event.pointerId !== timelineDrag.pointerId) return;
       const delta = event.clientY - timelineDrag.startY;
       if (!timelineDrag.armed) {
@@ -3190,10 +3349,19 @@
       render();
     }
 
-    boardEl.addEventListener("pointerup", (event) => finishTimelineDrag(event));
-    boardEl.addEventListener("pointercancel", (event) => finishTimelineDrag(event, true));
+    boardSplitEl?.addEventListener("pointerup", (event) => finishTimelineDrag(event));
+    boardSplitEl?.addEventListener("pointercancel", (event) => finishTimelineDrag(event, true));
 
-    boardEl.addEventListener("keydown", (event) => {
+    boardSplitEl?.addEventListener("keydown", (event) => {
+      const confirmWrap = event.target.closest?.("[data-delete-confirm]");
+      if (confirmWrap && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+        event.preventDefault();
+        event.stopPropagation();
+        const buttons = [...confirmWrap.querySelectorAll("button")];
+        const index = Math.max(0, buttons.indexOf(document.activeElement));
+        buttons[(index + (event.key === "ArrowRight" ? 1 : buttons.length - 1)) % buttons.length]?.focus();
+        return;
+      }
       const block = event.target.closest?.("[data-timeline-block]");
       if (!block || !event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
       event.preventDefault();
@@ -3205,7 +3373,7 @@
       document.querySelector(`[data-timeline-block="${block.dataset.timelineBlock}"]`)?.focus();
     });
 
-    boardEl.addEventListener("click", (event) => {
+    boardSplitEl?.addEventListener("click", (event) => {
       const unscheduledItem = event.target.closest("[data-timeline-unscheduled]");
       if (unscheduledItem) selectNode("task", unscheduledItem.dataset.timelineUnscheduled);
     });
@@ -3274,9 +3442,27 @@
     });
 
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && focusModeTaskId) {
+      if (event.key === "Escape" && pendingGroupDelete) {
+        event.preventDefault();
+        pendingGroupDelete = null;
+        render();
+        return;
+      }
+      if (event.target.closest?.("[data-delete-confirm]")) return;
+      if (event.key === "Escape" && (focusModeTaskId || focusModeGroupId)) {
         event.preventDefault();
         exitFocusMode();
+        return;
+      }
+
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        const node = focusModeTaskId ? { kind: "task", id: focusModeTaskId } : selectedNode;
+        if (node?.kind === "task") {
+          const found = findTask(node.id);
+          const item = found ? resolveTaskItem(found.item) : null;
+          if (item) setTaskCompleted(node.id, !item.done);
+        }
         return;
       }
 
@@ -3470,6 +3656,15 @@
       renderTaskDetailsPanel,
       renderGroupDetailsPanel,
       renderDetailsPanel,
+      renderFocusChildren,
+      enterGroupFocusMode,
+      toggleFocusMode,
+      describeGlobalCompletionPolicy,
+      logHistory,
+      deleteSelectedNodesConfirmed: (nodes) => deleteSelectedNodes(nodes, { confirmed: true }),
+      get pendingGroupDelete() {
+        return pendingGroupDelete;
+      },
       describeRelativeDate,
       describeRelativeDateTime,
       renderTimelineSection,
