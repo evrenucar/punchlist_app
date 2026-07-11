@@ -1232,9 +1232,9 @@ test("focus mode advertises Shift F and left controls have hover explanations", 
 
   for (const hook of [
     "Shift+F",
-    "title=\"Create a new top-level group\"",
-    "title=\"Expand every group and task\"",
-    "title=\"Collapse every group and task\"",
+    "title=\"Create a new top-level group (Alt+A)\"",
+    "title=\"Expand every group and task (Ctrl+Shift+Down)\"",
+    "title=\"Collapse every group and task (Ctrl+Shift+Up)\"",
     "title=\"Open focus mode for the selected task (Shift+F)\"",
     "title=\"Download this board as a JSON backup\"",
     "title=\"Load a board from a JSON backup\"",

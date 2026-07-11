@@ -21,15 +21,15 @@
       </div>
 
       <div class="toolbar">
-        <button class="control primary" type="button" data-action="add-group" title="Create a new top-level group">
+        <button class="control primary" type="button" data-action="add-group" title="Create a new top-level group (Alt+A)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           Add group
         </button>
-        <button class="control" type="button" data-action="expand-all" title="Expand every group and task">
+        <button class="control" type="button" data-action="expand-all" title="Expand every group and task (Ctrl+Shift+Down)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
           Expand all
         </button>
-        <button class="control" type="button" data-action="collapse-all" title="Collapse every group and task">
+        <button class="control" type="button" data-action="collapse-all" title="Collapse every group and task (Ctrl+Shift+Up)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m17 14-5-5-5 5"/></svg>
           Collapse all
         </button>
@@ -48,6 +48,7 @@
         <input type="file" accept="application/json,.json" data-import-file hidden>
         <details class="settings-menu" data-settings-menu>
           <summary class="control" title="Open board settings">
+            <span class="disclosure-arrow" aria-hidden="true"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.4 7A2 2 0 1 1 7.2 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 20 7.2l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.8.8Z"/></svg>
             Settings
           </summary>
@@ -142,6 +143,14 @@
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
             </label>
+            <label class="settings-row" title="Shown in settings files you export">
+              Username
+              <input type="text" data-username placeholder="your name" maxlength="40">
+            </label>
+            <button class="control" type="button" data-export-settings title="Download just your settings as a small JSON file you can share">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export settings
+            </button>
             <button class="control danger" type="button" data-action="reset" title="Replace the current board with the built-in example board">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
               Restore example board
@@ -150,11 +159,13 @@
         </details>
         <details class="settings-menu" data-help>
           <summary class="control" title="How this board works">
+            <span class="disclosure-arrow" aria-hidden="true"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.2 9a2.8 2.8 0 0 1 5.5.9c0 1.8-2.7 2.3-2.7 3.6M12 17h.01"/></svg>
             Help
           </summary>
           <div class="settings-panel help-panel">
             <p><strong>Basics.</strong> Enter adds a task, Tab and Shift+Tab indent or outdent, arrows browse, Alt+arrows move items, Ctrl+Up/Down collapses or expands, Ctrl+Enter marks the selected task done, Shift+F opens focus mode (works on groups too).</p>
+            <p><strong>Board shortcuts.</strong> Alt+A adds a group. Ctrl+Shift+Down expands everything; Ctrl+Shift+Up collapses everything. ArrowLeft jumps to the sidebar, ArrowUp from the top task reaches search.</p>
             <p><strong>Clipboard.</strong> Ctrl+C copies selected tasks as clean Markdown. Pasting inside the board places a linked copy by default; change this in Settings. Ctrl+X then paste moves tasks. Pasting Markdown from outside creates new tasks.</p>
             <p><strong>Linked copies.</strong> A linked copy is one task shown in two places: edit or complete either one and both update. A shortcut is a small pointer that jumps to the original instead.</p>
             <p><strong>Your data.</strong> Everything stays in this browser. Use Export JSON for a lossless backup and Import JSON to load it elsewhere.</p>
@@ -174,6 +185,7 @@
 
       <details class="history-menu" data-history-menu>
         <summary class="control" title="Recent changes on this board">
+          <span class="disclosure-arrow" aria-hidden="true"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
           History
         </summary>
@@ -202,7 +214,7 @@
             <input type="date" data-timeline-date aria-label="Timeline day" hidden>
           </div>
           <div class="clock" data-clock aria-label="Current time">--:--</div>
-          <input class="search" type="search" placeholder="Filter tasks" aria-label="Filter tasks" data-search>
+          <input class="search" type="search" placeholder="Search" aria-label="Search tasks" data-search>
         </div>
       </div>
 
@@ -215,6 +227,10 @@
   </div>
 
   <div class="toast" data-toast role="status" hidden></div>
+
+  <div class="lightbox" data-lightbox hidden>
+    <img data-lightbox-img alt="Enlarged task image" draggable="false">
+  </div>
 
   <section class="focus-mode" data-focus-mode hidden>
     <div class="focus-mode__bar">

@@ -1,4 +1,4 @@
-﻿    :root {
+    :root {
       color-scheme: light;
       --bg: #f6f7f2;
       --surface: #ffffff;
@@ -236,6 +236,18 @@
       color: var(--text);
       font-size: 13px;
       font-weight: 700;
+    }
+
+    .settings-row input[type="text"] {
+      flex: 0 1 auto;
+      min-width: 0;
+      max-width: 150px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text);
+      padding: 4px 6px;
+      font-size: 13px;
     }
 
     .settings-row select,
@@ -619,6 +631,17 @@
 
     .group-header.selected {
       box-shadow: inset 0 0 0 2px var(--group-color, var(--accent));
+      outline: 2px solid color-mix(in srgb, var(--text) 72%, transparent);
+      outline-offset: 1px;
+    }
+
+    .sidebar:focus-within ~ main .task-row.selected,
+    .sidebar:focus-within ~ main .group-header.selected,
+    .sidebar:focus-within ~ main .lifecycle-section summary.selected {
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+      outline: 0 !important;
     }
 
     .group-heading {
@@ -791,6 +814,27 @@
       border-color: var(--done);
       background: var(--done);
       color: #ffffff;
+    }
+
+    .checkbox.done svg {
+      stroke: #ffffff;
+      stroke-width: 3.4;
+      width: 15px;
+      height: 15px;
+    }
+
+    .views-nav button.active {
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+
+    .task-row.vanishing {
+      overflow: hidden;
+      opacity: 0;
+      transform: translateX(28px);
+      transition: opacity 240ms ease, transform 240ms ease, max-height 240ms ease, padding 240ms ease;
+      padding-top: 0;
+      padding-bottom: 0;
     }
 
     .task-text {
@@ -1129,6 +1173,21 @@
       display: none;
     }
 
+    .disclosure-arrow {
+      flex: 0 0 auto;
+      width: 0;
+      height: 0;
+      border-left: 5px solid currentColor;
+      border-top: 4.5px solid transparent;
+      border-bottom: 4.5px solid transparent;
+      transition: transform 140ms ease;
+    }
+
+    details[open] > summary > .disclosure-arrow,
+    details[open] > summary .disclosure-arrow {
+      transform: rotate(90deg);
+    }
+
     .history-menu {
       display: grid;
       gap: 8px;
@@ -1159,12 +1218,20 @@
 
     .history-row > summary {
       display: grid;
-      grid-template-columns: 44px minmax(0, 1fr);
-      gap: 8px;
+      grid-template-columns: 10px 44px minmax(0, 1fr);
+      align-items: center;
+      gap: 6px;
       cursor: pointer;
       list-style: none;
       border-radius: 6px;
       padding: 5px 6px;
+    }
+
+    .history-row .disclosure-arrow {
+      border-left-width: 4px;
+      border-top-width: 3.5px;
+      border-bottom-width: 3.5px;
+      color: var(--muted);
     }
 
     .history-row > summary::-webkit-details-marker {
@@ -1258,6 +1325,78 @@
 
     .task-image:hover .image-remove {
       opacity: 1;
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 90;
+      display: grid;
+      place-items: center;
+      background: rgba(8, 10, 9, 0.86);
+      overflow: hidden;
+    }
+
+    .lightbox[hidden] {
+      display: none;
+    }
+
+    .lightbox img {
+      max-width: 92vw;
+      max-height: 92vh;
+      border-radius: 8px;
+      cursor: grab;
+      transition: none;
+    }
+
+    .lightbox img:active {
+      cursor: grabbing;
+    }
+
+    .focus-outline {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .focus-outline li {
+      display: block;
+      padding: 3px 0;
+    }
+
+    .focus-child-check {
+      display: inline-grid;
+      place-items: center;
+      vertical-align: middle;
+      width: 17px;
+      height: 17px;
+      margin-right: 8px;
+      border: 1.5px solid var(--line-strong);
+      border-radius: 5px;
+      background: var(--surface);
+      color: transparent;
+      padding: 0;
+    }
+
+    .focus-child-check svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    .focus-child-check.done {
+      border-color: var(--done);
+      background: var(--done);
+      color: #ffffff;
+    }
+
+    .focus-child-check.done svg {
+      stroke: #ffffff;
+      stroke-width: 3.4;
+    }
+
+    .focus-child-done > .focus-child-text {
+      color: var(--muted);
+      text-decoration: line-through;
     }
 
     .focus-child-text {

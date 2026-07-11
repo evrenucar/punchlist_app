@@ -18,6 +18,7 @@
       exportTrash: false,
       sidebarCollapsed: false,
       sidebarWidth: 280,
+      username: "",
     });
     const AUTO_SCROLL_EDGE_PX = 96;
     const MAX_AUTO_SCROLL_SPEED = 18;
@@ -92,6 +93,10 @@
     const timelinePaneEl = document.querySelector("[data-timeline-pane]");
     const historyListEl = document.querySelector("[data-history-list]");
     const historyMenuEl = document.querySelector("[data-history-menu]");
+    const usernameEl = document.querySelector("[data-username]");
+    const exportSettingsEl = document.querySelector("[data-export-settings]");
+    const lightboxEl = document.querySelector("[data-lightbox]");
+    const lightboxImgEl = document.querySelector("[data-lightbox-img]");
     const toastEl = document.querySelector("[data-toast]");
     const focusModeEl = document.querySelector("[data-focus-mode]");
     const focusButtonEl = document.querySelector("[data-focus-button]");
@@ -406,6 +411,7 @@
       }));
       return JSON.parse(JSON.stringify({
         ...state,
+        settings: undefined,
         groups,
         trash: state.settings.exportTrash ? state.trash : [],
       }));
@@ -428,13 +434,25 @@
 
     function importBoardStateFromJson(jsonText) {
       const payload = JSON.parse(jsonText);
+      if (payload?.kind === "punchlist-settings" && payload.settings && typeof payload.settings === "object") {
+        pushUndoState("board", `Imported settings${payload.exportedBy ? ` from ${payload.exportedBy}` : ""}`);
+        state.settings = { ...DEFAULT_SETTINGS, ...payload.settings };
+        saveState();
+        syncSettingsControls();
+        applySidebarWidth();
+        render();
+        showToast("Settings imported.");
+        return true;
+      }
       const importedState = payload?.state || payload;
       if (!importedState || !Array.isArray(importedState.groups)) {
         throw new Error("Imported file must contain a state.groups array.");
       }
       if (focusModeTaskId) exitFocusMode();
       pushUndoState("board", "Imported a board from JSON");
+      const currentSettings = state.settings;
       state = migrateState(importedState, new Date().toISOString(), { includeResearch: false });
+      state.settings = { ...DEFAULT_SETTINGS, ...currentSettings };
       selectedNode = getVisibleNodes()[0] || null;
       multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
       selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
@@ -443,16 +461,32 @@
       return true;
     }
 
-    function downloadBoardState() {
-      const blob = new Blob([serializeBoardState()], { type: "application/json" });
+    function downloadJsonFile(filename, text) {
+      const blob = new Blob([text], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `task-board-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+    }
+
+    function downloadBoardState() {
+      downloadJsonFile(`punchlist-board-${new Date().toISOString().slice(0, 10)}.json`, serializeBoardState());
+    }
+
+    function downloadSettingsExport() {
+      const name = String(state.settings.username || "").trim();
+      const payload = {
+        kind: "punchlist-settings",
+        exportedBy: name || null,
+        exportedAt: new Date().toISOString(),
+        settings: { ...state.settings },
+      };
+      const slug = name ? `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-` : "";
+      downloadJsonFile(`punchlist-settings-${slug}${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2));
     }
 
     function handleImportFile(file) {
@@ -958,6 +992,26 @@
       return Number.isFinite(completedAt) && now >= completedAt + seconds * 1000;
     }
 
+    function animateRowsAway(taskIds, done) {
+      const rows = taskIds
+        .map((id) => document.querySelector(`[data-task-row="${id}"]`))
+        .filter(Boolean);
+      if (!rows.length || typeof window.setTimeout !== "function") {
+        done();
+        return;
+      }
+      rows.forEach((row) => {
+        row.style.maxHeight = `${row.offsetHeight}px`;
+        row.classList.add("vanishing");
+        const shrink = () => {
+          row.style.maxHeight = "0px";
+        };
+        if (typeof window.requestAnimationFrame === "function") window.requestAnimationFrame(shrink);
+        else shrink();
+      });
+      window.setTimeout(done, 250);
+    }
+
     function setTaskCompleted(id, done, now = new Date().toISOString(), options = {}) {
       const found = findTask(id);
       if (!found) return false;
@@ -968,7 +1022,13 @@
       item.done = nextDone;
       item.completedAt = nextDone ? now : null;
       if (options.save !== false) saveState();
-      if (options.render !== false) render();
+      if (options.render !== false) {
+        if (nextDone && isTaskHiddenFromActive(found.item, found.group)) {
+          animateRowsAway([found.item.id], render);
+        } else {
+          render();
+        }
+      }
       return true;
     }
 
@@ -1346,9 +1406,13 @@
       }
       pendingGroupDelete = null;
       const firstGroup = groupsToDelete.length ? findGroup(groupsToDelete[0].id) : null;
-      pushUndoState("delete", nodes.length === 1 && firstGroup
-        ? `Deleted group "${shortText(firstGroup.title)}"`
-        : `Deleted ${nodes.length} item${nodes.length === 1 ? "" : "s"}`);
+      let deleteLabel = `Deleted ${nodes.length} items`;
+      if (nodes.length === 1 && firstGroup) deleteLabel = `Deleted group "${shortText(firstGroup.title)}"`;
+      else if (nodes.length === 1 && nodes[0].kind === "task") {
+        const single = findTask(nodes[0].id);
+        deleteLabel = `Deleted "${shortText(resolveTaskItem(single?.item)?.text || "")}"` ;
+      }
+      pushUndoState("delete", deleteLabel);
       const visibleBeforeDelete = getVisibleNodes();
       const deletedKeys = collectDeletedNodeKeys(nodes);
 
@@ -1775,7 +1839,7 @@
         tasks.forEach((item) => {
           if (isTaskHiddenFromActive(item, group)) return;
           if (taskMatchesFilter(item, query)) nodes.push({ kind: "task", id: item.id });
-          if (!item.collapsed) walk(item.children || [], group);
+          if (!item.collapsed || query) walk(item.children || [], group);
         });
       }
 
@@ -1783,7 +1847,7 @@
         const groupMatches = !query || group.title.toLowerCase().includes(query) || group.tasks.some((item) => taskMatchesFilter(item, query));
         if (!groupMatches) return;
         nodes.push({ kind: "group", id: group.id });
-        if (!group.collapsed) walk(group.tasks, group);
+        if (!group.collapsed || query) walk(group.tasks, group);
       });
       if (!query) {
         nodes.push({ kind: "section", id: "completed" });
@@ -2355,7 +2419,7 @@
       const resolved = resolveTaskItem(item);
       const children = item.linkType === "reference" ? [] : (item.children || []);
       const hasChildren = children.length > 0;
-      const expanded = hasChildren && !item.collapsed;
+      const expanded = hasChildren && (!item.collapsed || Boolean(query));
       const childHtml = expanded
         ? `<ul class="child-list">${children.map((child) => renderTask(child, groupId, query)).join("")}</ul>`
         : "";
@@ -2403,13 +2467,14 @@
     function renderGroup(group, query, index) {
       const visibleTasks = group.tasks.map((item) => renderTask(item, group.id, query)).join("");
       const count = countTasks(group.tasks);
-      const empty = visibleTasks.trim() ? "" : '<p class="empty">No tasks match this filter.</p>';
+      const empty = visibleTasks.trim() ? "" : '<p class="empty">No tasks match this search.</p>';
       const palette = getGroupPalette(group, index);
+      const collapsed = group.collapsed && !query;
       return `
         <article class="group" id="${group.id}" data-group-card="${group.id}" style="${groupStyleVars(group, index)}">
           <header class="group-header ${isSelected("group", group.id) ? "selected" : ""}" data-group-row="${group.id}" data-node-kind="group" data-node-id="${group.id}" data-drag-kind="group" data-touch-drag draggable="true" tabindex="0">
             <div class="group-heading">
-              <button class="chevron" type="button" data-action="toggle-group" data-group-id="${group.id}" aria-label="${group.collapsed ? "Expand" : "Collapse"} group" aria-expanded="${group.collapsed ? "false" : "true"}">${renderIcon("chevron")}</button>
+              <button class="chevron" type="button" data-action="toggle-group" data-group-id="${group.id}" aria-label="${collapsed ? "Expand" : "Collapse"} group" aria-expanded="${collapsed ? "false" : "true"}">${renderIcon("chevron")}</button>
               <div class="group-title" data-group-title="${group.id}" contenteditable="true" spellcheck="true">${escapeHtml(group.title)}</div>
               <span class="group-count">${count}</span>
             </div>
@@ -2425,11 +2490,11 @@
               <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" aria-label="Add task">${renderIcon("plus")}</button>
             </div>
           </header>
-          <ul class="task-list ${group.collapsed ? "is-hidden" : ""}" data-group-list="${group.id}">
+          <ul class="task-list ${collapsed ? "is-hidden" : ""}" data-group-list="${group.id}">
             ${visibleTasks}
             <li class="drop-zone child" data-drop-target="${group.id}" data-position="group" aria-hidden="true"></li>
           </ul>
-          ${group.collapsed ? "" : empty}
+          ${collapsed ? "" : empty}
         </article>
       `;
     }
@@ -2451,7 +2516,7 @@
         const kindLabel = entry.kind && entry.kind !== "board" ? ` · ${entry.kind}` : "";
         return `
           <details class="history-row">
-            <summary><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></summary>
+            <summary><span class="disclosure-arrow" aria-hidden="true"></span><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></summary>
             <div class="history-detail">${escapeHtml(fullStamp)}${escapeHtml(kindLabel)}</div>
           </details>`;
       }).join("") || '<p class="empty">No changes recorded yet.</p>';
@@ -2689,8 +2754,11 @@
       purgeExpiredTrash(now);
       const nextSignature = getLifecycleSignature(now);
       if (nextSignature === lifecycleSignature) return false;
+      const previousCompleted = new Set(lifecycleSignature.split("|")[0].split(",").filter(Boolean));
+      const newlyHidden = nextSignature.split("|")[0].split(",").filter((id) => id && !previousCompleted.has(id));
       lifecycleSignature = nextSignature;
-      render();
+      if (newlyHidden.length) animateRowsAway(newlyHidden, render);
+      else render();
       return true;
     }
 
@@ -2699,7 +2767,11 @@
       if (!state.settings.timelineView) showTimeline = false;
       if (!showList && !showTimeline) showList = true;
       document.body?.classList.toggle("app-sidebar-collapsed", Boolean(state.settings.sidebarCollapsed));
-      if (viewsTimelineNavEl) viewsTimelineNavEl.hidden = !state.settings.timelineView;
+      if (viewsTimelineNavEl) {
+        viewsTimelineNavEl.hidden = !state.settings.timelineView;
+        viewsTimelineNavEl.classList.toggle("active", showTimeline && state.settings.timelineView);
+      }
+      viewsNavEl?.querySelector('[data-view-nav="board"]')?.classList.toggle("active", showList);
       if (viewToggleEl) {
         viewToggleEl.hidden = !state.settings.timelineView;
         viewListEl?.classList.toggle("active", showList);
@@ -2765,14 +2837,16 @@
       if (!visible.length) return "";
       const items = visible.map((item) => {
         const resolved = resolveTaskItem(item);
+        const done = Boolean(resolved?.done);
         return `
-        <li style="margin-left: ${depth * 18}px">
+        <li style="margin-left: ${depth * 18}px" class="${done ? "focus-child-done" : ""}">
+          <button class="focus-child-check ${done ? "done" : ""}" type="button" data-focus-toggle="${resolved?.id || item.id}" aria-label="${done ? "Mark not done" : "Mark done"}">${done ? renderIcon("check") : ""}</button>
           <span class="focus-child-text" contenteditable="true" spellcheck="true" data-focus-task-text="${resolved?.id || item.id}">${renderInlineMarkdown(resolved?.text || item.text)}</span>
           ${renderFocusChildren(item.children || [], depth + 1)}
         </li>
       `;
       }).join("");
-      return `<ul>${items}</ul>`;
+      return `<ul class="focus-outline">${items}</ul>`;
     }
 
     function formatFocusSeconds(totalSeconds) {
@@ -3156,6 +3230,51 @@
     boardEl.addEventListener("pointerup", (event) => finishTouchDrag(event));
     boardEl.addEventListener("pointercancel", (event) => finishTouchDrag(event, true));
 
+    focusTaskEl?.addEventListener("click", (event) => {
+      const toggle = event.target.closest("[data-focus-toggle]");
+      if (!toggle) return;
+      const found = findTask(toggle.dataset.focusToggle);
+      const item = found ? resolveTaskItem(found.item) : null;
+      if (item) {
+        setTaskCompleted(item.id, !item.done, new Date().toISOString(), { render: false });
+        render();
+        renderFocusMode();
+      }
+    });
+
+    focusTaskEl?.addEventListener("keydown", (event) => {
+      const childEl = event.target.closest?.(".focus-child-text");
+      if (!childEl) return;
+      const id = childEl.dataset.focusTaskText;
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const found = findTask(id);
+        if (!found) return;
+        resolveTaskItem(found.item).text = getMarkdownTextFromEditable(childEl);
+        const inserted = splitTaskAtOffset(id, getCaretOffset(childEl));
+        renderFocusMode();
+        const target = focusTaskEl.querySelector(`[data-focus-task-text="${inserted?.item?.id || id}"]`);
+        focusEditableText(target, false);
+        return;
+      }
+      if (event.key === "Tab") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.shiftKey) outdentTask(id);
+        else indentTask(id);
+        renderFocusMode();
+        focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${id}"]`), false);
+        return;
+      }
+      if (event.key === "Backspace" && isEditableTextEmpty(childEl)) {
+        event.preventDefault();
+        event.stopPropagation();
+        deleteTaskWithPolicy(id);
+        renderFocusMode();
+      }
+    });
+
     focusTaskEl?.addEventListener("input", (event) => {
       const target = event.target.closest("[data-focus-task-text]");
       if (!target) return;
@@ -3196,6 +3315,7 @@
       if (featureTimelineEl) featureTimelineEl.checked = Boolean(settings.timelineView);
       if (featureRemindersEl) featureRemindersEl.checked = Boolean(settings.reminders);
       if (featureNotificationsEl) featureNotificationsEl.checked = Boolean(settings.browserNotifications);
+      if (usernameEl) usernameEl.value = String(settings.username || "");
     }
 
     function updateSettings(patch) {
@@ -3234,6 +3354,8 @@
     exportCompletedEl?.addEventListener("change", () => updateSettings({ exportCompleted: exportCompletedEl.checked }));
     exportTrashEl?.addEventListener("change", () => updateSettings({ exportTrash: exportTrashEl.checked }));
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
+    usernameEl?.addEventListener("change", () => updateSettings({ username: usernameEl.value.trim() }));
+    exportSettingsEl?.addEventListener("click", downloadSettingsExport);
     featureMetadataEl?.addEventListener("change", () => updateSettings({ metadata: featureMetadataEl.checked }));
     featureTimelineEl?.addEventListener("change", () => updateSettings({ timelineView: featureTimelineEl.checked }));
     featureRemindersEl?.addEventListener("change", () => updateSettings({ reminders: featureRemindersEl.checked }));
@@ -3261,7 +3383,76 @@
 
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
 
+    sidebarToggleEl?.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "ArrowDown" || event.key === "Escape") {
+        event.preventDefault();
+        if (selectedNode) renderSelection(true);
+        else selectNode(getVisibleNodes()[0]);
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        [...document.querySelectorAll(".sidebar button, .sidebar summary")].find((el) => el.offsetParent !== null)?.focus();
+      }
+    });
+
     historyMenuEl?.addEventListener("toggle", renderHistoryList);
+
+    let lightboxView = null;
+    function openLightbox(src) {
+      if (!lightboxEl || !lightboxImgEl) return;
+      lightboxView = { scale: 1, x: 0, y: 0, panning: null };
+      lightboxImgEl.src = src;
+      applyLightboxTransform();
+      lightboxEl.hidden = false;
+    }
+
+    function closeLightbox() {
+      if (!lightboxEl) return;
+      lightboxEl.hidden = true;
+      lightboxView = null;
+      if (lightboxImgEl) lightboxImgEl.src = "";
+    }
+
+    function applyLightboxTransform() {
+      if (!lightboxImgEl || !lightboxView) return;
+      lightboxImgEl.style.transform = `translate(${lightboxView.x}px, ${lightboxView.y}px) scale(${lightboxView.scale})`;
+    }
+
+    boardEl.addEventListener("dblclick", (event) => {
+      const image = event.target.closest(".task-image img");
+      if (image) openLightbox(image.src);
+    });
+
+    lightboxEl?.addEventListener("click", (event) => {
+      if (event.target === lightboxEl) closeLightbox();
+    });
+
+    lightboxEl?.addEventListener("wheel", (event) => {
+      if (!lightboxView) return;
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.12 : 0.9;
+      lightboxView.scale = Math.min(8, Math.max(0.2, lightboxView.scale * factor));
+      applyLightboxTransform();
+    }, { passive: false });
+
+    lightboxEl?.addEventListener("pointerdown", (event) => {
+      if (!lightboxView || event.target !== lightboxImgEl) return;
+      lightboxView.panning = { pointerId: event.pointerId, startX: event.clientX - lightboxView.x, startY: event.clientY - lightboxView.y };
+      event.preventDefault();
+    });
+
+    lightboxEl?.addEventListener("pointermove", (event) => {
+      const pan = lightboxView?.panning;
+      if (!pan || event.pointerId !== pan.pointerId) return;
+      lightboxView.x = event.clientX - pan.startX;
+      lightboxView.y = event.clientY - pan.startY;
+      applyLightboxTransform();
+    });
+
+    lightboxEl?.addEventListener("pointerup", () => {
+      if (lightboxView) lightboxView.panning = null;
+    });
 
     let imageResize = null;
     boardEl.addEventListener("pointerdown", (event) => {
@@ -3308,7 +3499,7 @@
       if (!button) return;
       const target = button.dataset.viewNav;
       if (target === "board") showList = true;
-      if (target === "timeline") showTimeline = true;
+      if (target === "timeline") showTimeline = !showTimeline;
       if (target === "completed" || target === "trash") showList = true;
       render();
       closeSidebarDrawer();
@@ -3576,6 +3767,11 @@
     });
 
     document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && lightboxView) {
+        event.preventDefault();
+        closeLightbox();
+        return;
+      }
       if (event.key === "Escape" && pendingGroupDelete) {
         event.preventDefault();
         pendingGroupDelete = null;
@@ -3648,6 +3844,18 @@
         return;
       }
 
+      if (event.altKey && !event.ctrlKey && event.key.toLowerCase() === "a" && !isEditingText) {
+        event.preventDefault();
+        addGroup();
+        return;
+      }
+
+      if (event.ctrlKey && event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp") && !isEditingText) {
+        event.preventDefault();
+        setEveryCollapsed(event.key === "ArrowUp");
+        return;
+      }
+
       if (isEditingText && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) return;
 
       if (event.target.matches("input, select, textarea") && !event.altKey) return;
@@ -3671,7 +3879,8 @@
 
       if (event.key === "ArrowLeft" && !event.ctrlKey && !event.altKey && !event.shiftKey && !isEditingText) {
         event.preventDefault();
-        [...document.querySelectorAll(".sidebar button, .sidebar summary")].find((el) => el.offsetParent !== null)?.focus();
+        const sidebarTarget = [...document.querySelectorAll(".sidebar button, .sidebar summary")].find((el) => el.offsetParent !== null);
+        (sidebarTarget || sidebarToggleEl)?.focus();
         return;
       }
 
