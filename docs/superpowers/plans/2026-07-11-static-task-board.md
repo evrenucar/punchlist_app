@@ -150,7 +150,7 @@ git commit -m "feat: add versioned task metadata"
 - Modify: `src/task-board.css`
 - Modify: `tests/task-board.static.test.mjs`
 
-- [ ] **Step 1: Add one failing regression test per reported editor bug**
+- [x] **Step 1: Add one failing regression test per reported editor bug**
 
 Test caret-zero insertion, middle splitting, Shift+Tab focus preservation, selected-link paste, focus entry without automatic text focus, top group drop, and long-press arming.
 
@@ -161,21 +161,21 @@ test("enter at caret zero inserts before the selected task", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused regressions and confirm each fails for its missing behavior**
+- [x] **Step 2: Run the focused regressions and confirm each fails for its missing behavior**
 
 Run: `node --test --test-name-pattern="caret|Shift.Tab|link paste|focus entry|top group|long.press" tests/task-board.static.test.mjs`
 
 Expected: FAIL for the new expectations, not test setup errors.
 
-- [ ] **Step 3: Route keyboard actions through one command handler**
+- [x] **Step 3: Route keyboard actions through one command handler**
 
 Handle task splitting from caret offsets, use `preventDefault()` before indent/outdent, preserve the selected placement after render, render Markdown links as anchors, and never focus Focus-mode text on entry.
 
-- [ ] **Step 4: Fix mouse and touch dragging at the shared drop-instruction layer**
+- [x] **Step 4: Fix mouse and touch dragging at the shared drop-instruction layer**
 
 Add a full-width before-first-group drop zone, visible insertion line, edge auto-scroll, and pointer long-press arming. Cancel touch drag when movement indicates normal scrolling before the hold threshold.
 
-- [ ] **Step 5: Build, run all tests, and commit**
+- [x] **Step 5: Build, run all tests, and commit**
 
 Run: `node scripts/build-task-board.mjs`
 

@@ -296,6 +296,20 @@
       align-items: start;
     }
 
+    .group-top-drop {
+      height: 8px;
+      margin-bottom: -12px;
+      border-radius: 4px;
+      transition: height 120ms ease, margin 120ms ease, background 120ms ease;
+    }
+
+    .board.is-dragging-group .group-top-drop {
+      height: 36px;
+      margin-bottom: -4px;
+      border: 2px dashed var(--accent);
+      background: var(--accent-soft);
+    }
+
     .group {
       border: 1px solid var(--group-border, var(--line));
       border-radius: 8px;
@@ -433,6 +447,13 @@
       opacity: 0.42;
     }
 
+    .task-row.touch-dragging,
+    .group-header.touch-dragging {
+      opacity: 0.58;
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
     .group-header.dragging {
       opacity: 0.42;
     }
@@ -498,6 +519,29 @@
       outline: 0;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
+    }
+
+    .task-link {
+      color: #1267c4;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    body[data-theme="dark"] .task-link {
+      color: #79b8ff;
+    }
+
+    .board.is-touch-dragging {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    @media (pointer: coarse) {
+      .drag-handle {
+        width: 40px;
+        height: 40px;
+        touch-action: pan-y;
+      }
     }
 
     .task-text:focus {

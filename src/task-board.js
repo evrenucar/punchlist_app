@@ -20,6 +20,8 @@
     });
     const AUTO_SCROLL_EDGE_PX = 96;
     const MAX_AUTO_SCROLL_SPEED = 18;
+    const LONG_PRESS_MS = 420;
+    const LONG_PRESS_MOVE_PX = 12;
     const GROUP_PALETTES = [
       { color: "#d9480f", bg: "#fff4ec", selected: "#ffe0cc", border: "#ffc2a3", ink: "#6d2b09" },
       { color: "#2f6f4e", bg: "#eef8f2", selected: "#d9f0e2", border: "#aed8bf", ink: "#1f5137" },
@@ -67,6 +69,7 @@
     let focusModeTimerFrame = null;
     let autoScrollFrame = null;
     let autoScrollVelocity = 0;
+    let touchDrag = null;
     let undoStack = [];
     let undoActions = [];
     let lastUndoAction = null;
@@ -867,7 +870,7 @@
       const zone = event.target.closest("[data-drop-target]");
       if (zone) {
         return {
-          targetKind: zone.dataset.position === "group" ? "group" : "task",
+          targetKind: zone.dataset.dropKind || (zone.dataset.position === "group" ? "group" : "task"),
           targetId: zone.dataset.dropTarget,
           position: zone.dataset.position === "group" ? "group" : zone.dataset.position,
         };
@@ -973,6 +976,49 @@
         return;
       }
       moveTask(draggedNode.id, instruction.targetId, instruction.position);
+    }
+
+    function shouldCancelLongPress(startX, startY, clientX, clientY, threshold = LONG_PRESS_MOVE_PX) {
+      return Math.hypot(clientX - startX, clientY - startY) > threshold;
+    }
+
+    function clearTouchDrag() {
+      if (!touchDrag) return;
+      if (touchDrag.timer) window.clearTimeout?.(touchDrag.timer);
+      touchDrag.source?.classList.remove("touch-dragging");
+      boardEl.classList.remove("is-dragging-group", "is-touch-dragging");
+      clearDropIndicators();
+      stopDragAutoScroll();
+      draggedNode = null;
+      touchDrag = null;
+    }
+
+    function armTouchDrag() {
+      if (!touchDrag) return false;
+      const source = touchDrag.source;
+      const kind = source.dataset.dragKind;
+      const id = kind === "group" ? source.dataset.groupRow : source.dataset.taskRow;
+      if (!id) {
+        clearTouchDrag();
+        return false;
+      }
+      touchDrag.armed = true;
+      touchDrag.timer = null;
+      draggedNode = { kind, id };
+      source.classList.add("touch-dragging");
+      boardEl.classList.add("is-touch-dragging");
+      if (kind === "group") boardEl.classList.add("is-dragging-group");
+      selectNode(kind, id);
+      return true;
+    }
+
+    function finishTouchDrag(event, cancelled = false) {
+      if (!touchDrag) return false;
+      const instruction = touchDrag.instruction;
+      const shouldApply = touchDrag.armed && !cancelled && canDropOn(instruction);
+      if (shouldApply) applyDropInstruction(instruction, event);
+      clearTouchDrag();
+      return shouldApply;
     }
 
     function setSingleSelection(node) {
@@ -1244,9 +1290,9 @@
       selection.addRange(range);
     }
 
-    function focusTaskText(id) {
+    function focusTaskText(id, selectContents = true) {
       const text = document.querySelector(`[data-task-text="${id}"]`);
-      focusEditableText(text, true);
+      focusEditableText(text, selectContents);
     }
 
     function focusSelectedTextField() {
@@ -1279,9 +1325,39 @@
     function updateTaskTextFromEditable(id, valueOrElement) {
       const found = findTask(id);
       if (!found) return false;
-      found.item.text = getEditableText(valueOrElement);
+      found.item.text = getMarkdownTextFromEditable(valueOrElement);
       saveState();
       return true;
+    }
+
+    function getMarkdownTextFromEditable(valueOrElement) {
+      if (typeof valueOrElement === "string" || !valueOrElement?.childNodes) {
+        return getEditableText(valueOrElement);
+      }
+
+      function serializeNode(node) {
+        if (node.nodeType === 3) return node.nodeValue || "";
+        const tagName = node.tagName?.toLowerCase();
+        if (tagName === "br") return "\n";
+        if (tagName === "a") {
+          const href = node.getAttribute("href") || "";
+          return node.dataset?.autoLink === "true"
+            ? href
+            : `[${node.textContent || href}](${href})`;
+        }
+        return [...(node.childNodes || [])].map(serializeNode).join("");
+      }
+
+      return [...valueOrElement.childNodes].map(serializeNode).join("").replace(/\u00a0/g, " ").trim();
+    }
+
+    function applyUrlPasteToText(text, start, end, url) {
+      const source = String(text || "");
+      const safeStart = Math.max(0, Math.min(source.length, Number(start) || 0));
+      const safeEnd = Math.max(safeStart, Math.min(source.length, Number(end) || 0));
+      if (!/^https?:\/\/\S+$/i.test(url) || safeStart === safeEnd) return source;
+      const label = source.slice(safeStart, safeEnd);
+      return `${source.slice(0, safeStart)}[${label}](${url})${source.slice(safeEnd)}`;
     }
 
     function handleEditingBackspaceDelete(event) {
@@ -1359,6 +1435,62 @@
       selection.removeAllRanges();
       selection.addRange(range);
       event.target.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function getTaskSplitPlan(text, offset) {
+      const source = String(text || "");
+      const caret = Math.max(0, Math.min(source.length, Number(offset) || 0));
+      return {
+        beforeText: source.slice(0, caret),
+        afterText: source.slice(caret),
+        position: caret === 0 ? "before" : "after",
+      };
+    }
+
+    function getCaretOffset(element) {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return getMarkdownTextFromEditable(element).length;
+      const range = selection.getRangeAt(0);
+      if (!selectionContainsEditableContents(element, range)) return getMarkdownTextFromEditable(element).length;
+      const prefix = range.cloneRange();
+      prefix.selectNodeContents(element);
+      prefix.setEnd(range.endContainer, range.endOffset);
+      return prefix.toString().length;
+    }
+
+    function splitTaskAtOffset(id, offset) {
+      const found = findTask(id);
+      if (!found) return null;
+      const plan = getTaskSplitPlan(found.item.text, offset);
+      pushUndoState("split");
+
+      const newItem = task(plan.position === "before" ? "" : plan.afterText, [], {
+        createdInGroupId: found.group?.id || found.item.createdInGroupId,
+        createdUnderTaskId: found.parent?.id || null,
+      });
+      if (plan.position === "before") {
+        found.list.splice(found.index, 0, newItem);
+      } else {
+        found.item.text = plan.beforeText;
+        found.list.splice(found.index + 1, 0, newItem);
+      }
+
+      setSingleSelection({ kind: "task", id: newItem.id });
+      saveState();
+      render();
+      focusTaskText(newItem.id, false);
+      return { item: newItem, position: plan.position };
+    }
+
+    function splitEditingTask(event) {
+      const textEl = event.target.closest("[data-task-text]");
+      if (!textEl) return false;
+      const id = textEl.dataset.taskText;
+      const found = findTask(id);
+      if (!found) return false;
+      found.item.text = getMarkdownTextFromEditable(textEl);
+      splitTaskAtOffset(id, getCaretOffset(textEl));
+      return true;
     }
 
     function renderIcon(name) {
@@ -1536,9 +1668,9 @@
             <button class="checkbox ${item.done ? "done" : ""}" type="button" data-action="toggle-done" data-task-id="${item.id}" aria-label="${item.done ? "Mark not done" : "Mark done"}">
               ${item.done ? renderIcon("check") : ""}
             </button>
-            <div class="task-text" data-task-text="${item.id}" contenteditable="true" spellcheck="true">${escapeHtml(item.text)}</div>
+            <div class="task-text" data-task-text="${item.id}" contenteditable="true" spellcheck="true">${renderInlineMarkdown(item.text)}</div>
             <div class="task-actions">
-              <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" aria-label="Drag task">${renderIcon("grip")}</button>
+              <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" data-touch-drag aria-label="Drag task; hold on touch screens">${renderIcon("grip")}</button>
               <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" aria-label="Add subtask">${renderIcon("plus")}</button>
               <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" aria-label="Delete task">${renderIcon("trash")}</button>
             </div>
@@ -1557,7 +1689,7 @@
       const palette = getGroupPalette(group, index);
       return `
         <article class="group" id="${group.id}" data-group-card="${group.id}" style="${groupStyleVars(group, index)}">
-          <header class="group-header ${isSelected("group", group.id) ? "selected" : ""}" data-group-row="${group.id}" data-node-kind="group" data-node-id="${group.id}" data-drag-kind="group" draggable="true" tabindex="0">
+          <header class="group-header ${isSelected("group", group.id) ? "selected" : ""}" data-group-row="${group.id}" data-node-kind="group" data-node-id="${group.id}" data-drag-kind="group" data-touch-drag draggable="true" tabindex="0">
             <div class="group-heading">
               <button class="chevron" type="button" data-action="toggle-group" data-group-id="${group.id}" aria-label="${group.collapsed ? "Expand" : "Collapse"} group" aria-expanded="${group.collapsed ? "false" : "true"}">${renderIcon("chevron")}</button>
               <div class="group-title" data-group-title="${group.id}" contenteditable="true" spellcheck="true">${escapeHtml(group.title)}</div>
@@ -1588,7 +1720,11 @@
 
     function render() {
       const query = searchEl.value.trim().toLowerCase();
-      boardEl.innerHTML = state.groups.map((group, index) => renderGroup(group, query, index)).join("");
+      const firstGroup = state.groups[0];
+      const topDrop = firstGroup
+        ? `<div class="group-top-drop" data-board-top-drop data-drop-target="${firstGroup.id}" data-drop-kind="group" data-position="before" aria-label="Move group to top"></div>`
+        : "";
+      boardEl.innerHTML = topDrop + state.groups.map((group, index) => renderGroup(group, query, index)).join("");
       renderNav();
       const totals = state.groups.reduce((acc, group) => {
         acc.total += countTasks(group.tasks);
@@ -1601,11 +1737,28 @@
     }
 
     function escapeHtml(value) {
-      return value
+      return String(value || "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+    }
+
+    function renderInlineMarkdown(value) {
+      const source = String(value || "");
+      const pattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)/gi;
+      let html = "";
+      let cursor = 0;
+      let match;
+      while ((match = pattern.exec(source))) {
+        html += escapeHtml(source.slice(cursor, match.index));
+        const label = match[1] || match[3];
+        const url = match[2] || match[3];
+        const autoLink = match[3] ? ' data-auto-link="true"' : "";
+        html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" contenteditable="false"${autoLink}>${escapeHtml(label)}</a>`;
+        cursor = pattern.lastIndex;
+      }
+      return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
     }
 
     function renderFocusChildren(tasks, depth = 0) {
@@ -1685,7 +1838,6 @@
         <div class="focus-mode__children">${renderFocusChildren(found.item.children || [])}</div>
       `;
       renderFocusTimer();
-      focusTaskEl.querySelector("[data-focus-task-text]")?.focus();
     }
 
     function enterFocusMode(taskId = null) {
@@ -1756,6 +1908,26 @@
       }
     });
 
+    boardEl.addEventListener("paste", (event) => {
+      const textEl = event.target.closest("[data-task-text]");
+      if (!textEl) return;
+      const pasted = event.clipboardData?.getData("text/plain")?.trim() || "";
+      if (!/^https?:\/\/\S+$/i.test(pasted)) return;
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount || selection.isCollapsed || !selectionContainsEditableContents(textEl)) return;
+      const label = selection.toString();
+      if (!label) return;
+      event.preventDefault();
+      insertTextAtSelection(`[${label}](${pasted})`, textEl);
+    });
+
+    boardEl.addEventListener("focusout", (event) => {
+      const textEl = event.target.closest("[data-task-text]");
+      if (!textEl) return;
+      const found = findTask(textEl.dataset.taskText);
+      if (found) textEl.innerHTML = renderInlineMarkdown(found.item.text);
+    });
+
     boardEl.addEventListener("change", (event) => {
       const colorInput = event.target.closest("[data-group-color]");
       if (!colorInput) return;
@@ -1781,6 +1953,7 @@
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", JSON.stringify(draggedNode));
       source.classList.add("dragging");
+      if (kind === "group") boardEl.classList.add("is-dragging-group");
       selectNode(kind, id);
     });
 
@@ -1788,6 +1961,7 @@
       document.querySelectorAll(".dragging").forEach((element) => element.classList.remove("dragging"));
       clearDropIndicators();
       stopDragAutoScroll();
+      boardEl.classList.remove("is-dragging-group");
       draggedNode = null;
     });
 
@@ -1808,6 +1982,39 @@
       stopDragAutoScroll();
       draggedNode = null;
     });
+
+    boardEl.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" || touchDrag) return;
+      const handle = event.target.closest("[data-touch-drag]");
+      const source = handle?.closest("[data-drag-kind]") || (handle?.matches("[data-drag-kind]") ? handle : null);
+      if (!source) return;
+      touchDrag = {
+        pointerId: event.pointerId,
+        source,
+        startX: event.clientX,
+        startY: event.clientY,
+        armed: false,
+        instruction: null,
+        timer: window.setTimeout?.(armTouchDrag, LONG_PRESS_MS),
+      };
+    });
+
+    boardEl.addEventListener("pointermove", (event) => {
+      if (!touchDrag || event.pointerId !== touchDrag.pointerId) return;
+      if (!touchDrag.armed) {
+        if (shouldCancelLongPress(touchDrag.startX, touchDrag.startY, event.clientX, event.clientY)) clearTouchDrag();
+        return;
+      }
+      event.preventDefault();
+      updateDragAutoScroll(event.clientY);
+      const target = document.elementFromPoint?.(event.clientX, event.clientY);
+      const instruction = target ? getDropInstruction({ target, clientY: event.clientY }) : null;
+      touchDrag.instruction = canDropOn(instruction) ? instruction : null;
+      if (touchDrag.instruction) showDropInstruction(touchDrag.instruction);
+    });
+
+    boardEl.addEventListener("pointerup", (event) => finishTouchDrag(event));
+    boardEl.addEventListener("pointercancel", (event) => finishTouchDrag(event, true));
 
     navEl.addEventListener("click", (event) => {
       const button = event.target.closest("[data-nav-target]");
@@ -1874,13 +2081,13 @@
       if (isEditingText && event.key === "Tab") {
         event.preventDefault();
         const moved = event.shiftKey ? outdentSelectedNode() : indentSelectedNode();
-        if (moved && selectedNode?.kind === "task") focusTaskText(selectedNode.id);
+        if (moved && selectedNode?.kind === "task") focusTaskText(selectedNode.id, false);
         return;
       }
 
       if (isEditingText && event.key === "Enter") {
         event.preventDefault();
-        insertSiblingBelowSelectedNode();
+        splitEditingTask(event);
         return;
       }
 
@@ -2009,6 +2216,14 @@
       get state() {
         return state;
       },
+      getTaskSplitPlan,
+      splitTaskAtOffset,
+      applyUrlPasteToText,
+      renderInlineMarkdown,
+      getMarkdownTextFromEditable,
+      shouldCancelLongPress,
+      armTouchDrag,
+      finishTouchDrag,
       moveTask,
       ensureDoingNowGroup,
       cloneTaskTree,

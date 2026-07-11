@@ -171,6 +171,52 @@ test("new tasks retain immutable creation context", async () => {
   assert.ok(child.createdAt);
 });
 
+test("caret-aware enter inserts before or splits task text", async () => {
+  const api = await loadBoardApi();
+
+  assert.equal(JSON.stringify(api.getTaskSplitPlan("Alpha", 0)), JSON.stringify({
+    beforeText: "",
+    afterText: "Alpha",
+    position: "before",
+  }));
+  assert.equal(JSON.stringify(api.getTaskSplitPlan("Alpha", 2)), JSON.stringify({
+    beforeText: "Al",
+    afterText: "pha",
+    position: "after",
+  }));
+  assert.equal(JSON.stringify(api.getTaskSplitPlan("Alpha", 5)), JSON.stringify({
+    beforeText: "Alpha",
+    afterText: "",
+    position: "after",
+  }));
+});
+
+test("task text renders clickable URLs and selected URL paste creates markdown links", async () => {
+  const api = await loadBoardApi();
+  const url = "https://example.com/docs";
+
+  assert.equal(api.applyUrlPasteToText("Read docs", 0, 4, url), `[Read](${url}) docs`);
+  assert.match(api.renderInlineMarkdown(`Read [the docs](${url})`), /<a[^>]+href="https:\/\/example\.com\/docs"[^>]*>the docs<\/a>/);
+  assert.match(api.renderInlineMarkdown(`Open ${url}`), /data-auto-link="true"/);
+});
+
+test("touch drag requires a long press and the board exposes an easy top drop target", async () => {
+  const api = await loadBoardApi();
+  const html = await readBoard();
+
+  assert.equal(api.shouldCancelLongPress(10, 10, 14, 16), false);
+  assert.equal(api.shouldCancelLongPress(10, 10, 30, 10), true);
+  assert.match(html, /data-board-top-drop/);
+  assert.match(html, /pointerdown/);
+});
+
+test("focus mode waits for an explicit click before editing", async () => {
+  const html = await readBoard();
+
+  assert.match(html, /data-focus-task-text/);
+  assert.doesNotMatch(html, /querySelector\("\[data-focus-task-text\]"\)\?\.focus\(\)/);
+});
+
 test("task board file contains the seeded task groups and nested tasks", async () => {
   const html = await readBoard();
 
