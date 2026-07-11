@@ -515,6 +515,37 @@ test("scheduling surfaces stay hidden until their feature flags are enabled", as
   assert.match(timeline, /timeline-unscheduled/);
 });
 
+test("shell provides a collapsible sidebar, views navigation, help, and a favicon", async () => {
+  const html = await readBoard();
+  for (const hook of [
+    "data-sidebar-toggle",
+    "data-sidebar-backdrop",
+    "data-views-nav",
+    "data-view-nav",
+    "data-help",
+    'rel="icon"',
+    "data:image/svg\\+xml",
+    "Restore example board",
+    "stays in this browser",
+    "Press and hold",
+  ]) {
+    assert.match(html, new RegExp(hook));
+  }
+  assert.equal(html.includes("data-total-count"), false);
+  assert.equal(html.includes("data-done-count"), false);
+  assert.equal(html.includes("Reset seed"), false);
+});
+
+test("dark theme derives group tints and phone layout keeps touch friendly controls", async () => {
+  const html = await readBoard();
+  assert.match(html, /--group-dark-bg/);
+  assert.match(html, /body\[data-theme="dark"\] \.group-header/);
+  assert.match(html, /@media \(max-width: 980px\)/);
+  assert.match(html, /min-height: 44px/);
+  assert.match(html, /sidebar-open/);
+  assert.match(html, /sidebar-backdrop/);
+});
+
 test("task board file contains the seeded task groups and nested tasks", async () => {
   const html = await readBoard();
 
@@ -1053,7 +1084,7 @@ test("focus mode advertises Shift F and left controls have hover explanations", 
     "title=\"Open focus mode for the selected task (Shift+F)\"",
     "title=\"Download this board as a JSON backup\"",
     "title=\"Load a board from a JSON backup\"",
-    "title=\"Restore the original seeded board\"",
+    "title=\"Replace the current board with the built-in example board\"",
     "title=\"Jump to",
   ]) {
     assert.match(html, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));

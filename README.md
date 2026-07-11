@@ -8,25 +8,32 @@ Open [`outputs/task-board.html`](outputs/task-board.html) in a browser.
 
 Board data is saved in that browser's local storage. Use JSON export for a lossless backup and Markdown copy/export for portable task outlines. Different browsers do not share local storage; cross-browser sync is deliberately deferred to a future optional JSON-file helper.
 
+## Features
+
+- Nested outline editing with keyboard commands, multi-select, undo, and mouse or long-press touch drag.
+- Markdown clipboard: copy tasks as clean indented Markdown, paste external Markdown as new tasks, and paste internally as aliases, references, or duplicates.
+- Configurable lifecycle: completed tasks hide after a chosen duration into a Completed view, and deletes go to a restorable Trash by policy (`task > group > global` overrides available).
+- Optional planning tools (off by default): per-task date, start time, planned minutes, reminders, a day Timeline with drag rescheduling, and planned-versus-actual focus comparison.
+- Collapsible sidebar with Views/Groups navigation, phone drawer layout, light and dark themes, and a built-in Help panel.
+
 ## Development
 
-The current implementation and its focused regression suite are:
-
-- `outputs/task-board.html` - complete static application
-- `tests/task-board.static.test.mjs` - Node tests for state and interaction behavior
-
-Run the tests with:
-
-```powershell
-node --test tests/task-board.static.test.mjs
-```
-
-The planned source split keeps the delivered file static while making the code easier to maintain:
+Source files are authored in `src/` and inlined into the single distributable file by a zero-dependency build script:
 
 - `src/task-board.html` - semantic application shell
 - `src/task-board.css` - responsive light/dark presentation
 - `src/task-board.js` - state, editor, scheduling, and persistence
-- `scripts/build-task-board.mjs` - zero-dependency bundler that emits `outputs/task-board.html`
+- `scripts/build-task-board.mjs` - bundler that emits `outputs/task-board.html`
+- `tests/task-board.static.test.mjs` - Node tests for state, lifecycle, scheduling, and output contract
+
+Build and test with:
+
+```powershell
+node scripts/build-task-board.mjs
+node --test tests/task-board.static.test.mjs
+```
+
+Never hand-edit `outputs/task-board.html`; change `src/` and rebuild.
 
 ## Product rules
 

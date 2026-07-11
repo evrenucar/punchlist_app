@@ -333,25 +333,25 @@ git commit -m "feat: add daily planning and effort tracking"
 - Modify: `tests/task-board.static.test.mjs`
 - Modify: `README.md`
 
-- [ ] **Step 1: Write failing output-contract assertions**
+- [x] **Step 1: Write failing output-contract assertions**
 
 Assert collapsible sidebar controls, Views navigation, help content, favicon, Restore example board wording, no total/done counters, dark theme group tokens, and phone/touch CSS.
 
-- [ ] **Step 2: Verify focused failures**
+- [x] **Step 2: Verify focused failures**
 
 Run: `node --test --test-name-pattern="sidebar|help|favicon|Restore example|dark|phone" tests/task-board.static.test.mjs`
 
 Expected: FAIL for the new shell contract.
 
-- [ ] **Step 3: Implement the restrained responsive UI**
+- [x] **Step 3: Implement the restrained responsive UI**
 
 Use one outline column, a collapsible desktop sidebar, phone drawer, 44px phone controls, theme-aware group tints, no decorative card grid, and no total/done counters. Add a data-URI task-board favicon and concise Markdown-derived help.
 
-- [ ] **Step 4: Clarify destructive and storage behavior**
+- [x] **Step 4: Clarify destructive and storage behavior**
 
 Rename Reset seed to Restore example board; explain replacement and request confirmation. Explain local browser isolation, JSON backup, clean Markdown, notification limits, linking, and touch drag in Settings.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `node scripts/build-task-board.mjs`
 

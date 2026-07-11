@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Scheduling Task Board</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23246bfe'/%3E%3Cpath d='M7 12.5l3.2 3.2L17 8.5' stroke='white' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <!-- TASK_BOARD_STYLES -->
 </head>
 <body>
@@ -141,31 +142,50 @@
             </label>
           </div>
         </details>
-        <button class="control danger" type="button" data-action="reset" title="Restore the original seeded board">
+        <details class="settings-menu" data-help>
+          <summary class="control" title="How this board works">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.2 9a2.8 2.8 0 0 1 5.5.9c0 1.8-2.7 2.3-2.7 3.6M12 17h.01"/></svg>
+            Help
+          </summary>
+          <div class="settings-panel help-panel">
+            <p><strong>Basics.</strong> Enter adds a task, Tab and Shift+Tab indent or outdent, arrows browse, Alt+arrows move items, Ctrl+Up/Down collapses or expands, Shift+F opens focus mode.</p>
+            <p><strong>Clipboard.</strong> Ctrl+C copies selected tasks as clean Markdown. Pasting inside the board places an alias by default; change this in Settings. Ctrl+X then paste moves tasks. Pasting Markdown from outside creates new tasks.</p>
+            <p><strong>Links.</strong> An alias shares one underlying task, so edits and completion stay in sync. A reference is a compact pointer that jumps to the original.</p>
+            <p><strong>Your data.</strong> Everything stays in this browser. Use Export JSON for a lossless backup and Import JSON to load it elsewhere.</p>
+            <p><strong>Reminders.</strong> Alerts and browser notifications only fire while this page is open.</p>
+            <p><strong>Touch.</strong> Press and hold a task or timeline block, then drag it.</p>
+          </div>
+        </details>
+        <button class="control danger" type="button" data-action="reset" title="Replace the current board with the built-in example board">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
-          Reset seed
+          Restore example board
         </button>
       </div>
 
-      <div class="summary" aria-label="Task summary">
-        <div class="metric">
-          <strong data-total-count>0</strong>
-          <span>Total</span>
-        </div>
-        <div class="metric">
-          <strong data-done-count>0</strong>
-          <span>Done</span>
-        </div>
-      </div>
+      <nav class="views-nav" aria-label="Views" data-views-nav>
+        <h3>Views</h3>
+        <button type="button" data-view-nav="board" title="Show the outline of all groups">Board</button>
+        <button type="button" data-view-nav="timeline" data-views-timeline hidden title="Show the day timeline">Timeline</button>
+        <button type="button" data-view-nav="completed" title="Show hidden completed tasks">Completed</button>
+        <button type="button" data-view-nav="trash" title="Show deleted tasks">Trash</button>
+      </nav>
 
+      <h3 class="sidebar-heading">Groups</h3>
       <nav class="section-nav" aria-label="Task groups" data-section-nav></nav>
     </aside>
 
+    <div class="sidebar-backdrop" data-sidebar-backdrop hidden></div>
+
     <main>
       <div class="topbar">
-        <div>
-          <h2>Scheduling and Task Management</h2>
-          <p>Use arrows to browse. Alt+arrows moves items. Ctrl+Up/Down collapses or expands. Shift+F opens focus.</p>
+        <div class="topbar-heading">
+          <button class="icon-button sidebar-toggle" type="button" data-sidebar-toggle aria-label="Show or hide the sidebar" title="Show or hide the sidebar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+          <div>
+            <h2>Scheduling and Task Management</h2>
+            <p>Use arrows to browse. Alt+arrows moves items. Ctrl+Up/Down collapses or expands. Shift+F opens focus.</p>
+          </div>
         </div>
         <div class="topbar-tools">
           <div class="view-toggle" data-view-toggle hidden>

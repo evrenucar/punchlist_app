@@ -53,8 +53,10 @@
     };
     const boardEl = document.querySelector("[data-board]");
     const navEl = document.querySelector("[data-section-nav]");
-    const totalCountEl = document.querySelector("[data-total-count]");
-    const doneCountEl = document.querySelector("[data-done-count]");
+    const sidebarToggleEl = document.querySelector("[data-sidebar-toggle]");
+    const sidebarBackdropEl = document.querySelector("[data-sidebar-backdrop]");
+    const viewsNavEl = document.querySelector("[data-views-nav]");
+    const viewsTimelineNavEl = document.querySelector("[data-views-timeline]");
     const searchEl = document.querySelector("[data-search]");
     const exportBoardEl = document.querySelector("[data-export-board]");
     const importBoardEl = document.querySelector("[data-import-board]");
@@ -491,13 +493,6 @@
 
     function countTasks(tasks) {
       return tasks.reduce((total, item) => total + 1 + countTasks(item.children || []), 0);
-    }
-
-    function countDone(tasks) {
-      return tasks.reduce((total, item) => {
-        const resolved = resolveTaskItem(item);
-        return total + (resolved?.done ? 1 : 0) + countDone(item.children || []);
-      }, 0);
     }
 
     function findTask(id, tasks = null, parent = null, group = null) {
@@ -2108,6 +2103,10 @@
         selected: `color-mix(in srgb, ${color} 18%, white)`,
         border: `color-mix(in srgb, ${color} 36%, white)`,
         ink: `color-mix(in srgb, ${color} 70%, black)`,
+        darkBg: `color-mix(in srgb, ${color} 16%, #1c1f1d)`,
+        darkSelected: `color-mix(in srgb, ${color} 30%, #1c1f1d)`,
+        darkBorder: `color-mix(in srgb, ${color} 42%, #1c1f1d)`,
+        darkInk: `color-mix(in srgb, ${color} 45%, #f1f4ef)`,
       };
     }
 
@@ -2237,6 +2236,10 @@
         `--group-selected: ${palette.selected}`,
         `--group-border: ${palette.border}`,
         `--group-ink: ${palette.ink}`,
+        `--group-dark-bg: ${palette.darkBg}`,
+        `--group-dark-selected: ${palette.darkSelected}`,
+        `--group-dark-border: ${palette.darkBorder}`,
+        `--group-dark-ink: ${palette.darkInk}`,
       ].join("; ");
     }
 
@@ -2506,6 +2509,8 @@
     function render() {
       const query = searchEl.value.trim().toLowerCase();
       if (!state.settings.timelineView) activeView = "list";
+      document.body?.classList.toggle("app-sidebar-collapsed", Boolean(state.settings.sidebarCollapsed));
+      if (viewsTimelineNavEl) viewsTimelineNavEl.hidden = !state.settings.timelineView;
       if (viewToggleEl) {
         viewToggleEl.hidden = !state.settings.timelineView;
         viewListEl?.classList.toggle("active", activeView === "list");
@@ -2530,13 +2535,6 @@
         + state.groups.map((group, index) => renderGroup(group, query, index)).join("")
         + renderLifecycleSections();
       renderNav();
-      const totals = state.groups.reduce((acc, group) => {
-        acc.total += countTasks(group.tasks);
-        acc.done += countDone(group.tasks);
-        return acc;
-      }, { total: 0, done: 0 });
-      totalCountEl.textContent = totals.total;
-      doneCountEl.textContent = totals.done;
       lifecycleSignature = getLifecycleSignature();
       if (selectedNode) renderSelection();
     }
@@ -2954,6 +2952,43 @@
       }
     });
 
+    function closeSidebarDrawer() {
+      document.body?.classList.remove("sidebar-open");
+      if (sidebarBackdropEl) sidebarBackdropEl.hidden = true;
+    }
+
+    sidebarToggleEl?.addEventListener("click", () => {
+      if (window.matchMedia?.("(max-width: 980px)").matches) {
+        const open = !document.body?.classList.contains("sidebar-open");
+        document.body?.classList.toggle("sidebar-open", open);
+        if (sidebarBackdropEl) sidebarBackdropEl.hidden = !open;
+        return;
+      }
+      updateSettings({ sidebarCollapsed: !state.settings.sidebarCollapsed });
+    });
+
+    sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
+
+    viewsNavEl?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-view-nav]");
+      if (!button) return;
+      const target = button.dataset.viewNav;
+      if (target === "board") activeView = "list";
+      if (target === "timeline") activeView = "timeline";
+      if (target === "completed" || target === "trash") activeView = "list";
+      render();
+      closeSidebarDrawer();
+      if (target === "completed" || target === "trash") {
+        const section = document.querySelector(target === "completed" ? "[data-completed-section]" : "[data-trash-section]");
+        if (section) {
+          section.open = true;
+          section.scrollIntoView?.({ behavior: "smooth", block: "start" });
+        }
+        return;
+      }
+      window.scrollTo?.({ top: 0, behavior: "smooth" });
+    });
+
     viewListEl?.addEventListener("click", () => {
       activeView = "list";
       render();
@@ -3077,6 +3112,10 @@
       if (button.dataset.action === "expand-all") setEveryCollapsed(false);
       if (button.dataset.action === "collapse-all") setEveryCollapsed(true);
       if (button.dataset.action === "reset") {
+        if (typeof window.confirm === "function"
+          && !window.confirm("Replace the current board with the example board? Your current groups and tasks will be erased. Export JSON first if you want a backup.")) {
+          return;
+        }
         localStorage.removeItem(STORAGE_KEY);
         state = normalizeState(seedState());
         selectedNode = null;
