@@ -371,21 +371,21 @@ git commit -m "feat: polish responsive task board shell"
 - Modify: `docs/AGENT_HANDOFF.md`
 - Modify: `docs/ROADMAP.md`
 
-- [ ] **Step 1: Check Playwright prerequisites**
+- [x] **Step 1: Check Playwright prerequisites**
 
 Run: `Get-Command npx`
 
 Expected: an `npx` command path. If the CLI wrapper cannot run, use the already-active Playwright MCP and record that the reusable smoke script was not executed.
 
-- [ ] **Step 2: Exercise desktop and phone acceptance flows**
+- [x] **Step 2: Exercise desktop and phone acceptance flows**
 
 Open the absolute file URL, then verify outline editing, sidebar collapse/drawer, light/dark screenshots, focus entry, keyboard selection, top dragging, long-press touch drag, Markdown paste, alias synchronization, lifecycle restore, feature toggles, and Timeline drag scheduling.
 
-- [ ] **Step 3: Inspect runtime quality**
+- [x] **Step 3: Inspect runtime quality**
 
 Capture desktop and phone screenshots, assert no horizontal overflow or overlapping controls, inspect browser console errors, and verify the board remains nonblank after reload.
 
-- [ ] **Step 4: Run the final verification ladder**
+- [x] **Step 4: Run the final verification ladder**
 
 Run: `node scripts/build-task-board.mjs`
 
@@ -395,7 +395,7 @@ Run: `git diff --check`
 
 Expected: build exit 0, all runnable tests pass, and no diff-check errors.
 
-- [ ] **Step 5: Update handoff and roadmap status, then commit**
+- [x] **Step 5: Update handoff and roadmap status, then commit**
 
 Document the exact test count, browser viewports, any platform-limited behavior, and deferred JSON sync/research work.
 

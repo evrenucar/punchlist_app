@@ -2,6 +2,8 @@
 
 Priority is based on data safety, frequency of use, and dependency order.
 
+**Status (2026-07-11):** P0 through P3 are implemented and verified in `outputs/task-board.html` (54 static tests plus an optional Playwright smoke test that skips when no Playwright runtime is installed). Browser acceptance ran through the Chrome DevTools MCP at 1440x900 and 390x844 in both themes. Remaining open work: the research backlog below, the deferred JSON-file sync helper, PWA/server-capable reminders, and calendar integration.
+
 ## P0 - Trust and editing
 
 - Preserve and migrate all existing local data into the expanded schema.

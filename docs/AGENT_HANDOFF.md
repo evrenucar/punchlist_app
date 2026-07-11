@@ -25,9 +25,11 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
-`outputs/task-board.html` is a self-contained app with seeded tasks, nested editable items, selection, keyboard movement, collapse/expand, drag/drop, local storage, JSON import/export, focus mode and timer, theme switching, a live clock, and a static Node test harness.
+`outputs/task-board.html` is generated from `src/` by `scripts/build-task-board.mjs` and implements the full agreed scope: nested outline editing with undo and drag/drop (mouse and long-press touch), versioned schema (v2) with migration, Markdown clipboard interchange, alias/reference placements, configurable Completed/Trash lifecycle with `task > group > global` policy overrides, optional scheduling (date, start time, planned minutes, reminders, day Timeline with drag rescheduling and Alt+arrow nudging), planned-versus-actual focus variance, a collapsible sidebar with Views/Groups navigation and phone drawer, dark-mode group tints, help panel, favicon, and "Restore example board" with confirmation.
 
-Known requested work is documented in the design spec and roadmap. The largest architectural pressure is that aliases/references, lifecycle history, and scheduling all need stable task identity. Do not encode mutable placement into task IDs.
+Verification as of 2026-07-11: 54 tests in `tests/task-board.static.test.mjs` pass; `tests/task-board.browser.smoke.mjs` is a reusable Playwright smoke workflow that skips cleanly when no Playwright runtime is installed (none is currently installed here — real-browser acceptance ran through the Chrome DevTools MCP instead, at 1440x900 and 390x844, light and dark, covering editing, keyboard navigation, alias sync, Markdown paste, lifecycle restore, feature-flag invisibility, timeline drag rescheduling, sidebar collapse/drawer, focus timing persistence, reload persistence, and console/overflow checks).
+
+Do not encode mutable placement into task IDs; aliases/references, lifecycle history, and scheduling all rely on stable task identity.
 
 ## Agreed behavior
 
