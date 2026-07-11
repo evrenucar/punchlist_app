@@ -687,6 +687,47 @@ test("trash records describe their origin group and parent", async () => {
   assert.match(origin, new RegExp(parent.text.slice(0, 10).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
+test("alt arrows move a task through subtrees and across groups", async () => {
+  const api = await loadBoardApi();
+  const kora = api.state.groups.find((group) => group.id === "group-kora");
+  const first = kora.tasks[0];
+  const withChildren = kora.tasks[1];
+  assert.ok(withChildren.children.length > 0);
+
+  assert.equal(api.moveTaskVisually(first.id, 1), true);
+  assert.equal(kora.tasks[0].id, withChildren.id);
+  assert.equal(withChildren.children[0].id, first.id);
+
+  assert.equal(api.moveTaskVisually(first.id, -1), true);
+  assert.equal(kora.tasks[0].id, first.id);
+
+  const priorities = api.state.groups.find((group) => group.id === "group-priorities");
+  const today = api.state.groups.find((group) => group.id === "group-today");
+  const last = priorities.tasks.at(-1);
+  assert.equal(api.moveTaskVisually(last.id, 1), true);
+  assert.equal(today.tasks[0].id, last.id);
+  assert.equal(api.moveTaskVisually(last.id, -1), true);
+  assert.equal(priorities.tasks.at(-1).id, last.id);
+});
+
+test("tab indents and outdents every selected task at once", async () => {
+  const api = await loadBoardApi();
+  const today = api.state.groups.find((group) => group.id === "group-today");
+  const [anchor, second, third] = today.tasks;
+
+  api.selectNode("task", second.id);
+  api.selectNode({ kind: "task", id: third.id }, null, { extend: true });
+  assert.equal(api.shiftSelectedDepth(false), true);
+  assert.equal(anchor.children.at(-2).id, second.id);
+  assert.equal(anchor.children.at(-1).id, third.id);
+
+  api.selectNode("task", second.id);
+  api.selectNode({ kind: "task", id: third.id }, null, { extend: true });
+  assert.equal(api.shiftSelectedDepth(true), true);
+  assert.equal(today.tasks[1].id, second.id);
+  assert.equal(today.tasks[2].id, third.id);
+});
+
 test("board shell brands as Punchlist with a timeline pane and history tab", async () => {
   const html = await readBoard();
   for (const hook of [
@@ -845,8 +886,8 @@ test("ctrl arrows toggle selected nodes and alt arrows move every selected node 
     "event.key === \"ArrowUp\" && event.ctrlKey && !event.altKey",
     "event.key === \"ArrowDown\" && event.ctrlKey && !event.altKey",
     "event.altKey && !event.ctrlKey",
-    "moveSelectedNodes(-1)",
-    "moveSelectedNodes(1)",
+    "moveTaskVisually(selection[0].id, direction)",
+    "moveSelectedNodes(direction)",
     "toggleSelectedNodes(true)",
     "toggleSelectedNodes(false)",
   ]) {

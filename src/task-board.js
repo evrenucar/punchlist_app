@@ -123,6 +123,7 @@
     let announcedReminders = new Set();
     let pendingGroupDelete = null;
     let focusModeGroupId = null;
+    let lastPushLoggedHistory = false;
     let showList = true;
     let showTimeline = false;
     let timelineDate = localDateString();
@@ -528,6 +529,7 @@
 
     function pushUndoState(action = "board", detail = null) {
       const label = detail || (action in HISTORY_LABELS ? HISTORY_LABELS[action] : "Changed the board");
+      lastPushLoggedHistory = Boolean(label);
       if (label) logHistory(label, action);
       undoStack.push(JSON.stringify(state));
       undoActions.push(action);
@@ -542,6 +544,10 @@
       undoStack.pop();
       undoActions.pop();
       lastUndoAction = undoActions[undoActions.length - 1] || null;
+      if (lastPushLoggedHistory) {
+        state.history.pop();
+        lastPushLoggedHistory = false;
+      }
     }
 
     function restoreUndoState() {
@@ -1742,32 +1748,32 @@
       return inserted;
     }
 
-    function indentTask(id) {
+    function indentTask(id, options = {}) {
       const found = findTask(id);
       if (!found || found.index <= 0) return false;
       const newParent = found.list[found.index - 1];
-      pushUndoState();
+      if (options.pushUndo !== false) pushUndoState("move");
       const [item] = found.list.splice(found.index, 1);
       newParent.children = newParent.children || [];
       newParent.children.push(item);
       newParent.collapsed = false;
-      setSingleSelection({ kind: "task", id });
-      saveState();
-      render();
+      if (options.select !== false) setSingleSelection({ kind: "task", id });
+      if (options.save !== false) saveState();
+      if (options.render !== false) render();
       return true;
     }
 
-    function outdentTask(id) {
+    function outdentTask(id, options = {}) {
       const found = findTask(id);
       if (!found || !found.parent) return false;
       const parent = findTask(found.parent.id);
       if (!parent) return false;
-      pushUndoState();
+      if (options.pushUndo !== false) pushUndoState("move");
       const [item] = found.list.splice(found.index, 1);
       parent.list.splice(parent.index + 1, 0, item);
-      setSingleSelection({ kind: "task", id });
-      saveState();
-      render();
+      if (options.select !== false) setSingleSelection({ kind: "task", id });
+      if (options.save !== false) saveState();
+      if (options.render !== false) render();
       return true;
     }
 
@@ -1781,6 +1787,118 @@
       const node = selectedNode || getVisibleNodes()[0];
       if (!node || node.kind !== "task") return false;
       return outdentTask(node.id);
+    }
+
+    function shiftSelectedDepth(outdent) {
+      const nodes = getSelectedNodes().filter((node) => node.kind === "task");
+      if (nodes.length <= 1) return outdent ? outdentSelectedNode() : indentSelectedNode();
+      const selectedIds = new Set(nodes.map((node) => node.id));
+      const roots = nodes.filter((node) => {
+        let parent = findTask(node.id)?.parent;
+        while (parent) {
+          if (selectedIds.has(parent.id)) return false;
+          parent = findTask(parent.id)?.parent;
+        }
+        return true;
+      });
+      const visibleOrder = getVisibleNodes().filter((node) => node.kind === "task").map((node) => node.id);
+      roots.sort((a, b) => visibleOrder.indexOf(a.id) - visibleOrder.indexOf(b.id));
+      const sequence = outdent ? [...roots].reverse() : roots;
+      pushUndoState("move", `${outdent ? "Outdented" : "Indented"} ${roots.length} items`);
+      let changed = false;
+      sequence.forEach((node) => {
+        const moved = outdent
+          ? outdentTask(node.id, { pushUndo: false, save: false, render: false, select: false })
+          : indentTask(node.id, { pushUndo: false, save: false, render: false, select: false });
+        changed = moved || changed;
+      });
+      if (!changed) {
+        discardUndoState();
+        return false;
+      }
+      multiSelectedNodes = nodes.map((node) => ({ ...node }));
+      if (!nodes.some((node) => sameNode(node, selectedNode))) selectedNode = { ...nodes[0] };
+      saveState();
+      render();
+      return true;
+    }
+
+    function moveTaskVisually(id, direction) {
+      const found = findTask(id);
+      if (!found) return false;
+      const visible = getVisibleNodes().filter((node) => node.kind === "task" || node.kind === "group");
+      const index = visible.findIndex((node) => node.kind === "task" && node.id === id);
+      if (index < 0) return moveSelectedNodes(direction) || false;
+
+      const descendantIds = new Set();
+      (function collect(items) {
+        (items || []).forEach((child) => {
+          descendantIds.add(child.id);
+          collect(child.children);
+        });
+      })(found.item.children);
+
+      let target = null;
+      if (direction > 0) {
+        for (let cursor = index + 1; cursor < visible.length; cursor += 1) {
+          const candidate = visible[cursor];
+          if (candidate.kind === "task" && descendantIds.has(candidate.id)) continue;
+          target = candidate;
+          break;
+        }
+      } else {
+        target = index > 0 ? visible[index - 1] : null;
+      }
+      if (!target) return false;
+
+      pushUndoState("move", `Moved "${shortText(resolveTaskItem(found.item)?.text)}"`);
+      const [item] = found.list.splice(found.index, 1);
+
+      let placed = false;
+      if (direction > 0) {
+        if (target.kind === "group") {
+          const group = findGroup(target.id);
+          if (group) {
+            group.tasks.unshift(item);
+            group.collapsed = false;
+            placed = true;
+          }
+        } else {
+          const dest = findTask(target.id);
+          if (dest) {
+            if ((dest.item.children || []).length && !dest.item.collapsed) {
+              dest.item.children.unshift(item);
+            } else {
+              dest.list.splice(dest.index + 1, 0, item);
+            }
+            placed = true;
+          }
+        }
+      } else if (target.kind === "group") {
+        const groupIndex = state.groups.findIndex((group) => group.id === target.id);
+        const previousGroup = state.groups[groupIndex - 1];
+        if (previousGroup) {
+          previousGroup.tasks.push(item);
+          previousGroup.collapsed = false;
+          placed = true;
+        }
+      } else {
+        const dest = findTask(target.id);
+        if (dest) {
+          dest.list.splice(dest.index, 0, item);
+          placed = true;
+        }
+      }
+
+      if (!placed) {
+        found.list.splice(found.index, 0, item);
+        discardUndoState();
+        return false;
+      }
+      setSingleSelection({ kind: "task", id });
+      saveState();
+      render();
+      return true;
     }
 
     function addTask(groupId, parentId = null) {
@@ -4085,11 +4203,7 @@
 
       if (event.key === "Tab") {
         event.preventDefault();
-        if (event.shiftKey) {
-          outdentSelectedNode();
-        } else {
-          indentSelectedNode();
-        }
+        shiftSelectedDepth(event.shiftKey);
         return;
       }
 
@@ -4118,15 +4232,12 @@
         return;
       }
 
-      if (event.key === "ArrowUp" && event.altKey && !event.ctrlKey) {
+      if ((event.key === "ArrowUp" || event.key === "ArrowDown") && event.altKey && !event.ctrlKey) {
         event.preventDefault();
-        moveSelectedNodes(-1);
-        return;
-      }
-
-      if (event.key === "ArrowDown" && event.altKey && !event.ctrlKey) {
-        event.preventDefault();
-        moveSelectedNodes(1);
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        const selection = getSelectedNodes();
+        if (selection.length === 1 && selection[0].kind === "task") moveTaskVisually(selection[0].id, direction);
+        else moveSelectedNodes(direction);
         return;
       }
 
@@ -4327,6 +4438,8 @@
       selectNode,
       moveSelectedNode,
       moveSelectedNodes,
+      moveTaskVisually,
+      shiftSelectedDepth,
       moveNodeInList,
       deleteSelectedNodes,
       deleteTaskAndSelectNeighbor,
