@@ -85,7 +85,7 @@ git commit -m "build: generate standalone task board"
 - Modify: `src/task-board.js`
 - Modify: `tests/task-board.static.test.mjs`
 
-- [ ] **Step 1: Write failing tests for schema defaults and legacy migration**
+- [x] **Step 1: Write failing tests for schema defaults and legacy migration**
 
 Cover immutable task creation metadata, settings defaults, old task preservation, and the research task insertion:
 
@@ -99,13 +99,13 @@ test("legacy state migrates without losing hierarchy or focus time", () => {
 });
 ```
 
-- [ ] **Step 2: Run migration tests and confirm missing APIs/defaults fail**
+- [x] **Step 2: Run migration tests and confirm missing APIs/defaults fail**
 
 Run: `node --test --test-name-pattern="migrat|schema" tests/task-board.static.test.mjs`
 
 Expected: FAIL because schema version 2 and migration helpers are absent.
 
-- [ ] **Step 3: Implement migration and validation**
+- [x] **Step 3: Implement migration and validation**
 
 Add one migration entry point that normalizes version 1 and malformed optional fields. Preserve task IDs when valid; generate missing immutable IDs and creation metadata. Add settings with conservative defaults:
 
@@ -128,7 +128,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 ```
 
-- [ ] **Step 4: Verify migration, persistence, and all existing tests**
+- [x] **Step 4: Verify migration, persistence, and all existing tests**
 
 Run: `node scripts/build-task-board.mjs`
 
@@ -136,7 +136,7 @@ Run: `node --test tests/task-board.static.test.mjs`
 
 Expected: PASS with no lost seed or legacy fields.
 
-- [ ] **Step 5: Commit the schema**
+- [x] **Step 5: Commit the schema**
 
 ```powershell
 git add src/task-board.js outputs/task-board.html tests/task-board.static.test.mjs

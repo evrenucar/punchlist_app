@@ -775,6 +775,24 @@
   <script data-task-board-script>
     const STORAGE_KEY = "scheduling-task-management-board-v1";
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1";
+    const SCHEMA_VERSION = 2;
+    const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";
+    const DEFAULT_SETTINGS = Object.freeze({
+      dailyPlanning: false,
+      timelineView: false,
+      reminders: false,
+      browserNotifications: false,
+      focusTiming: true,
+      metadata: false,
+      policyOverrides: false,
+      pasteMode: "alias",
+      completionRetentionSeconds: 7 * 24 * 60 * 60,
+      deleteMode: "trash",
+      trashRetentionSeconds: null,
+      exportCompleted: true,
+      exportTrash: false,
+      sidebarCollapsed: false,
+    });
     const AUTO_SCROLL_EDGE_PX = 96;
     const MAX_AUTO_SCROLL_SPEED = 18;
     const GROUP_PALETTES = [
@@ -835,18 +853,30 @@
     }
 
     function task(text, children = [], options = {}) {
+      const createdAt = options.createdAt || new Date().toISOString();
+      const done = Boolean(options.done);
       return {
-        id: createId("seed"),
+        id: options.id || createId("task"),
         text,
-        done: Boolean(options.done),
+        done,
+        completedAt: options.completedAt || (done ? createdAt : null),
         collapsed: Boolean(options.collapsed),
         focusSeconds: Math.max(0, Math.floor(Number(options.focusSeconds) || 0)),
+        plannedMinutes: Number(options.plannedMinutes) > 0 ? Number(options.plannedMinutes) : null,
+        schedule: options.schedule || null,
+        reminderAt: options.reminderAt || null,
+        createdAt,
+        createdInGroupId: options.createdInGroupId || null,
+        createdUnderTaskId: options.createdUnderTaskId || null,
         children,
       };
     }
 
     function seedState() {
       return {
+        version: SCHEMA_VERSION,
+        settings: { ...DEFAULT_SETTINGS },
+        trash: [],
         groups: [
           {
             id: "group-priorities",
@@ -1008,6 +1038,11 @@
               task("Order boxes"),
               task("Room org"),
               task("Plan week"),
+              task(RESEARCH_TASK_TEXT, [
+                task("Compare Obsidian, ClickUp, Todoist, Things, and Notion workflows"),
+                task("Review recurring complaints and praise in public Reddit discussions"),
+                task("Summarize capture, scheduling, mobile, configuration, portability, and sync pain points"),
+              ]),
             ],
           },
           {
@@ -1026,13 +1061,13 @@
 
     function loadStateFromLocalStorage() {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (!saved) return normalizeState(seedState());
+      if (!saved) return migrateState(seedState());
       try {
         const parsed = JSON.parse(saved);
-        if (!Array.isArray(parsed.groups)) return normalizeState(seedState());
-        return normalizeState(parsed);
+        if (!Array.isArray(parsed.groups)) return migrateState(seedState());
+        return migrateState(parsed);
       } catch {
-        return normalizeState(seedState());
+        return migrateState(seedState());
       }
     }
 
@@ -1079,7 +1114,7 @@
 
     function getBoardExportPayload() {
       return {
-        version: 1,
+        version: SCHEMA_VERSION,
         exportedAt: new Date().toISOString(),
         state,
       };
@@ -1097,7 +1132,7 @@
       }
       if (focusModeTaskId) exitFocusMode();
       pushUndoState();
-      state = normalizeState(importedState);
+      state = migrateState(importedState, new Date().toISOString(), { includeResearch: false });
       selectedNode = getVisibleNodes()[0] || null;
       multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
       selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
@@ -1173,10 +1208,10 @@
       return tasks.reduce((total, item) => total + (item.done ? 1 : 0) + countDone(item.children || []), 0);
     }
 
-    function findTask(id, tasks = null, parent = null) {
+    function findTask(id, tasks = null, parent = null, group = null) {
       if (!tasks) {
-        for (const group of state.groups) {
-          const found = findTask(id, group.tasks, parent);
+        for (const currentGroup of state.groups) {
+          const found = findTask(id, currentGroup.tasks, parent, currentGroup);
           if (found) return found;
         }
         return null;
@@ -1184,8 +1219,8 @@
       const list = tasks;
       for (let index = 0; index < list.length; index += 1) {
         const item = list[index];
-        if (item.id === id) return { item, parent, list, index };
-        const child = findTask(id, item.children || [], item);
+        if (item.id === id) return { item, parent, group, list, index };
+        const child = findTask(id, item.children || [], item, group);
         if (child) return child;
       }
       return null;
@@ -1750,7 +1785,10 @@
         discardUndoState();
         return null;
       }
-      const item = task("New task");
+      const item = task("New task", [], {
+        createdInGroupId: found.group?.id || null,
+        createdUnderTaskId: found.parent?.id || null,
+      });
       found.list.splice(found.index + 1, 0, item);
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
@@ -1811,22 +1849,26 @@
     }
 
     function addTask(groupId, parentId = null) {
-      const item = task("New task");
+      const item = task("New task", [], {
+        createdInGroupId: groupId,
+        createdUnderTaskId: parentId,
+      });
       if (parentId) {
         const parent = findTask(parentId);
-        if (!parent) return;
+        if (!parent) return null;
         parent.item.children = parent.item.children || [];
         parent.item.children.push(item);
         parent.item.collapsed = false;
       } else {
         const group = findGroup(groupId);
-        if (!group) return;
+        if (!group) return null;
         group.tasks.push(item);
       }
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
       render();
       focusTaskText(item.id);
+      return item;
     }
 
     function addGroup() {
@@ -2125,19 +2167,94 @@
       return normalizeColor(GROUP_COLORS[group.id]) || GROUP_PALETTES[index % GROUP_PALETTES.length].color;
     }
 
-    function normalizeState(boardState) {
+    function migrateState(boardState, now = new Date().toISOString(), options = {}) {
+      const source = boardState && typeof boardState === "object" ? boardState : seedState();
+      const previousVersion = Number(source.version) || 1;
+      if (previousVersion < SCHEMA_VERSION && options.includeResearch !== false) ensureResearchTask(source, now);
+      return normalizeState(source, now);
+    }
+
+    function taskTreeContainsText(tasks, text) {
+      return (tasks || []).some((item) => item.text === text || taskTreeContainsText(item.children, text));
+    }
+
+    function ensureResearchTask(boardState, now = new Date().toISOString()) {
+      if ((boardState.groups || []).some((group) => taskTreeContainsText(group.tasks, RESEARCH_TASK_TEXT))) return false;
+      let group = (boardState.groups || []).find((item) => /general|later/i.test(item.title || ""));
+      if (!group) {
+        group = {
+          id: "group-research",
+          title: "Research",
+          collapsed: false,
+          tasks: [],
+        };
+        boardState.groups = Array.isArray(boardState.groups) ? boardState.groups : [];
+        boardState.groups.push(group);
+      }
+      group.tasks = Array.isArray(group.tasks) ? group.tasks : [];
+      group.tasks.push(task(RESEARCH_TASK_TEXT, [
+        task("Compare Obsidian, ClickUp, Todoist, Things, and Notion workflows", [], { createdAt: now }),
+        task("Review recurring complaints and praise in public Reddit discussions", [], { createdAt: now }),
+        task("Summarize capture, scheduling, mobile, configuration, portability, and sync pain points", [], { createdAt: now }),
+      ], { createdAt: now }));
+      return true;
+    }
+
+    function normalizeState(boardState, now = new Date().toISOString()) {
+      boardState.version = SCHEMA_VERSION;
+      boardState.settings = {
+        ...DEFAULT_SETTINGS,
+        ...(boardState.settings && typeof boardState.settings === "object" ? boardState.settings : {}),
+      };
+      boardState.trash = Array.isArray(boardState.trash) ? boardState.trash : [];
+      boardState.groups = Array.isArray(boardState.groups) ? boardState.groups : [];
       boardState.groups.forEach((group, index) => {
+        group.id = typeof group.id === "string" && group.id ? group.id : createId("group");
+        group.title = typeof group.title === "string" ? group.title : "Untitled group";
         group.color = normalizeColor(group.color) || getDefaultGroupColor(group, index);
+        group.createdAt = typeof group.createdAt === "string" ? group.createdAt : now;
+        group.policyOverrides = group.policyOverrides && typeof group.policyOverrides === "object"
+          ? group.policyOverrides
+          : null;
         group.tasks = Array.isArray(group.tasks) ? group.tasks : [];
-        group.tasks.forEach(normalizeTask);
+        group.tasks.forEach((item) => normalizeTask(item, {
+          groupId: group.id,
+          parentId: null,
+          now,
+        }));
       });
       return boardState;
     }
 
-    function normalizeTask(item) {
+    function normalizeTask(item, context = {}) {
+      const now = context.now || new Date().toISOString();
+      item.id = typeof item.id === "string" && item.id ? item.id : createId("task");
+      item.text = typeof item.text === "string" ? item.text : "";
+      item.done = Boolean(item.done);
+      item.completedAt = item.done
+        ? (typeof item.completedAt === "string" ? item.completedAt : now)
+        : null;
+      item.collapsed = Boolean(item.collapsed);
       item.focusSeconds = Math.max(0, Math.floor(Number(item.focusSeconds) || 0));
+      item.plannedMinutes = Number(item.plannedMinutes) > 0 ? Number(item.plannedMinutes) : null;
+      item.schedule = item.schedule && typeof item.schedule === "object" ? item.schedule : null;
+      item.reminderAt = typeof item.reminderAt === "string" ? item.reminderAt : null;
+      item.createdAt = typeof item.createdAt === "string" ? item.createdAt : now;
+      item.createdInGroupId = typeof item.createdInGroupId === "string"
+        ? item.createdInGroupId
+        : (context.groupId || null);
+      item.createdUnderTaskId = typeof item.createdUnderTaskId === "string"
+        ? item.createdUnderTaskId
+        : (context.parentId || null);
+      item.policyOverrides = item.policyOverrides && typeof item.policyOverrides === "object"
+        ? item.policyOverrides
+        : null;
       item.children = Array.isArray(item.children) ? item.children : [];
-      item.children.forEach(normalizeTask);
+      item.children.forEach((child) => normalizeTask(child, {
+        groupId: context.groupId || item.createdInGroupId,
+        parentId: item.id,
+        now,
+      }));
       return item;
     }
 
@@ -2676,6 +2793,9 @@
       toggleGroup,
       moveGroup,
       normalizeState,
+      migrateState,
+      ensureResearchTask,
+      DEFAULT_SETTINGS,
       changeGroupColor,
       toggleSelectedNode,
       toggleSelectedNodes,
@@ -2734,7 +2854,7 @@
       addTask,
       reset() {
         localStorage.removeItem(STORAGE_KEY);
-        state = normalizeState(seedState());
+        state = migrateState(seedState());
         selectedNode = null;
         multiSelectedNodes = [];
         selectionAnchorNode = null;

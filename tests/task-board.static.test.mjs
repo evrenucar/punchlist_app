@@ -119,6 +119,58 @@ test("build emits one standalone task board", async () => {
   assert.match(output, /<script data-task-board-script>/);
 });
 
+test("legacy state migrates to version two without losing task data", async () => {
+  const api = await loadBoardApi();
+  const legacy = {
+    groups: [{
+      id: "group-legacy",
+      title: "Legacy",
+      collapsed: false,
+      tasks: [{
+        id: "task-legacy",
+        text: "Existing task",
+        done: true,
+        collapsed: false,
+        focusSeconds: 125,
+        children: [{ id: "task-child", text: "Child", done: false, children: [] }],
+      }],
+    }],
+  };
+
+  const migrated = api.migrateState(legacy, "2026-07-11T12:00:00.000Z");
+  const existing = migrated.groups[0].tasks[0];
+  const child = existing.children[0];
+
+  assert.equal(migrated.version, 2);
+  assert.equal(migrated.settings.dailyPlanning, false);
+  assert.equal(migrated.settings.focusTiming, true);
+  assert.equal(migrated.settings.pasteMode, "alias");
+  assert.equal(migrated.trash.length, 0);
+  assert.equal(existing.id, "task-legacy");
+  assert.equal(existing.text, "Existing task");
+  assert.equal(existing.focusSeconds, 125);
+  assert.equal(existing.createdAt, "2026-07-11T12:00:00.000Z");
+  assert.equal(existing.createdInGroupId, "group-legacy");
+  assert.equal(existing.completedAt, "2026-07-11T12:00:00.000Z");
+  assert.equal(child.createdUnderTaskId, "task-legacy");
+  assert.equal(
+    migrated.groups.some((group) => group.tasks.some((item) => item.text.includes("Research task management apps"))),
+    true,
+  );
+});
+
+test("new tasks retain immutable creation context", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const parent = group.tasks[0];
+  const child = api.addTask(group.id, parent.id);
+
+  assert.ok(child.id);
+  assert.equal(child.createdInGroupId, group.id);
+  assert.equal(child.createdUnderTaskId, parent.id);
+  assert.ok(child.createdAt);
+});
+
 test("task board file contains the seeded task groups and nested tasks", async () => {
   const html = await readBoard();
 
@@ -568,7 +620,7 @@ test("static task board supports export and import without server storage", asyn
 
   const api = await loadBoardApi();
   const exported = JSON.parse(api.serializeBoardState());
-  assert.equal(exported.version, 1);
+  assert.equal(exported.version, 2);
   assert.ok(Array.isArray(exported.state.groups));
   assert.equal(exported.state.groups.some((group) => group.title === "Kora"), true);
 
