@@ -415,10 +415,14 @@
       color: var(--text);
     }
 
+    .views-menu {
+      margin-bottom: 12px;
+    }
+
     .views-nav {
       display: grid;
       gap: 4px;
-      margin-bottom: 18px;
+      padding: 4px 2px 0;
     }
     .views-nav h3 {
       margin: 0 0 4px;
@@ -1677,6 +1681,8 @@
     }
 
     .focus-mode__text {
+      display: grid;
+      align-content: center;
       width: min(1500px, 96%);
       min-height: 160px;
       border: 0;
@@ -1791,6 +1797,11 @@
         display: none;
       }
 
+      .topbar-heading {
+        order: 3;
+        margin-left: auto;
+      }
+
       .sidebar {
         position: fixed;
         top: 0;
@@ -1846,6 +1857,12 @@
       .topbar {
         align-items: stretch;
         flex-direction: column;
+      }
+
+      .topbar-heading {
+        order: 0;
+        margin-left: 0;
+        justify-content: flex-end;
       }
 
       .search {

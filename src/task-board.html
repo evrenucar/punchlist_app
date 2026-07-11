@@ -175,13 +175,19 @@
         </details>
       </div>
 
-      <nav class="views-nav" aria-label="Views" data-views-nav>
-        <h3>Views</h3>
-        <button type="button" data-view-nav="board" title="Show the outline of all groups">Board</button>
-        <button type="button" data-view-nav="timeline" data-views-timeline hidden title="Show the day timeline">Timeline</button>
-        <button type="button" data-view-nav="completed" title="Show hidden completed tasks">Completed</button>
-        <button type="button" data-view-nav="trash" title="Show deleted tasks">Trash</button>
-      </nav>
+      <details class="history-menu views-menu" data-views-menu open>
+        <summary class="control" title="Jump between board views">
+          <span class="disclosure-arrow" aria-hidden="true"></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/></svg>
+          Views
+        </summary>
+        <nav class="views-nav" aria-label="Views" data-views-nav>
+          <button type="button" data-view-nav="board" title="Show the outline of all groups">Board</button>
+          <button type="button" data-view-nav="timeline" data-views-timeline hidden title="Show the day timeline">Timeline</button>
+          <button type="button" data-view-nav="completed" title="Show hidden completed tasks">Completed</button>
+          <button type="button" data-view-nav="trash" title="Show deleted tasks">Trash</button>
+        </nav>
+      </details>
 
       <details class="history-menu" data-history-menu>
         <summary class="control" title="Recent changes on this board">

@@ -596,16 +596,22 @@ test("deleting a group requires confirmation before it reaches the trash", async
   assert.equal(api.state.trash.some((record) => record.kind === "group"), true);
 });
 
-test("focus mode accepts groups and hides blank children", async () => {
+test("focus mode accepts groups and hides retention-hidden children", async () => {
   const api = await loadBoardApi();
   assert.equal(api.enterGroupFocusMode("group-kora"), true);
   assert.equal(api.toggleFocusMode(), false);
+
   const html = api.renderFocusChildren([
     { id: "a", text: "", children: [] },
     { id: "b", text: "Real child", children: [] },
   ]);
-  assert.equal((html.match(/<li/g) || []).length, 1);
-  assert.match(html, /Real child/);
+  assert.equal((html.match(/<li/g) || []).length, 2, "empty rows stay editable in focus mode");
+
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  api.state.settings.completionRetentionSeconds = 0;
+  api.setTaskCompleted(group.tasks[0].id, true, "2020-01-01T00:00:00.000Z");
+  const filtered = api.renderFocusChildren(group.tasks, 0, group);
+  assert.equal(filtered.includes(`data-focus-task-text="${group.tasks[0].id}"`), false);
 });
 
 test("history records completions and deletions with task names", async () => {

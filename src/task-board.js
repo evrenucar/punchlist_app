@@ -2561,13 +2561,24 @@
           ? `${at.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })} ${formatClockTime(at)}:${String(at.getSeconds()).padStart(2, "0")}`
           : "Unknown time";
         const kindLabel = entry.kind && entry.kind !== "board" ? ` · ${entry.kind}` : "";
-        const restorable = entry.trashId && state.trash.some((record) => record.id === entry.trashId);
+        let restoreId = entry.trashId && state.trash.some((record) => record.id === entry.trashId) ? entry.trashId : null;
+        if (!restoreId && /^Deleted /.test(entry.text)) {
+          const quoted = entry.text.match(/"(.+)"$/)?.[1];
+          if (quoted) {
+            const match = state.trash.find((record) => {
+              const label = record.kind === "group" ? record.item.title : (resolveTaskItem(record.item)?.text || record.item.text || "");
+              return shortText(label) === quoted;
+            });
+            restoreId = match?.id || null;
+          }
+        }
+        const restorable = Boolean(restoreId);
         return `
           <details class="history-row">
             <summary><span class="disclosure-arrow" aria-hidden="true"></span><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></summary>
             <div class="history-detail">
               ${escapeHtml(fullStamp)}${escapeHtml(kindLabel)}
-              ${restorable ? `<button class="control compact" type="button" data-action="restore-trash" data-trash-id="${entry.trashId}">Restore</button>` : ""}
+              ${restorable ? `<button class="control compact" type="button" data-action="restore-trash" data-trash-id="${restoreId}">Restore</button>` : ""}
             </div>
           </details>`;
       }).join("") || '<p class="empty">No changes recorded yet.</p>';
@@ -2906,11 +2917,7 @@
     }
 
     function renderFocusChildren(tasks, depth = 0, group = null) {
-      const visible = (tasks || []).filter((item) => {
-        if (group && isTaskHiddenFromActive(item, group)) return false;
-        const resolved = resolveTaskItem(item);
-        return (resolved?.text || item.text || "").trim() || (item.children || []).length;
-      });
+      const visible = (tasks || []).filter((item) => !(group && isTaskHiddenFromActive(item, group)));
       if (!visible.length) return "";
       const items = visible.map((item) => {
         const resolved = resolveTaskItem(item);
@@ -3171,14 +3178,16 @@
     }
 
     boardEl.addEventListener("paste", (event) => {
+      const captionEl = event.target.closest("[data-image-caption]");
       const textEl = event.target.closest("[data-task-text]");
-      if (!textEl) return;
+      if (!captionEl && !textEl) return;
       const imageFile = [...(event.clipboardData?.files || [])].find((file) => file.type?.startsWith("image/"));
       if (imageFile) {
         event.preventDefault();
-        attachImageToTask(textEl.dataset.taskText, imageFile);
+        attachImageToTask(captionEl ? captionEl.dataset.imageTask : textEl.dataset.taskText, imageFile);
         return;
       }
+      if (captionEl) return;
       const pasted = event.clipboardData?.getData("text/plain")?.trim() || "";
       if (!/^https?:\/\/\S+$/i.test(pasted)) return;
       const selection = window.getSelection();
@@ -3344,6 +3353,25 @@
         if (inserted) focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${inserted.id}"]`), false);
         return;
       }
+      const mainTextEl = event.target.closest?.(".focus-mode__text:not(.focus-mode__group-title)");
+      if (mainTextEl && event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        event.stopPropagation();
+        const found = findTask(mainTextEl.dataset.focusTaskText);
+        if (!found) return;
+        const item = resolveTaskItem(found.item);
+        item.text = getMarkdownTextFromEditable(mainTextEl);
+        pushUndoState("board", "Added a task");
+        const child = task("", [], { createdInGroupId: found.group?.id || null, createdUnderTaskId: item.id });
+        item.children = item.children || [];
+        item.children.unshift(child);
+        item.collapsed = false;
+        saveState();
+        render();
+        renderFocusMode();
+        focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${child.id}"]`), false);
+        return;
+      }
       const childEl = event.target.closest?.(".focus-child-text");
       if (!childEl) return;
       const id = childEl.dataset.focusTaskText;
@@ -3495,15 +3523,18 @@
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
 
     sidebarToggleEl?.addEventListener("keydown", (event) => {
-      if (event.key === "ArrowRight" || event.key === "ArrowDown" || event.key === "Escape") {
+      if (event.key === "ArrowRight" || event.key === "Escape") {
         event.preventDefault();
         if (selectedNode) renderSelection(true);
         else selectNode(getVisibleNodes()[0]);
         return;
       }
-      if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowDown" || event.key === "ArrowLeft") {
         event.preventDefault();
-        [...document.querySelectorAll(".sidebar button, .sidebar summary")].find((el) => el.offsetParent !== null)?.focus();
+        const target = [...document.querySelectorAll(".sidebar button, .sidebar summary")].find((el) => el.offsetParent !== null);
+        if (target) target.focus();
+        else if (selectedNode) renderSelection(true);
+        else selectNode(getVisibleNodes()[0]);
       }
     });
 
@@ -4166,9 +4197,10 @@
         else searchEl?.focus();
         return;
       }
-      if (event.key === "ArrowLeft" && itemIndex > 0) {
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
-        items[itemIndex - 1].focus();
+        if (itemIndex > 0) items[itemIndex - 1].focus();
+        else sidebarToggleEl?.focus();
         return;
       }
       if (event.key === "ArrowDown" || event.key === "Escape") {
@@ -4187,6 +4219,10 @@
         const focusIndex = focusables.indexOf(document.activeElement);
         if (focusIndex < 0) return;
         event.preventDefault();
+        if (event.key === "ArrowUp" && focusIndex === 0) {
+          sidebarToggleEl?.focus();
+          return;
+        }
         const next = focusIndex + (event.key === "ArrowDown" ? 1 : -1);
         focusables[Math.min(focusables.length - 1, Math.max(0, next))]?.focus();
         return;
