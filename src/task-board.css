@@ -821,6 +821,11 @@
       stroke-width: 3.4;
       width: 15px;
       height: 15px;
+      margin-left: -2px;
+    }
+
+    .focus-child-check.done svg {
+      margin-left: -1px;
     }
 
     .views-nav button.active {
@@ -983,20 +988,36 @@
       gap: 4px;
     }
 
-    .lifecycle-row {
+    .lifecycle-row > summary {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      grid-template-columns: 10px minmax(0, 1fr) auto auto auto;
       align-items: center;
       gap: 8px;
       min-height: 40px;
+      cursor: pointer;
+      list-style: none;
       border-radius: 6px;
       padding: 4px 6px;
     }
 
-    .lifecycle-row:hover,
-    .lifecycle-row:focus {
+    .lifecycle-row > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .lifecycle-row > summary:hover,
+    .lifecycle-row > summary:focus {
       background: var(--surface-2);
       outline: 0;
+    }
+
+    .lifecycle-row .disclosure-arrow {
+      color: var(--muted);
+    }
+
+    .lifecycle-detail {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0 6px 8px 24px;
     }
 
     .lifecycle-task {
@@ -1275,6 +1296,15 @@
       display: inline-flex;
       align-items: stretch;
       gap: 3px;
+      border-radius: 10px;
+      outline: 0;
+    }
+
+    .task-image.selected img,
+    .task-image:focus-visible img {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
     }
 
     .task-image img {
@@ -1819,8 +1849,8 @@
         min-height: 44px;
       }
 
-      .lifecycle-row {
-        grid-template-columns: minmax(0, 1fr) auto;
+      .lifecycle-row > summary {
+        grid-template-columns: 10px minmax(0, 1fr) auto;
       }
 
       .lifecycle-context {

@@ -651,6 +651,36 @@ test("completed and trash sections are reachable as keyboard nodes", async () =>
   assert.equal(html.includes('contenteditable="false"'), false);
 });
 
+test("task images become keyboard nodes and delete removes just the image", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+  item.images = [{ id: "img-t1", src: "data:image/webp;base64,AA==", width: 200 }];
+
+  const visible = api.getVisibleNodes();
+  const taskIndex = visible.findIndex((node) => node.kind === "task" && node.id === item.id);
+  assert.equal(visible[taskIndex + 1].kind, "image");
+  assert.equal(visible[taskIndex + 1].id, "img-t1");
+  assert.equal(visible[taskIndex + 1].taskId, item.id);
+
+  assert.equal(api.findImageNode("img-t1").taskId, item.id);
+  assert.equal(api.removeTaskImage(item.id, "img-t1"), true);
+  assert.equal(item.images.length, 0);
+  assert.equal(item.text.length > 0, true);
+  assert.match(api.state.history.at(-1).text, /Removed an image/);
+});
+
+test("trash records describe their origin group and parent", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const parent = group.tasks.find((item) => item.children.length > 0);
+  const child = parent.children[0];
+  const record = api.deleteTaskWithPolicy(child.id, "2026-07-11T12:00:00.000Z");
+  const origin = api.describeTrashOrigin(record);
+  assert.match(origin, /^In Kora/);
+  assert.match(origin, new RegExp(parent.text.slice(0, 10).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+});
+
 test("board shell brands as Punchlist with a timeline pane and history tab", async () => {
   const html = await readBoard();
   for (const hook of [

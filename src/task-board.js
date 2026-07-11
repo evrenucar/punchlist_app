@@ -1838,7 +1838,14 @@
       function walk(tasks, group) {
         tasks.forEach((item) => {
           if (isTaskHiddenFromActive(item, group)) return;
-          if (taskMatchesFilter(item, query)) nodes.push({ kind: "task", id: item.id });
+          if (taskMatchesFilter(item, query)) {
+            nodes.push({ kind: "task", id: item.id });
+            if (!item.linkType) {
+              (resolveTaskItem(item)?.images || []).forEach((img) => {
+                nodes.push({ kind: "image", id: img.id, taskId: item.id });
+              });
+            }
+          }
           if (!item.collapsed || query) walk(item.children || [], group);
         });
       }
@@ -1864,9 +1871,35 @@
       return Boolean(first && second && first.kind === second.kind && first.id === second.id);
     }
 
+    function findImageNode(imageId) {
+      for (const group of state.groups) {
+        const stack = [...group.tasks];
+        while (stack.length) {
+          const item = stack.pop();
+          const image = (resolveTaskItem(item)?.images || []).find((img) => img.id === imageId);
+          if (image && !item.linkType) return { taskId: item.id, image };
+          stack.push(...(item.children || []));
+        }
+      }
+      return null;
+    }
+
+    function removeTaskImage(taskId, imageId) {
+      const found = findTask(taskId);
+      if (!found) return false;
+      const item = resolveTaskItem(found.item);
+      pushUndoState("delete", "Removed an image");
+      item.images = (item.images || []).filter((img) => img.id !== imageId);
+      setSingleSelection({ kind: "task", id: item.id });
+      saveState();
+      render();
+      return true;
+    }
+
     function nodeExists(node) {
       if (!node) return false;
       if (node.kind === "section") return node.id === "completed" || node.id === "trash";
+      if (node.kind === "image") return Boolean(findImageNode(node.id));
       return node.kind === "group" ? Boolean(findGroup(node.id)) : Boolean(findTask(node.id));
     }
 
@@ -2251,10 +2284,10 @@
     function buildGroupPalette(color) {
       return {
         color,
-        bg: `color-mix(in srgb, ${color} 8%, white)`,
-        selected: `color-mix(in srgb, ${color} 18%, white)`,
-        border: `color-mix(in srgb, ${color} 36%, white)`,
-        ink: `color-mix(in srgb, ${color} 70%, black)`,
+        bg: `color-mix(in srgb, ${color} 13%, white)`,
+        selected: `color-mix(in srgb, ${color} 26%, white)`,
+        border: `color-mix(in srgb, ${color} 48%, white)`,
+        ink: `color-mix(in srgb, ${color} 74%, black)`,
         darkBg: `color-mix(in srgb, ${color} 16%, #1c1f1d)`,
         darkSelected: `color-mix(in srgb, ${color} 30%, #1c1f1d)`,
         darkBorder: `color-mix(in srgb, ${color} 42%, #1c1f1d)`,
@@ -2429,7 +2462,7 @@
       const images = resolved?.images || [];
       const imagesHtml = images.length && !item.linkType
         ? `<div class="task-images">${images.map((img) => `
-            <span class="task-image">
+            <span class="task-image ${isSelected("image", img.id) ? "selected" : ""}" data-node-kind="image" data-node-id="${img.id}" data-image-task="${resolved.id}" tabindex="0">
               <span class="image-handle" data-image-handle="left" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
               <img src="${img.src}" style="width: ${Math.max(60, Number(img.width) || 260)}px" alt="Pasted image" draggable="false">
               <span class="image-handle" data-image-handle="right" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
@@ -2540,29 +2573,53 @@
       return entries;
     }
 
+    function describeTrashOrigin(record) {
+      if (record?.kind === "group") return "Top-level group";
+      const source = record?.source || {};
+      const group = findGroup(source.groupId);
+      const parent = source.parentId ? findTask(source.parentId) : null;
+      let label = group ? `In ${group.title}` : "In a removed group";
+      if (parent) label += ` › ${shortText(resolveTaskItem(parent.item)?.text || "")}`;
+      return label;
+    }
+
     function renderLifecycleSections() {
       const completed = getCompletedEntries();
       const completedRows = completed.length
-        ? completed.map(({ item, group }) => `
-          <div class="lifecycle-row" tabindex="0">
-            <span class="lifecycle-task">${renderInlineMarkdown(item.text)}</span>
-            <span class="lifecycle-context">${escapeHtml(group.title)}</span>
-            <button class="control compact" type="button" data-action="restore-completed" data-task-id="${item.id}">Restore</button>
-          </div>
-        `).join("")
+        ? completed.map(({ item, group }) => {
+          const found = findTask(item.id);
+          const location = found ? getTaskLocationLabel(found) : group.title;
+          const when = item.completedAt ? describeRelativeDateTime(item.completedAt) : "";
+          return `
+          <details class="lifecycle-row">
+            <summary>
+              <span class="disclosure-arrow" aria-hidden="true"></span>
+              <span class="lifecycle-task">${renderInlineMarkdown(item.text)}</span>
+              <span class="lifecycle-context">${escapeHtml(group.title)}</span>
+              <button class="control compact" type="button" data-action="restore-completed" data-task-id="${item.id}">Restore</button>
+            </summary>
+            <div class="lifecycle-detail">In ${escapeHtml(location)}${when ? ` · completed ${escapeHtml(when)}` : ""}</div>
+          </details>
+        `;
+        }).join("")
         : '<p class="empty">No completed tasks are hidden.</p>';
       const trashRows = state.trash.length
         ? state.trash.map((record) => {
           const label = record.kind === "group"
             ? record.item.title
             : (resolveTaskItem(record.item)?.text || record.item.text || "Deleted task");
+          const when = record.deletedAt ? describeRelativeDateTime(record.deletedAt) : "";
           return `
-            <div class="lifecycle-row" tabindex="0">
-              <span class="lifecycle-task">${renderInlineMarkdown(label)}</span>
-              <span class="lifecycle-context">${record.wasCompleted ? "Completed and deleted" : "Deleted"}</span>
-              <button class="control compact" type="button" data-action="restore-trash" data-trash-id="${record.id}">Restore</button>
-              <button class="control compact danger" type="button" data-action="purge-trash" data-trash-id="${record.id}">Purge</button>
-            </div>
+            <details class="lifecycle-row">
+              <summary>
+                <span class="disclosure-arrow" aria-hidden="true"></span>
+                <span class="lifecycle-task">${renderInlineMarkdown(label)}</span>
+                <span class="lifecycle-context">${record.wasCompleted ? "Completed and deleted" : "Deleted"}</span>
+                <button class="control compact" type="button" data-action="restore-trash" data-trash-id="${record.id}">Restore</button>
+                <button class="control compact danger" type="button" data-action="purge-trash" data-trash-id="${record.id}">Purge</button>
+              </summary>
+              <div class="lifecycle-detail">${escapeHtml(describeTrashOrigin(record))}${when ? ` · deleted ${escapeHtml(when)}` : ""}</div>
+            </details>
           `;
         }).join("")
         : '<p class="empty">Trash is empty.</p>';
@@ -3007,14 +3064,7 @@
       }
       if (action === "delete-task") deleteTask(button.dataset.taskId);
       if (button.dataset.imageRemove) {
-        const found = findTask(button.dataset.imageTask);
-        if (found) {
-          const item = resolveTaskItem(found.item);
-          pushUndoState("delete", "Removed an image");
-          item.images = (item.images || []).filter((img) => img.id !== button.dataset.imageRemove);
-          saveState();
-          render();
-        }
+        removeTaskImage(button.dataset.imageTask, button.dataset.imageRemove);
         return;
       }
       if (action === "confirm-delete" && pendingGroupDelete) {
@@ -3026,9 +3076,13 @@
         render();
         return;
       }
-      if (action === "restore-completed") restoreCompletedTask(button.dataset.taskId);
-      if (action === "restore-trash") restoreTrashRecord(button.dataset.trashId);
-      if (action === "purge-trash") purgeTrashRecord(button.dataset.trashId);
+      if (action === "restore-completed" || action === "restore-trash" || action === "purge-trash") {
+        event.preventDefault();
+        if (action === "restore-completed") restoreCompletedTask(button.dataset.taskId);
+        if (action === "restore-trash") restoreTrashRecord(button.dataset.trashId);
+        if (action === "purge-trash") purgeTrashRecord(button.dataset.trashId);
+        return;
+      }
       if (action === "add-child") addTask(button.dataset.groupId, button.dataset.taskId);
       if (action === "add-task") addTask(button.dataset.groupId);
       if (action === "toggle-group") toggleGroup(button.dataset.groupId);
@@ -3148,6 +3202,11 @@
       const sectionRow = event.target.closest("[data-section-row]");
       if (sectionRow) {
         selectNode("section", sectionRow.dataset.sectionRow);
+        return;
+      }
+      const imageWrap = event.target.closest('[data-node-kind="image"]');
+      if (imageWrap) {
+        selectNode("image", imageWrap.dataset.nodeId);
         return;
       }
       const groupRow = event.target.closest("[data-group-row]");
@@ -3753,16 +3812,36 @@
 
     document.addEventListener("paste", (event) => {
       if (event.target.matches?.("[contenteditable='true'], input, textarea")) return;
+      const imageInfo = selectedNode?.kind === "image" ? findImageNode(selectedNode.id) : null;
+      const targetNode = imageInfo ? { kind: "task", id: imageInfo.taskId } : selectedNode;
+      const imageFile = [...(event.clipboardData?.files || [])].find((file) => file.type?.startsWith("image/"));
+      if (imageFile && targetNode?.kind === "task") {
+        event.preventDefault();
+        attachImageToTask(targetNode.id, imageFile);
+        return;
+      }
       const text = event.clipboardData?.getData("text/plain") || "";
+      if (imageInfo && text.trim()) {
+        event.preventDefault();
+        const found = findTask(imageInfo.taskId);
+        if (found) {
+          const item = resolveTaskItem(found.item);
+          pushUndoState("paste", "Pasted text into a task");
+          item.text = `${item.text}\n${text.trim()}`;
+          saveState();
+          render();
+        }
+        return;
+      }
       if (internalClipboard?.taskIds?.length && text.trim() === internalClipboard.markdown.trim()) {
         event.preventDefault();
-        pasteTaskIds(internalClipboard.taskIds, selectedNode, resolvePasteMode());
+        pasteTaskIds(internalClipboard.taskIds, targetNode, resolvePasteMode());
         if (internalClipboard.mode === "cut") internalClipboard = null;
         return;
       }
       if (parseMarkdownTasks(text).length) {
         event.preventDefault();
-        pasteExternalMarkdown(text, selectedNode);
+        pasteExternalMarkdown(text, targetNode);
       }
     });
 
@@ -3796,7 +3875,7 @@
         return;
       }
 
-      const isEditingText = event.target.matches("[contenteditable='true']");
+      const isEditingText = event.target.matches?.("[contenteditable='true']") ?? false;
       if (isEditingText && event.key === "Enter" && event.shiftKey) {
         insertEditingLineBreak(event);
         return;
@@ -3858,12 +3937,35 @@
 
       if (isEditingText && event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) return;
 
-      if (event.target.matches("input, select, textarea") && !event.altKey) return;
+      if (event.target.matches?.("input, select, textarea") && !event.altKey) return;
 
       const visible = getVisibleNodes();
       if (!visible.length) return;
       const currentIndex = visible.findIndex((node) => node.kind === selectedNode?.kind && node.id === selectedNode?.id);
       const index = Math.max(0, currentIndex);
+
+      if (selectedNode?.kind === "image" && !isEditingText) {
+        const info = findImageNode(selectedNode.id);
+        if (event.key === "Backspace" || event.key === "Delete") {
+          event.preventDefault();
+          if (info) removeTaskImage(info.taskId, selectedNode.id);
+          return;
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+          event.preventDefault();
+          if (info) selectNode("task", info.taskId);
+          return;
+        }
+        if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+          event.preventDefault();
+          if (info) {
+            selectNode("task", info.taskId);
+            startEditingSelectedNode(event.key);
+          }
+          return;
+        }
+        if ((event.key === "ArrowUp" || event.key === "ArrowDown") && (event.ctrlKey || event.altKey)) return;
+      }
 
       if (selectedNode?.kind === "section" && !isEditingText) {
         if (event.key === "Enter" || event.key === "Tab" || event.key === "Backspace" || event.key === "Delete") return;
@@ -4085,6 +4187,9 @@
       renderGroupDetailsPanel,
       renderDetailsPanel,
       renderFocusChildren,
+      findImageNode,
+      removeTaskImage,
+      describeTrashOrigin,
       enterGroupFocusMode,
       toggleFocusMode,
       describeGlobalCompletionPolicy,
