@@ -92,6 +92,7 @@
     const focusExitEl = document.querySelector("[data-focus-exit]");
     const focusTaskEl = document.querySelector("[data-focus-task]");
     const focusTimerEl = document.querySelector("[data-focus-timer]");
+    const focusClockEl = document.querySelector("[data-focus-clock]");
     let selectedNode = null;
     let multiSelectedNodes = [];
     let selectionAnchorNode = null;
@@ -373,9 +374,9 @@
     }
 
     function updateClock(date = new Date()) {
-      if (!clockEl) return "";
       const value = formatClockTime(date);
-      clockEl.textContent = value;
+      if (clockEl) clockEl.textContent = value;
+      if (focusClockEl) focusClockEl.textContent = value;
       return value;
     }
 
@@ -691,20 +692,26 @@
     }
 
     function selectedNodesToMarkdown(nodes = getSelectedNodes()) {
-      const groups = nodes.filter((node) => node.kind === "group").map((node) => findGroup(node.id)).filter(Boolean);
-      const tasks = getSelectedTaskRoots(nodes);
+      const groupIds = new Set(nodes.filter((node) => node.kind === "group").map((node) => node.id));
+      const groups = [...groupIds].map((id) => findGroup(id)).filter(Boolean);
+      const tasks = getSelectedTaskRoots(nodes)
+        .filter((item) => !groupIds.has(findTask(item.id)?.group?.id));
       const sections = groups.map((group) => `## ${group.title}\n\n${tasksToMarkdown(group.tasks)}`);
       if (tasks.length) sections.push(tasksToMarkdown(tasks));
       return sections.join("\n\n").trim();
     }
 
     function rememberInternalClipboard(mode = "copy") {
-      const tasks = getSelectedTaskRoots();
-      if (!tasks.length) return null;
+      const nodes = getSelectedNodes();
+      const markdown = selectedNodesToMarkdown(nodes);
+      if (!markdown) return null;
+      const groupIds = new Set(nodes.filter((node) => node.kind === "group").map((node) => node.id));
+      const tasks = getSelectedTaskRoots(nodes)
+        .filter((item) => !groupIds.has(findTask(item.id)?.group?.id));
       internalClipboard = {
         mode,
         taskIds: tasks.map((item) => item.id),
-        markdown: tasksToMarkdown(tasks),
+        markdown,
       };
       return internalClipboard;
     }
@@ -760,6 +767,27 @@
 
     function localDateString(date = new Date()) {
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function describeRelativeDate(dateStr, now = new Date()) {
+      if (!SCHEDULE_DATE_PATTERN.test(String(dateStr || ""))) return "";
+      const [year, month, day] = String(dateStr).split("-").map(Number);
+      const target = new Date(year, month - 1, day);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const days = Math.round((target - today) / 86400000);
+      if (days === 0) return "today";
+      if (days === 1) return "tomorrow";
+      if (days === -1) return "yesterday";
+      return days > 0 ? `in ${days} days` : `${-days} days ago`;
+    }
+
+    function describeRelativeDateTime(value, now = new Date()) {
+      const at = Date.parse(value);
+      if (!Number.isFinite(at)) return "";
+      const target = new Date(at);
+      const dayLabel = describeRelativeDate(localDateString(target), now);
+      const time = `${String(target.getHours()).padStart(2, "0")}:${String(target.getMinutes()).padStart(2, "0")}`;
+      return dayLabel ? `${dayLabel} at ${time}` : time;
     }
 
     function timelineTimeFromOffset(offsetPx) {
@@ -1566,23 +1594,18 @@
       pushUndoState();
 
       if (node.kind === "group") {
-        const index = state.groups.findIndex((group) => group.id === node.id);
-        if (index < 0) {
+        const group = findGroup(node.id);
+        if (!group) {
           discardUndoState();
           return null;
         }
-        const group = {
-          id: createId("group"),
-          title: "New group",
-          collapsed: false,
-          color: GROUP_PALETTES[(index + 1) % GROUP_PALETTES.length].color,
-          tasks: [],
-        };
-        state.groups.splice(index + 1, 0, group);
-        setSingleSelection({ kind: "group", id: group.id });
+        const item = task("New task", [], { createdInGroupId: group.id });
+        group.tasks.unshift(item);
+        group.collapsed = false;
+        setSingleSelection({ kind: "task", id: item.id });
         saveState();
         render();
-        return group;
+        return item;
       }
 
       const found = findTask(node.id);
@@ -1603,12 +1626,8 @@
 
     function insertSiblingBelowSelectedNode() {
       const inserted = insertSiblingBelowNode(selectedNode);
-      if (!inserted || !selectedNode) return inserted;
-      if (selectedNode.kind === "group") {
-        focusEditableText(document.querySelector(`[data-group-title="${inserted.id}"]`), true);
-      } else {
-        focusTaskText(inserted.id);
-      }
+      if (!inserted) return inserted;
+      focusTaskText(inserted.id);
       return inserted;
     }
 
@@ -1765,6 +1784,9 @@
     function renderSelection() {
       document.querySelectorAll(".selected").forEach((row) => row.classList.remove("selected"));
       getSelectedNodes().forEach((node) => getNodeRow(node)?.classList.add("selected"));
+      if (taskDetailsHostEl && !taskDetailsHostEl.contains(document.activeElement)) {
+        taskDetailsHostEl.innerHTML = renderDetailsPanel();
+      }
 
       const row = getNodeRow(selectedNode);
       if (row) {
@@ -2386,28 +2408,87 @@
       `;
     }
 
+    function getTaskLocationLabel(found) {
+      const parts = [found.group?.title || "Board"];
+      if (found.parent) {
+        const parentText = resolveTaskItem(found.parent)?.text || found.parent.text || "";
+        parts.push(parentText.length > 34 ? `${parentText.slice(0, 33)}…` : parentText);
+      }
+      return parts.join(" › ");
+    }
+
     function renderTaskDetailsPanel(taskId = selectedNode && selectedNode.kind === "task" ? selectedNode.id : null) {
       if (!state.settings.metadata || !taskId) return "";
       const found = findTask(taskId);
       if (!found) return "";
       const item = resolveTaskItem(found.item);
       const schedule = item.schedule || {};
+      const createdDate = item.createdAt ? localDateString(new Date(Date.parse(item.createdAt))) : "";
+      const createdLabel = createdDate ? describeRelativeDate(createdDate) : "";
       const variance = getEffortVariance(item);
       const effort = state.settings.focusTiming
-        ? `<span class="task-details-effort" title="Accumulated focus time compared with the planned effort">Focused ${formatFocusSeconds(item.focusSeconds || 0)}${variance ? ` · ${variance.label} vs plan` : ""}</span>`
+        ? `<span class="details-effort" title="Accumulated focus time compared with the planned effort">Focused ${formatFocusSeconds(item.focusSeconds || 0)}${variance ? ` · ${variance.label} vs plan` : ""}</span>`
         : "";
       const reminder = state.settings.reminders
-        ? `<label>Remind<input type="datetime-local" data-task-reminder value="${escapeHtml(item.reminderAt || "")}" aria-label="Reminder time"></label>`
+        ? `
+          <label class="details-field">
+            <span class="details-field-name">Remind</span>
+            <input type="datetime-local" data-task-reminder value="${escapeHtml(item.reminderAt || "")}" aria-label="Reminder time">
+            <small class="details-hint" data-reminder-hint>${describeRelativeDateTime(item.reminderAt)}</small>
+          </label>`
         : "";
       return `
         <section class="task-details" data-task-details="${item.id}" aria-label="Selected task details">
-          <label>Date<input type="date" data-task-date value="${escapeHtml(schedule.date || "")}" aria-label="Scheduled date"></label>
-          <label>Start<input type="time" data-task-start value="${escapeHtml(schedule.startTime || "")}" aria-label="Start time"></label>
-          <label>Planned<input type="number" min="5" step="5" inputmode="numeric" data-task-planned value="${item.plannedMinutes || ""}" aria-label="Planned minutes"><span>min</span></label>
-          ${reminder}
-          ${effort}
+          <div class="details-head">
+            <span class="details-crumb" title="Where this task lives">${escapeHtml(getTaskLocationLabel(found))}</span>
+            ${createdLabel ? `<span class="details-meta" title="Created ${escapeHtml(createdDate)}">created ${escapeHtml(createdLabel)}</span>` : ""}
+            <span class="details-id" title="Immutable task ID">${escapeHtml(item.id)}</span>
+          </div>
+          <div class="details-fields">
+            <label class="details-field">
+              <span class="details-field-name">Date</span>
+              <input type="date" data-task-date value="${escapeHtml(schedule.date || "")}" aria-label="Scheduled date">
+              <small class="details-hint" data-date-hint>${describeRelativeDate(schedule.date)}</small>
+            </label>
+            <label class="details-field">
+              <span class="details-field-name">Start</span>
+              <input type="time" data-task-start value="${escapeHtml(schedule.startTime || "")}" aria-label="Start time">
+              <small class="details-hint"></small>
+            </label>
+            <label class="details-field">
+              <span class="details-field-name">Planned</span>
+              <input type="number" min="5" step="5" inputmode="numeric" data-task-planned value="${item.plannedMinutes || ""}" aria-label="Planned minutes">
+              <small class="details-hint">minutes</small>
+            </label>
+            ${reminder}
+            ${effort}
+          </div>
         </section>
       `;
+    }
+
+    function renderGroupDetailsPanel(groupId = selectedNode && selectedNode.kind === "group" ? selectedNode.id : null) {
+      if (!state.settings.metadata || !groupId) return "";
+      const group = findGroup(groupId);
+      if (!group) return "";
+      const index = state.groups.findIndex((entry) => entry.id === group.id);
+      const total = countTasks(group.tasks);
+      return `
+        <section class="task-details" data-group-details="${group.id}" aria-label="Selected group details">
+          <div class="details-head">
+            <span class="details-crumb">${escapeHtml(group.title)} · group ${index + 1} of ${state.groups.length}</span>
+            <span class="details-meta">${total} task${total === 1 ? "" : "s"}</span>
+            <span class="details-id" title="Immutable group ID">${escapeHtml(group.id)}</span>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderDetailsPanel() {
+      if (!state.settings.metadata || !selectedNode) return "";
+      if (selectedNode.kind === "task") return renderTaskDetailsPanel(selectedNode.id);
+      if (selectedNode.kind === "group") return renderGroupDetailsPanel(selectedNode.id);
+      return "";
     }
 
     function renderTimelineSection(date = timelineDate) {
@@ -2520,7 +2601,7 @@
           timelineDateEl.value = timelineDate;
         }
       }
-      if (taskDetailsHostEl) taskDetailsHostEl.innerHTML = renderTaskDetailsPanel();
+      if (taskDetailsHostEl) taskDetailsHostEl.innerHTML = renderDetailsPanel();
       if (activeView === "timeline") {
         boardEl.innerHTML = renderTimelineSection(timelineDate);
         renderNav();
@@ -3003,6 +3084,38 @@
       render();
     });
 
+    function refreshDetailsHints(panel) {
+      const taskId = panel?.dataset.taskDetails;
+      const found = taskId ? findTask(taskId) : null;
+      if (!found) return;
+      const item = resolveTaskItem(found.item);
+      const dateHint = panel.querySelector("[data-date-hint]");
+      if (dateHint) dateHint.textContent = describeRelativeDate(item.schedule?.date);
+      const reminderHint = panel.querySelector("[data-reminder-hint]");
+      if (reminderHint) reminderHint.textContent = describeRelativeDateTime(item.reminderAt);
+    }
+
+    taskDetailsHostEl?.addEventListener("focusin", (event) => {
+      const input = event.target;
+      const panel = input.closest?.("[data-task-details]");
+      if (!panel) return;
+      const taskId = panel.dataset.taskDetails;
+      if (input.matches("[data-task-date]") && !input.value) {
+        input.value = localDateString();
+        setTaskSchedule(taskId, { date: input.value });
+        refreshDetailsHints(panel);
+        return;
+      }
+      if (input.matches("[data-task-reminder]") && !input.value) {
+        const next = new Date();
+        next.setMinutes(0, 0, 0);
+        next.setHours(next.getHours() + 1);
+        input.value = `${localDateString(next)}T${String(next.getHours()).padStart(2, "0")}:00`;
+        setTaskSchedule(taskId, { reminderAt: input.value });
+        refreshDetailsHints(panel);
+      }
+    });
+
     taskDetailsHostEl?.addEventListener("change", (event) => {
       const input = event.target;
       const panel = input.closest("[data-task-details]");
@@ -3182,6 +3295,16 @@
 
       if (isEditingText && event.key === "Enter") {
         event.preventDefault();
+        const groupTitle = event.target.closest?.("[data-group-title]");
+        if (groupTitle) {
+          const group = findGroup(groupTitle.dataset.groupTitle);
+          if (group) {
+            group.title = groupTitle.textContent.trim() || "Untitled group";
+            const inserted = insertSiblingBelowNode({ kind: "group", id: group.id });
+            if (inserted) focusTaskText(inserted.id);
+          }
+          return;
+        }
         splitEditingTask(event);
         return;
       }
@@ -3345,6 +3468,10 @@
       getDueReminders,
       checkDueReminders,
       renderTaskDetailsPanel,
+      renderGroupDetailsPanel,
+      renderDetailsPanel,
+      describeRelativeDate,
+      describeRelativeDateTime,
       renderTimelineSection,
       localDateString,
       isTaskHiddenFromActive,

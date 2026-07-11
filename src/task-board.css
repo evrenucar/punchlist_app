@@ -63,7 +63,8 @@
       position: sticky;
       top: 0;
       height: 100vh;
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       border-right: 1px solid var(--line);
       background: var(--surface);
       padding: 22px 18px;
@@ -103,6 +104,10 @@
       display: grid;
       gap: 10px;
       margin-bottom: 22px;
+    }
+
+    .toolbar > * {
+      min-width: 0;
     }
 
     .control {
@@ -181,6 +186,8 @@
 
     .settings-row select,
     .settings-row input[type="number"] {
+      flex: 0 1 auto;
+      min-width: 0;
       max-width: 150px;
       border: 1px solid var(--line);
       border-radius: 6px;
@@ -188,6 +195,15 @@
       color: var(--text);
       padding: 4px 6px;
       font-size: 13px;
+    }
+
+    .settings-panel,
+    .settings-section {
+      min-width: 0;
+    }
+
+    .settings-duration {
+      flex-wrap: wrap;
     }
 
     .settings-section {
@@ -906,27 +922,66 @@
     }
 
     .task-details {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 14px;
+      display: grid;
+      gap: 10px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: var(--surface);
       margin-bottom: 16px;
-      padding: 10px 12px;
+      padding: 10px 14px;
       font-size: 13px;
     }
 
-    .task-details label {
+    .details-head {
       display: flex;
-      align-items: center;
-      gap: 6px;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .details-crumb {
+      color: var(--text);
+      font-weight: 800;
+      overflow-wrap: anywhere;
+    }
+
+    .details-meta {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .details-id {
+      margin-left: auto;
+      color: var(--muted);
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 11px;
+      overflow-wrap: anywhere;
+    }
+
+    .details-fields {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .details-field {
+      display: grid;
+      gap: 3px;
       color: var(--muted);
       font-weight: 700;
     }
 
-    .task-details input {
+    .details-field-name {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .details-field input {
       border: 1px solid var(--line);
       border-radius: 6px;
       background: var(--surface);
@@ -935,12 +990,20 @@
       font-size: 13px;
     }
 
-    .task-details input[type="number"] {
-      width: 64px;
+    .details-field input[type="number"] {
+      width: 72px;
     }
 
-    .task-details-effort {
+    .details-hint {
+      min-height: 14px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    .details-effort {
       margin-left: auto;
+      align-self: center;
       color: var(--muted);
       font-weight: 700;
     }
@@ -1123,7 +1186,8 @@
 
     .focus-mode__bar {
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      justify-content: space-between;
       padding: 16px;
       border-bottom: 1px solid var(--line);
     }
@@ -1161,6 +1225,13 @@
     .focus-mode__children ul {
       margin: 0;
       padding-left: 22px;
+    }
+
+    .focus-mode__clock {
+      color: var(--muted);
+      font-size: 18px;
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
     }
 
     .focus-mode__timer {

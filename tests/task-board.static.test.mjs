@@ -515,6 +515,75 @@ test("scheduling surfaces stay hidden until their feature flags are enabled", as
   assert.match(timeline, /timeline-unscheduled/);
 });
 
+test("enter on a group creates a task at the top of that group instead of a new group", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const groupCount = api.state.groups.length;
+  group.collapsed = true;
+
+  const inserted = api.insertSiblingBelowNode({ kind: "group", id: group.id });
+  assert.ok(inserted);
+  assert.equal(inserted.text, "New task");
+  assert.equal(group.tasks[0].id, inserted.id);
+  assert.equal(group.collapsed, false);
+  assert.equal(api.state.groups.length, groupCount);
+});
+
+test("copying selected groups includes their full contents even when collapsed", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-priorities");
+  group.collapsed = true;
+
+  api.selectNode("group", group.id);
+  const clipboard = api.rememberInternalClipboard("copy");
+  assert.ok(clipboard);
+  assert.match(clipboard.markdown, /## Priorities/);
+  assert.match(clipboard.markdown, /- Askerlik/);
+  assert.match(clipboard.markdown, /- Visa check/);
+
+  const mixed = api.selectedNodesToMarkdown([
+    { kind: "group", id: group.id },
+    { kind: "task", id: group.tasks[0].id },
+  ]);
+  assert.equal(mixed.match(/Askerlik/g).length, 1);
+});
+
+test("relative date labels describe today, tomorrow, and day offsets", async () => {
+  const api = await loadBoardApi();
+  const now = new Date(2026, 6, 11, 15, 0, 0);
+  assert.equal(api.describeRelativeDate("2026-07-11", now), "today");
+  assert.equal(api.describeRelativeDate("2026-07-12", now), "tomorrow");
+  assert.equal(api.describeRelativeDate("2026-07-10", now), "yesterday");
+  assert.equal(api.describeRelativeDate("2026-07-16", now), "in 5 days");
+  assert.equal(api.describeRelativeDate("2026-07-08", now), "3 days ago");
+  assert.equal(api.describeRelativeDate("nonsense", now), "");
+  assert.equal(api.describeRelativeDateTime("2026-07-12T09:30", now), "tomorrow at 09:30");
+});
+
+test("details panel shows identity and location for tasks and groups", async () => {
+  const api = await loadBoardApi();
+  const html = await readBoard();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+  api.state.settings.metadata = true;
+
+  const details = api.renderTaskDetailsPanel(item.id);
+  assert.match(details, /details-crumb/);
+  assert.match(details, new RegExp(item.id));
+  assert.match(details, /data-date-hint/);
+  assert.match(details, /Today/);
+
+  const groupDetails = api.renderGroupDetailsPanel(group.id);
+  assert.match(groupDetails, /data-group-details/);
+  assert.match(groupDetails, new RegExp(group.id));
+  assert.match(groupDetails, /task/);
+
+  api.selectNode("group", group.id);
+  assert.match(api.renderDetailsPanel(), /data-group-details/);
+
+  assert.match(html, /data-focus-clock/);
+});
+
 test("shell provides a collapsible sidebar, views navigation, help, and a favicon", async () => {
   const html = await readBoard();
   for (const hook of [
