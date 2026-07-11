@@ -196,7 +196,7 @@ git commit -m "fix: stabilize outline editing and dragging"
 - Modify: `src/task-board.css`
 - Modify: `tests/task-board.static.test.mjs`
 
-- [ ] **Step 1: Write failing pure tests for Markdown trees and linked placements**
+- [x] **Step 1: Write failing pure tests for Markdown trees and linked placements**
 
 ```js
 test("selected nested tasks serialize as portable markdown", () => {
@@ -210,21 +210,21 @@ test("editing an alias updates the original entity", () => {
 });
 ```
 
-- [ ] **Step 2: Verify focused failures**
+- [x] **Step 2: Verify focused failures**
 
 Run: `node --test --test-name-pattern="markdown|alias|reference|clipboard" tests/task-board.static.test.mjs`
 
 Expected: FAIL because parsing/serialization and placement modes are missing.
 
-- [ ] **Step 3: Implement clean Markdown and internal clipboard identity**
+- [x] **Step 3: Implement clean Markdown and internal clipboard identity**
 
 Serialize checkbox state and indentation without hidden IDs. Parse external indented bullets into new tasks. Keep an internal clipboard record containing task IDs and cut/copy mode; use Settings to select alias/reference/duplicate/ask behavior.
 
-- [ ] **Step 4: Render linked placements and reject cycles**
+- [x] **Step 4: Render linked placements and reject cycles**
 
 Aliases render shared task content; references render compact links. Both expose origin through accessible labels/tooltips. Reject any paste that would place an ancestor beneath its descendant and show a small non-modal status message.
 
-- [ ] **Step 5: Verify and commit**
+- [x] **Step 5: Verify and commit**
 
 Run: `node scripts/build-task-board.mjs`
 

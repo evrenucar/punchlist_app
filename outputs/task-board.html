@@ -428,7 +428,7 @@
 
     .task-row {
       display: grid;
-      grid-template-columns: 26px 22px minmax(0, 1fr) auto;
+      grid-template-columns: 26px 22px minmax(0, 1fr) 24px auto;
       align-items: center;
       gap: 6px;
       min-height: 36px;
@@ -563,10 +563,32 @@
 
     .task-actions {
       display: flex;
+      grid-column: 5;
       align-items: center;
       gap: 2px;
       opacity: 0;
       transition: opacity 120ms ease;
+    }
+
+    .placement-badge {
+      display: grid;
+      grid-column: 4;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .placement-badge svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    button.placement-badge:hover {
+      background: var(--surface-2);
+      color: var(--accent);
     }
 
     .task-row:hover .task-actions,
@@ -712,11 +734,11 @@
       }
 
       .task-row {
-        grid-template-columns: 24px 22px minmax(0, 1fr);
+        grid-template-columns: 24px 22px minmax(0, 1fr) 24px;
       }
 
       .task-actions {
-        grid-column: 3;
+        grid-column: 3 / 5;
         justify-content: flex-start;
         opacity: 1;
       }
@@ -893,6 +915,7 @@
     let undoActions = [];
     let lastUndoAction = null;
     let suppressFocusSelection = false;
+    let internalClipboard = null;
     let state = loadState();
 
     function createId(prefix = "task") {
@@ -1252,7 +1275,10 @@
     }
 
     function countDone(tasks) {
-      return tasks.reduce((total, item) => total + (item.done ? 1 : 0) + countDone(item.children || []), 0);
+      return tasks.reduce((total, item) => {
+        const resolved = resolveTaskItem(item);
+        return total + (resolved?.done ? 1 : 0) + countDone(item.children || []);
+      }, 0);
     }
 
     function findTask(id, tasks = null, parent = null, group = null) {
@@ -1277,6 +1303,50 @@
       return state.groups.find((group) => group.id === id);
     }
 
+    function resolveTaskItem(item, visited = new Set()) {
+      if (!item?.targetTaskId || !["alias", "reference"].includes(item.linkType)) return item;
+      if (visited.has(item.id)) return item;
+      visited.add(item.id);
+      const target = findTask(item.targetTaskId)?.item;
+      return target ? resolveTaskItem(target, visited) : item;
+    }
+
+    function getTaskItem(id) {
+      const found = findTask(id);
+      return found ? resolveTaskItem(found.item) : null;
+    }
+
+    function walkPlacements(tasks, callback) {
+      (tasks || []).forEach((item) => {
+        callback(item);
+        walkPlacements(item.children, callback);
+      });
+    }
+
+    function getLinkCount(taskId) {
+      let count = 0;
+      state.groups.forEach((group) => walkPlacements(group.tasks, (item) => {
+        if (item.targetTaskId === taskId && ["alias", "reference"].includes(item.linkType)) count += 1;
+      }));
+      return count;
+    }
+
+    function createLinkedTaskTree(sourceItem, linkType = "alias", groupId = null, parentId = null) {
+      const source = resolveTaskItem(sourceItem);
+      if (!source || !["alias", "reference"].includes(linkType)) return null;
+      const linked = task(source.text, [], {
+        createdInGroupId: groupId,
+        createdUnderTaskId: parentId,
+      });
+      linked.linkType = linkType;
+      linked.targetTaskId = source.id;
+      linked.collapsed = Boolean(sourceItem?.collapsed);
+      linked.children = linkType === "alias"
+        ? (source.children || []).map((child) => createLinkedTaskTree(child, "alias", groupId, linked.id))
+        : [];
+      return linked;
+    }
+
     function ensureDoingNowGroup() {
       let group = state.groups.find((item) => item.title.toLowerCase() === "doing now");
       if (group) return group;
@@ -1293,14 +1363,160 @@
     }
 
     function cloneTaskTree(item) {
+      const source = resolveTaskItem(item);
       return {
         id: createId("task"),
-        text: item.text,
-        done: Boolean(item.done),
+        text: source.text,
+        done: Boolean(source.done),
+        completedAt: source.completedAt || null,
         collapsed: Boolean(item.collapsed),
-        focusSeconds: Math.max(0, Math.floor(Number(item.focusSeconds) || 0)),
-        children: (item.children || []).map(cloneTaskTree),
+        focusSeconds: Math.max(0, Math.floor(Number(source.focusSeconds) || 0)),
+        plannedMinutes: source.plannedMinutes || null,
+        schedule: source.schedule ? { ...source.schedule } : null,
+        reminderAt: source.reminderAt || null,
+        createdAt: new Date().toISOString(),
+        createdInGroupId: null,
+        createdUnderTaskId: null,
+        children: (source.children || []).map(cloneTaskTree),
       };
+    }
+
+    function insertPastedItems(items, targetNode) {
+      if (!items.length || !targetNode) return [];
+      if (targetNode.kind === "group") {
+        const group = findGroup(targetNode.id);
+        if (!group) return [];
+        items.forEach((item) => {
+          item.createdInGroupId ||= group.id;
+          group.tasks.push(item);
+        });
+        return items;
+      }
+      const target = findTask(targetNode.id);
+      if (!target) return [];
+      items.forEach((item, offset) => target.list.splice(target.index + 1 + offset, 0, item));
+      return items;
+    }
+
+    function pasteTaskIds(taskIds, targetNode, mode = state.settings.pasteMode) {
+      const sources = [...new Set(taskIds || [])].map((id) => findTask(id)).filter(Boolean);
+      if (!sources.length || !targetNode) return [];
+      const targetItem = targetNode.kind === "task" ? resolveTaskItem(findTask(targetNode.id)?.item) : null;
+      if (targetItem && sources.some((found) => {
+        const sourceItem = resolveTaskItem(found.item);
+        return sourceItem.id === targetItem.id || isDescendant(sourceItem, targetItem.id);
+      })) return [];
+      const normalizedMode = ["alias", "reference", "duplicate", "move"].includes(mode) ? mode : "alias";
+      pushUndoState(normalizedMode === "move" ? "move" : "paste");
+
+      let items;
+      if (normalizedMode === "move") {
+        items = sources.map((found) => removeTask(found.item.id)).filter(Boolean);
+      } else if (normalizedMode === "duplicate") {
+        items = sources.map((found) => cloneTaskTree(found.item));
+      } else {
+        const targetGroupId = targetNode.kind === "group" ? targetNode.id : findTask(targetNode.id)?.group?.id;
+        items = sources.map((found) => createLinkedTaskTree(found.item, normalizedMode, targetGroupId)).filter(Boolean);
+      }
+
+      const inserted = insertPastedItems(items, targetNode);
+      if (!inserted.length) {
+        discardUndoState();
+        return [];
+      }
+      setSingleSelection({ kind: "task", id: inserted[0].id });
+      saveState();
+      render();
+      return inserted;
+    }
+
+    function tasksToMarkdown(tasks, depth = 0) {
+      return (tasks || []).flatMap((placement) => {
+        const item = resolveTaskItem(placement);
+        const line = `${"  ".repeat(depth)}- ${item?.text || ""}`;
+        const children = placement.linkType === "reference"
+          ? []
+          : (placement.children?.length ? placement.children : item?.children || []);
+        const nested = tasksToMarkdown(children, depth + 1);
+        return nested ? [line, nested] : [line];
+      }).join("\n");
+    }
+
+    function parseMarkdownTasks(markdown, groupId = null) {
+      const roots = [];
+      const stack = [];
+      String(markdown || "").split(/\r?\n/).forEach((line) => {
+        const match = line.match(/^(\s*)[-*+]\s+(?:\[[ xX]\]\s+)?(.+)$/);
+        if (!match) return;
+        const spaces = match[1].replace(/\t/g, "  ").length;
+        const depth = Math.floor(spaces / 2);
+        const parent = depth > 0 ? stack[depth - 1] : null;
+        const item = task(match[2].trim(), [], {
+          createdInGroupId: groupId,
+          createdUnderTaskId: parent?.id || null,
+        });
+        if (parent) parent.children.push(item);
+        else roots.push(item);
+        stack[depth] = item;
+        stack.length = depth + 1;
+      });
+      return roots;
+    }
+
+    function getSelectedTaskRoots(nodes = getSelectedNodes()) {
+      const selectedIds = new Set(nodes.filter((node) => node.kind === "task").map((node) => node.id));
+      return nodes.filter((node) => {
+        if (node.kind !== "task") return false;
+        let parent = findTask(node.id)?.parent;
+        while (parent) {
+          if (selectedIds.has(parent.id)) return false;
+          parent = findTask(parent.id)?.parent;
+        }
+        return true;
+      }).map((node) => findTask(node.id)?.item).filter(Boolean);
+    }
+
+    function selectedNodesToMarkdown(nodes = getSelectedNodes()) {
+      const groups = nodes.filter((node) => node.kind === "group").map((node) => findGroup(node.id)).filter(Boolean);
+      const tasks = getSelectedTaskRoots(nodes);
+      const sections = groups.map((group) => `## ${group.title}\n\n${tasksToMarkdown(group.tasks)}`);
+      if (tasks.length) sections.push(tasksToMarkdown(tasks));
+      return sections.join("\n\n").trim();
+    }
+
+    function rememberInternalClipboard(mode = "copy") {
+      const tasks = getSelectedTaskRoots();
+      if (!tasks.length) return null;
+      internalClipboard = {
+        mode,
+        taskIds: tasks.map((item) => item.id),
+        markdown: tasksToMarkdown(tasks),
+      };
+      return internalClipboard;
+    }
+
+    function resolvePasteMode() {
+      if (internalClipboard?.mode === "cut") return "move";
+      if (state.settings.pasteMode !== "ask") return state.settings.pasteMode;
+      const answer = window.prompt?.("Paste as alias, reference, or duplicate?", "alias")?.toLowerCase();
+      return ["alias", "reference", "duplicate"].includes(answer) ? answer : "alias";
+    }
+
+    function pasteExternalMarkdown(markdown, targetNode = selectedNode) {
+      if (!targetNode) return [];
+      const groupId = targetNode.kind === "group" ? targetNode.id : findTask(targetNode.id)?.group?.id;
+      const items = parseMarkdownTasks(markdown, groupId);
+      if (!items.length) return [];
+      pushUndoState("paste");
+      const inserted = insertPastedItems(items, targetNode);
+      if (!inserted.length) {
+        discardUndoState();
+        return [];
+      }
+      setSingleSelection({ kind: "task", id: inserted[0].id });
+      saveState();
+      render();
+      return inserted;
     }
 
     function removeTask(id) {
@@ -1341,7 +1557,12 @@
       if (!found) return null;
       pushUndoState();
       const group = ensureDoingNowGroup();
-      const copy = cloneTaskTree(found.item);
+      const pasteMode = ["alias", "reference", "duplicate"].includes(state.settings.pasteMode)
+        ? state.settings.pasteMode
+        : "alias";
+      const copy = pasteMode === "duplicate"
+        ? cloneTaskTree(found.item)
+        : createLinkedTaskTree(found.item, pasteMode, group.id);
       group.collapsed = false;
       group.tasks.push(copy);
       setSingleSelection({ kind: "task", id: copy.id });
@@ -1946,8 +2167,13 @@
       if (parentId) {
         const parent = findTask(parentId);
         if (!parent) return null;
-        parent.item.children = parent.item.children || [];
-        parent.item.children.push(item);
+        const resolvedParent = resolveTaskItem(parent.item);
+        resolvedParent.children = resolvedParent.children || [];
+        resolvedParent.children.push(item);
+        if (parent.item.linkType === "alias") {
+          parent.item.children = parent.item.children || [];
+          parent.item.children.push(createLinkedTaskTree(item, "alias", groupId, parent.item.id));
+        }
         parent.item.collapsed = false;
       } else {
         const group = findGroup(groupId);
@@ -2144,7 +2370,8 @@
     function updateTaskTextFromEditable(id, valueOrElement) {
       const found = findTask(id);
       if (!found) return false;
-      found.item.text = getMarkdownTextFromEditable(valueOrElement);
+      const item = resolveTaskItem(found.item);
+      item.text = getMarkdownTextFromEditable(valueOrElement);
       saveState();
       return true;
     }
@@ -2317,10 +2544,28 @@
         chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
         check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m5 13 4 4L19 7"/></svg>',
         grip: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01"/></svg>',
+        link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></svg>',
+        reference: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
         plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
         trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>',
       };
       return icons[name] || "";
+    }
+
+    function getTaskOriginLabel(taskId) {
+      const found = findTask(taskId);
+      return found?.group?.title || "original task";
+    }
+
+    function renderTaskLinkBadge(placement, resolved) {
+      if (placement.linkType) {
+        const label = placement.linkType === "alias" ? "Alias" : "Reference";
+        return `<button class="placement-badge ${placement.linkType}" type="button" data-action="go-origin" data-origin-task-id="${resolved?.id || placement.targetTaskId}" title="${label} of task in ${escapeHtml(getTaskOriginLabel(resolved?.id || placement.targetTaskId))}" aria-label="${label}; jump to original">${renderIcon(placement.linkType === "alias" ? "link" : "reference")}</button>`;
+      }
+      const count = resolved ? getLinkCount(resolved.id) : 0;
+      return count
+        ? `<span class="placement-badge original" title="Linked in ${count} other ${count === 1 ? "place" : "places"}" aria-label="Linked elsewhere">${renderIcon("link")}</span>`
+        : "";
     }
 
     function buildGroupPalette(color) {
@@ -2425,6 +2670,8 @@
       item.policyOverrides = item.policyOverrides && typeof item.policyOverrides === "object"
         ? item.policyOverrides
         : null;
+      item.linkType = ["alias", "reference"].includes(item.linkType) ? item.linkType : null;
+      item.targetTaskId = item.linkType && typeof item.targetTaskId === "string" ? item.targetTaskId : null;
       item.children = Array.isArray(item.children) ? item.children : [];
       item.children.forEach((child) => normalizeTask(child, {
         groupId: context.groupId || item.createdInGroupId,
@@ -2461,17 +2708,20 @@
     }
 
     function taskMatchesFilter(item, query) {
+      const resolved = resolveTaskItem(item);
       if (!query) return true;
-      if (item.text.toLowerCase().includes(query)) return true;
+      if ((resolved?.text || "").toLowerCase().includes(query)) return true;
       return (item.children || []).some((child) => taskMatchesFilter(child, query));
     }
 
     function renderTask(item, groupId, query) {
       if (!taskMatchesFilter(item, query)) return "";
-      const hasChildren = (item.children || []).length > 0;
+      const resolved = resolveTaskItem(item);
+      const children = item.linkType === "reference" ? [] : (item.children || []);
+      const hasChildren = children.length > 0;
       const expanded = hasChildren && !item.collapsed;
       const childHtml = expanded
-        ? `<ul class="child-list">${item.children.map((child) => renderTask(child, groupId, query)).join("")}</ul>`
+        ? `<ul class="child-list">${children.map((child) => renderTask(child, groupId, query)).join("")}</ul>`
         : "";
       const dropChild = hasChildren
         ? `<div class="drop-zone child" data-drop-target="${item.id}" data-position="child" aria-hidden="true"></div>`
@@ -2480,14 +2730,15 @@
       return `
         <li class="task" data-task="${item.id}">
           <div class="drop-zone" data-drop-target="${item.id}" data-position="before" aria-hidden="true"></div>
-          <div class="task-row ${item.done ? "done" : ""} ${isSelected("task", item.id) ? "selected" : ""}" data-task-row="${item.id}" data-node-kind="task" data-node-id="${item.id}" data-drag-kind="task" draggable="true" tabindex="0">
+          <div class="task-row ${resolved?.done ? "done" : ""} ${item.linkType ? `linked ${item.linkType}` : ""} ${isSelected("task", item.id) ? "selected" : ""}" data-task-row="${item.id}" data-node-kind="task" data-node-id="${item.id}" data-drag-kind="task" draggable="true" tabindex="0">
             <button class="chevron ${hasChildren ? "" : "hidden"}" type="button" data-action="toggle-task" data-task-id="${item.id}" aria-label="${expanded ? "Collapse" : "Expand"} task" aria-expanded="${expanded ? "true" : "false"}">
               ${renderIcon("chevron")}
             </button>
-            <button class="checkbox ${item.done ? "done" : ""}" type="button" data-action="toggle-done" data-task-id="${item.id}" aria-label="${item.done ? "Mark not done" : "Mark done"}">
-              ${item.done ? renderIcon("check") : ""}
+            <button class="checkbox ${resolved?.done ? "done" : ""}" type="button" data-action="toggle-done" data-task-id="${item.id}" aria-label="${resolved?.done ? "Mark not done" : "Mark done"}">
+              ${resolved?.done ? renderIcon("check") : ""}
             </button>
-            <div class="task-text" data-task-text="${item.id}" contenteditable="true" spellcheck="true">${renderInlineMarkdown(item.text)}</div>
+            <div class="task-text" data-task-text="${item.id}" contenteditable="true" spellcheck="true">${renderInlineMarkdown(resolved?.text || item.text)}</div>
+            ${renderTaskLinkBadge(item, resolved)}
             <div class="task-actions">
               <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" data-touch-drag aria-label="Drag task; hold on touch screens">${renderIcon("grip")}</button>
               <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" aria-label="Add subtask">${renderIcon("plus")}</button>
@@ -2582,12 +2833,15 @@
 
     function renderFocusChildren(tasks, depth = 0) {
       if (!tasks.length) return "";
-      const items = tasks.map((item) => `
+      const items = tasks.map((item) => {
+        const resolved = resolveTaskItem(item);
+        return `
         <li style="margin-left: ${depth * 18}px">
-          ${escapeHtml(item.text)}
+          ${renderInlineMarkdown(resolved?.text || item.text)}
           ${renderFocusChildren(item.children || [], depth + 1)}
         </li>
-      `).join("");
+      `;
+      }).join("");
       return `<ul>${items}</ul>`;
     }
 
@@ -2652,9 +2906,10 @@
       }
 
       focusModeEl.hidden = false;
+      const item = resolveTaskItem(found.item);
       focusTaskEl.innerHTML = `
-        <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${found.item.id}">${escapeHtml(found.item.text)}</div>
-        <div class="focus-mode__children">${renderFocusChildren(found.item.children || [])}</div>
+        <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${item.id}">${renderInlineMarkdown(item.text)}</div>
+        <div class="focus-mode__children">${renderFocusChildren(item.children || [])}</div>
       `;
       renderFocusTimer();
     }
@@ -2664,8 +2919,9 @@
       if (!node || node.kind !== "task") return false;
       const found = findTask(node.id);
       if (!found) return false;
+      const item = resolveTaskItem(found.item);
       if (focusModeTaskId && focusModeStartedAt) stopFocusTimer();
-      focusModeTaskId = node.id;
+      focusModeTaskId = item.id;
       setSingleSelection(node);
       renderFocusMode();
       startFocusTimer();
@@ -2700,9 +2956,18 @@
       if (action === "toggle-task") toggleTask(button.dataset.taskId);
       if (action === "toggle-done") {
         const found = findTask(button.dataset.taskId);
-        if (found) found.item.done = !found.item.done;
+        const item = found ? resolveTaskItem(found.item) : null;
+        if (item) {
+          item.done = !item.done;
+          item.completedAt = item.done ? new Date().toISOString() : null;
+        }
         saveState();
         render();
+      }
+      if (action === "go-origin") {
+        const id = button.dataset.originTaskId;
+        selectNode("task", id);
+        getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       if (action === "delete-task") deleteTask(button.dataset.taskId);
       if (action === "add-child") addTask(button.dataset.groupId, button.dataset.taskId);
@@ -2744,7 +3009,7 @@
       const textEl = event.target.closest("[data-task-text]");
       if (!textEl) return;
       const found = findTask(textEl.dataset.taskText);
-      if (found) textEl.innerHTML = renderInlineMarkdown(found.item.text);
+      if (found) textEl.innerHTML = renderInlineMarkdown(resolveTaskItem(found.item).text);
     });
 
     boardEl.addEventListener("change", (event) => {
@@ -2848,7 +3113,7 @@
       if (!target) return;
       const found = findTask(target.dataset.focusTaskText);
       if (!found) return;
-      found.item.text = target.textContent.trim();
+      resolveTaskItem(found.item).text = getMarkdownTextFromEditable(target);
       saveState();
       render();
     });
@@ -2881,6 +3146,37 @@
         lastUndoAction = null;
         exitFocusMode();
         render();
+      }
+    });
+
+    document.addEventListener("copy", (event) => {
+      if (event.target.matches?.("[contenteditable='true'], input, textarea")) return;
+      const clipboard = rememberInternalClipboard("copy");
+      if (!clipboard || !event.clipboardData) return;
+      event.preventDefault();
+      event.clipboardData.setData("text/plain", clipboard.markdown);
+    });
+
+    document.addEventListener("cut", (event) => {
+      if (event.target.matches?.("[contenteditable='true'], input, textarea")) return;
+      const clipboard = rememberInternalClipboard("cut");
+      if (!clipboard || !event.clipboardData) return;
+      event.preventDefault();
+      event.clipboardData.setData("text/plain", clipboard.markdown);
+    });
+
+    document.addEventListener("paste", (event) => {
+      if (event.target.matches?.("[contenteditable='true'], input, textarea")) return;
+      const text = event.clipboardData?.getData("text/plain") || "";
+      if (internalClipboard?.taskIds?.length && text.trim() === internalClipboard.markdown.trim()) {
+        event.preventDefault();
+        pasteTaskIds(internalClipboard.taskIds, selectedNode, resolvePasteMode());
+        if (internalClipboard.mode === "cut") internalClipboard = null;
+        return;
+      }
+      if (parseMarkdownTasks(text).length) {
+        event.preventDefault();
+        pasteExternalMarkdown(text, selectedNode);
       }
     });
 
@@ -3043,6 +3339,15 @@
       shouldCancelLongPress,
       armTouchDrag,
       finishTouchDrag,
+      resolveTaskItem,
+      getLinkCount,
+      createLinkedTaskTree,
+      pasteTaskIds,
+      tasksToMarkdown,
+      parseMarkdownTasks,
+      selectedNodesToMarkdown,
+      rememberInternalClipboard,
+      pasteExternalMarkdown,
       moveTask,
       ensureDoingNowGroup,
       cloneTaskTree,

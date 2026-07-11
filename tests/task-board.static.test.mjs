@@ -217,6 +217,76 @@ test("focus mode waits for an explicit click before editing", async () => {
   assert.doesNotMatch(html, /querySelector\("\[data-focus-task-text\]"\)\?\.focus\(\)/);
 });
 
+test("nested task selections serialize to and parse from clean markdown", async () => {
+  const api = await loadBoardApi();
+  const tree = [{
+    id: "parent",
+    text: "Parent",
+    done: false,
+    children: [{
+      id: "child",
+      text: "Child",
+      done: true,
+      children: [{ id: "grandchild", text: "Grandchild", done: false, children: [] }],
+    }],
+  }];
+
+  const markdown = api.tasksToMarkdown(tree);
+  assert.equal(markdown, "- Parent\n  - Child\n    - Grandchild");
+  const parsed = api.parseMarkdownTasks(markdown, "group-import");
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].text, "Parent");
+  assert.equal(parsed[0].children[0].text, "Child");
+  assert.equal(parsed[0].children[0].children[0].text, "Grandchild");
+});
+
+test("aliases share task content while references retain a compact linked placement", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const original = group.tasks[0];
+  const alias = api.createLinkedTaskTree(original, "alias", "group-today");
+  const reference = api.createLinkedTaskTree(original, "reference", "group-today");
+  const today = api.state.groups.find((item) => item.id === "group-today");
+  today.tasks.push(alias, reference);
+
+  assert.equal(alias.linkType, "alias");
+  assert.equal(reference.linkType, "reference");
+  assert.equal(alias.targetTaskId, original.id);
+  assert.equal(api.resolveTaskItem(alias).id, original.id);
+  assert.equal(api.updateTaskTextFromEditable(alias.id, "Shared edit"), true);
+  assert.equal(original.text, "Shared edit");
+  assert.equal(api.resolveTaskItem(reference).text, "Shared edit");
+  assert.equal(api.getLinkCount(original.id), 2);
+});
+
+test("internal paste mode creates aliases by default and cut paste moves originals", async () => {
+  const api = await loadBoardApi();
+  const kora = api.state.groups.find((item) => item.id === "group-kora");
+  const today = api.state.groups.find((item) => item.id === "group-today");
+  const original = kora.tasks[0];
+
+  const linked = api.pasteTaskIds([original.id], { kind: "group", id: today.id }, "alias");
+  assert.equal(linked.length, 1);
+  assert.equal(linked[0].targetTaskId, original.id);
+  assert.equal(kora.tasks.some((item) => item.id === original.id), true);
+
+  const moved = api.pasteTaskIds([original.id], { kind: "group", id: today.id }, "move");
+  assert.equal(moved.length, 1);
+  assert.equal(kora.tasks.some((item) => item.id === original.id), false);
+  assert.equal(today.tasks.some((item) => item.id === original.id), true);
+});
+
+test("linked paste rejects placing a task beneath its own descendant", async () => {
+  const api = await loadBoardApi();
+  const kora = api.state.groups.find((item) => item.id === "group-kora");
+  const parent = kora.tasks.find((item) => item.children.length > 0);
+  const child = parent.children[0];
+
+  const result = api.pasteTaskIds([parent.id], { kind: "task", id: child.id }, "alias");
+  assert.equal(result.length, 0);
+  assert.equal(api.getLinkCount(parent.id), 0);
+});
+
 test("task board file contains the seeded task groups and nested tasks", async () => {
   const html = await readBoard();
 

@@ -421,7 +421,7 @@
 
     .task-row {
       display: grid;
-      grid-template-columns: 26px 22px minmax(0, 1fr) auto;
+      grid-template-columns: 26px 22px minmax(0, 1fr) 24px auto;
       align-items: center;
       gap: 6px;
       min-height: 36px;
@@ -556,10 +556,32 @@
 
     .task-actions {
       display: flex;
+      grid-column: 5;
       align-items: center;
       gap: 2px;
       opacity: 0;
       transition: opacity 120ms ease;
+    }
+
+    .placement-badge {
+      display: grid;
+      grid-column: 4;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .placement-badge svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    button.placement-badge:hover {
+      background: var(--surface-2);
+      color: var(--accent);
     }
 
     .task-row:hover .task-actions,
@@ -705,11 +727,11 @@
       }
 
       .task-row {
-        grid-template-columns: 24px 22px minmax(0, 1fr);
+        grid-template-columns: 24px 22px minmax(0, 1fr) 24px;
       }
 
       .task-actions {
-        grid-column: 3;
+        grid-column: 3 / 5;
         justify-content: flex-start;
         opacity: 1;
       }
