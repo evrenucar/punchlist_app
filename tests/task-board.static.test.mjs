@@ -1309,15 +1309,16 @@ test("task board has a full-screen focus mode for the selected task", async () =
   }
 });
 
-test("focus mode advertises Shift F and left controls have hover explanations", async () => {
+test("focus mode advertises Ctrl+Alt+F and left controls have hover explanations", async () => {
   const html = await readBoard();
 
+  assert.equal(html.includes("Shift+F"), false, "old focus shortcut must be gone");
   for (const hook of [
-    "Shift+F",
+    "Ctrl+Alt+F",
     "title=\"Create a new top-level group (Alt+A)\"",
     "title=\"Expand every group and task (Ctrl+Shift+Down)\"",
     "title=\"Collapse every group and task (Ctrl+Shift+Up)\"",
-    "title=\"Open focus mode for the selected task (Shift+F)\"",
+    "title=\"Open focus mode for the selected task (Ctrl+Alt+F)\"",
     "title=\"Download this board as a JSON backup\"",
     "title=\"Load a board from a JSON backup\"",
     "title=\"Replace the current board with the built-in example board\"",

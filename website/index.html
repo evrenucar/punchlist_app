@@ -314,6 +314,28 @@
       min-width: 20px;
     }
 
+    .demo-title {
+      border-radius: 4px;
+      padding: 0 2px;
+      min-width: 30px;
+    }
+
+    .demo-collapse {
+      display: grid;
+      place-items: center;
+      border: 0;
+      background: none;
+      color: var(--muted);
+      padding: 0 2px;
+      cursor: pointer;
+    }
+
+    .demo-collapse svg { width: 14px; height: 14px; transition: transform 160ms ease; }
+    .demo-group.collapsed .demo-collapse svg { transform: rotate(-90deg); }
+    .demo-group.collapsed .demo-rows { display: none; }
+    .demo-row.dragging { opacity: 0.45; }
+    .demo-row[draggable="true"] { cursor: grab; }
+
     .demo-chip {
       margin-left: auto;
       border-radius: 6px;
@@ -468,11 +490,11 @@
     @media (prefers-reduced-motion: no-preference) {
       .demo-group { transition: transform 160ms ease; }
       .demo-group:hover { transform: translateY(-2px); }
-
-      .demo-row.anim-in, .demo-group.anim-in { animation: demo-in 450ms ease; }
-      .demo-check.anim-pulse { animation: demo-pulse 400ms ease; }
-      .board-demo.demo-reset { animation: demo-fade 500ms ease; }
     }
+
+    .demo-row.anim-in, .demo-group.anim-in { animation: demo-in 450ms ease; }
+    .demo-check.anim-pulse { animation: demo-pulse 400ms ease; }
+    .board-demo.demo-reset { animation: demo-fade 500ms ease; }
 
     @keyframes demo-in {
       from { opacity: 0; transform: translateY(-5px); }
@@ -523,7 +545,7 @@
 
     <div class="board-demo" data-board-demo aria-label="Example board. The checkboxes toggle and the task text is editable.">
       <div class="demo-group" style="--gc: var(--g-green)">
-        <div class="demo-head">Today <span class="demo-count">4</span></div>
+        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Today</span> <span class="demo-count">4</span></div>
         <div class="demo-rows">
           <div class="demo-row done-text"><button type="button" class="demo-check done" aria-label="Toggle done">✓</button><span class="demo-text">Book dentist appointment</span></div>
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Ship the invoice</span></div>
@@ -532,14 +554,14 @@
         </div>
       </div>
       <div class="demo-group" style="--gc: var(--g-purple)">
-        <div class="demo-head">Backlog <span class="demo-count">2</span></div>
+        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Backlog</span> <span class="demo-count">2</span></div>
         <div class="demo-rows">
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Compare bike insurance quotes</span></div>
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
         </div>
       </div>
     </div>
-    <p class="demo-hint">This one's real: tick the boxes, click a task & type. The download works the same, plus drag, undo & everything below.</p>
+    <p class="demo-hint">This one's real: tick the boxes, click any text & type, drag rows between groups, rename or collapse a group with its arrow. The download adds undo, keyboard control & everything below.</p>
   </header>
 
   <main class="wrap">
@@ -655,7 +677,7 @@
           </button>
           <span class="note" style="margin:0">One message per new build, with the file attached. No welcome sequence, no digest.</span>
         </div>
-        <p class="note">This page sets no cookies & loads nothing from third parties. Your address lands in one inbox & nowhere else.</p>
+        <p class="note">This page sets no cookies & loads nothing from third parties. Your address lands in my own personal inbox & nowhere else.</p>
       </div>
     </section>
   </main>
@@ -751,9 +773,17 @@
       let timer = null;
 
       function wire() {
-        demo.querySelectorAll(".demo-rows .demo-text").forEach((span) => {
+        demo.querySelectorAll(".demo-rows .demo-text, .demo-title").forEach((span) => {
           span.contentEditable = "true";
           span.spellcheck = false;
+        });
+        demo.querySelectorAll(".demo-row").forEach((row) => { row.draggable = true; });
+      }
+
+      function updateCounts() {
+        demo.querySelectorAll(".demo-group").forEach((group) => {
+          const count = group.querySelector(".demo-count");
+          if (count) count.textContent = group.querySelectorAll(".demo-row").length;
         });
       }
 
@@ -769,28 +799,64 @@
       }
 
       demo.addEventListener("click", (event) => {
+        const collapse = event.target.closest(".demo-collapse");
+        if (collapse) {
+          collapse.closest(".demo-group")?.classList.toggle("collapsed");
+          return;
+        }
         const check = event.target.closest(".demo-check");
         if (!check) return;
         const row = check.closest(".demo-row");
         setDone(row, !check.classList.contains("done"));
       });
 
+      // Drag rows within & between groups, same as the app's outline drag.
+      let dragRow = null;
+      demo.addEventListener("dragstart", (event) => {
+        const row = event.target.closest?.(".demo-row");
+        if (!row) return;
+        dragRow = row;
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", row.querySelector(".demo-text")?.textContent || "task");
+        requestAnimationFrame(() => row.classList.add("dragging"));
+      });
+      demo.addEventListener("dragend", () => {
+        dragRow?.classList.remove("dragging");
+        dragRow = null;
+        updateCounts();
+      });
+      demo.addEventListener("dragover", (event) => {
+        if (!dragRow) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        const over = event.target.closest?.(".demo-row");
+        if (over && over !== dragRow) {
+          const rect = over.getBoundingClientRect();
+          over.parentElement.insertBefore(dragRow, event.clientY < rect.top + rect.height / 2 ? over : over.nextSibling);
+          return;
+        }
+        const rows = event.target.closest?.(".demo-group")?.querySelector(".demo-rows");
+        if (rows && !rows.contains(dragRow)) rows.append(dragRow);
+      });
+      demo.addEventListener("drop", (event) => {
+        event.preventDefault();
+        updateCounts();
+      });
+
       function makeRow(text, extraClass, chip) {
         const row = document.createElement("div");
         row.className = "demo-row anim-in" + (extraClass ? " " + extraClass : "");
+        row.draggable = true;
         row.innerHTML = '<button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">' + text + "</span>"
           + (chip ? '<span class="demo-chip">' + chip + "</span>" : "");
+        const span = row.querySelector(".demo-text");
+        span.contentEditable = "true";
+        span.spellcheck = false;
         return row;
       }
 
       function groupRows(index) {
         return demo.querySelectorAll(".demo-group")[index]?.querySelector(".demo-rows");
-      }
-
-      function updateCount(index) {
-        const group = demo.querySelectorAll(".demo-group")[index];
-        const count = group?.querySelector(".demo-count");
-        if (count) count.textContent = group.querySelectorAll(".demo-row").length;
       }
 
       const steps = [
@@ -801,7 +867,7 @@
         [2100, () => { // add a sub-note under the proposal
           const rows = groupRows(0)?.querySelectorAll(".demo-row");
           if (rows?.[3]) rows[3].after(makeRow("Outline the scope first", "child"));
-          updateCount(0);
+          updateCounts();
         }],
         [2300, () => { // move a task from Backlog into Today
           const backlogRow = groupRows(1)?.querySelector(".demo-row");
@@ -809,16 +875,16 @@
           backlogRow.remove();
           const clone = makeRow("Compare bike insurance quotes", "");
           groupRows(0)?.append(clone);
-          updateCount(0);
-          updateCount(1);
+          updateCounts();
         }],
         [2300, () => { // a new group appears
           const group = document.createElement("div");
           group.className = "demo-group anim-in";
           group.style.setProperty("--gc", "var(--g-teal)");
-          group.innerHTML = '<div class="demo-head">Weekend <span class="demo-count">1</span></div><div class="demo-rows"></div>';
+          group.innerHTML = '<div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Weekend</span> <span class="demo-count">1</span></div><div class="demo-rows"></div>';
           group.querySelector(".demo-rows").append(makeRow("Plan the Saturday hike", ""));
           demo.append(group);
+          wire();
         }],
         [2000, () => { // toggle one on...
           const rows = groupRows(1)?.querySelectorAll(".demo-row");
@@ -855,7 +921,7 @@
       ["pointerdown", "keydown", "focusin"].forEach((type) => demo.addEventListener(type, stop));
 
       wire();
-      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) run(0);
+      run(0);
     })();
   </script>
 </body>

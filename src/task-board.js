@@ -4048,7 +4048,7 @@
         return;
       }
 
-      if (event.key.toLowerCase() === "f" && event.shiftKey && !event.ctrlKey && !event.altKey) {
+      if (event.key.toLowerCase() === "f" && event.ctrlKey && event.altKey) {
         event.preventDefault();
         toggleFocusMode();
         return;

@@ -1996,7 +1996,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m17 14-5-5-5 5"/></svg>
           Collapse all
         </button>
-        <button class="control" type="button" data-focus-button title="Open focus mode for the selected task (Shift+F)">
+        <button class="control" type="button" data-focus-button title="Open focus mode for the selected task (Ctrl+Alt+F)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
           Focus
         </button>
@@ -2131,7 +2131,7 @@
             Help
           </summary>
           <div class="settings-panel help-panel">
-            <p><strong>Basics.</strong> Enter adds a task, Tab and Shift+Tab indent or outdent (a whole multi-selection at once), arrows browse, Alt+arrows move an item anywhere: through subtrees and across groups. Ctrl+Up/Down collapses or expands, Ctrl+Enter marks the selected task done, Shift+F opens focus mode (works on groups too).</p>
+            <p><strong>Basics.</strong> Enter adds a task, Tab and Shift+Tab indent or outdent (a whole multi-selection at once), arrows browse, Alt+arrows move an item anywhere: through subtrees and across groups. Ctrl+Up/Down collapses or expands, Ctrl+Enter marks the selected task done, Ctrl+Alt+F opens focus mode (works on groups too).</p>
             <p><strong>Board shortcuts.</strong> Alt+A adds a group. Ctrl+Shift+Down expands everything; Ctrl+Shift+Up collapses everything. ArrowLeft jumps to the sidebar, ArrowUp from the top task reaches search.</p>
             <p><strong>Clipboard.</strong> Ctrl+C copies selected tasks as clean Markdown. Pasting inside the board places a linked copy by default; change this in Settings. Ctrl+X then paste moves tasks. Pasting Markdown from outside creates new tasks.</p>
             <p><strong>Linked copies.</strong> A linked copy is one task shown in two places: edit or complete either one and both update. A shortcut is a small pointer that jumps to the original instead.</p>
@@ -6262,7 +6262,7 @@
         return;
       }
 
-      if (event.key.toLowerCase() === "f" && event.shiftKey && !event.ctrlKey && !event.altKey) {
+      if (event.key.toLowerCase() === "f" && event.ctrlKey && event.altKey) {
         event.preventDefault();
         toggleFocusMode();
         return;
