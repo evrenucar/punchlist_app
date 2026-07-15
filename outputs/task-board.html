@@ -2212,8 +2212,11 @@
   </section>
 
   <script data-task-board-script>
-    const STORAGE_KEY = "scheduling-task-management-board-v1";
-    const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1";
+    // ?demo runs the same app against isolated storage with a fresh example
+    // board each load, so the landing page can embed the real thing.
+    const IS_DEMO = typeof location !== "undefined" && /[?&]demo\b/.test(location.search || "");
+    const STORAGE_KEY = "scheduling-task-management-board-v1" + (IS_DEMO ? "-demo" : "");
+    const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1" + (IS_DEMO ? "-demo" : "");
     const SCHEMA_VERSION = 2;
     const APP_VERSION = "1.1.0";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
@@ -2464,6 +2467,7 @@
     }
 
     function loadState() {
+      if (IS_DEMO) return migrateState(seedState());
       return loadStateFromLocalStorage();
     }
 
@@ -6488,6 +6492,7 @@
     });
 
     applyTheme(loadTheme());
+    if (IS_DEMO && /[?&]dark\b/.test(location.search || "")) applyTheme("dark");
     applySidebarWidth();
     syncSettingsControls();
     updateClock();
@@ -6497,6 +6502,118 @@
     render();
     selectedNode = getVisibleNodes()[0] || null;
     if (selectedNode) selectNode(selectedNode);
+
+    // Demo driver: edits the live board through the app's own functions on a
+    // loop, stopping forever at the first real interaction. Runs only with
+    // ?demo, so it can never touch a real board.
+    function startDemoDriver() {
+      if (!IS_DEMO || typeof window.setTimeout !== "function") return;
+      let stopped = false;
+      let timer = null;
+      const DEMO_IMAGE_SRC = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80"><g fill="none" stroke="#65716b"><rect x="4" y="4" width="112" height="72" stroke-width="2"/><path d="M62 4v26M62 46v30M4 44h26M42 44h20M62 52h22M94 52h22" stroke-width="2"/><path d="M62 30a16 16 0 0 1 16 16M30 44a12 12 0 0 0 12 12" stroke-width="1"/><rect x="10" y="54" width="16" height="14" stroke-width="1"/><path d="M84 76h20" stroke-width="4"/></g></svg>');
+
+      function findTaskByTextIn(tasks, text) {
+        for (const item of tasks) {
+          if (item.text === text) return item;
+          const nested = findTaskByTextIn(item.children || [], text);
+          if (nested) return nested;
+        }
+        return null;
+      }
+
+      function findDemoTask(text) {
+        for (const group of state.groups) {
+          const item = findTaskByTextIn(group.tasks, text);
+          if (item) return item;
+        }
+        return null;
+      }
+
+      const steps = [
+        [2000, () => {
+          const item = findDemoTask("Buy groceries");
+          if (item) setTaskCompleted(item.id, true);
+        }],
+        [2300, () => {
+          const group = state.groups.find((entry) => entry.title === "Today");
+          if (!group) return;
+          group.tasks.push(task("Water the plants"));
+          saveState();
+          render();
+        }],
+        [2400, () => {
+          const group = state.groups.find((entry) => entry.title === "Today");
+          const index = group ? group.tasks.findIndex((item) => item.text === "Book a dentist appointment") : -1;
+          if (index >= 0 && moveNodeInList(group.tasks, index, -1)) {
+            saveState();
+            render();
+          }
+        }],
+        [2300, () => {
+          const item = findDemoTask("Plan a weekend trip");
+          if (!item) return;
+          item.images = [...(item.images || []), { id: createId("image"), src: DEMO_IMAGE_SRC, width: 220, caption: "floor-plan.png" }];
+          saveState();
+          render();
+        }],
+        [2400, () => {
+          const group = state.groups.find((entry) => entry.title === "Projects");
+          if (group) {
+            group.collapsed = true;
+            saveState();
+            render();
+          }
+        }],
+        [1800, () => {
+          const group = state.groups.find((entry) => entry.title === "Projects");
+          if (group) {
+            group.collapsed = false;
+            saveState();
+            render();
+          }
+        }],
+        [2000, () => {
+          const item = findDemoTask("Go for a 30-minute walk");
+          if (item) setTaskCompleted(item.id, true);
+        }],
+        [1600, () => {
+          const item = findDemoTask("Go for a 30-minute walk");
+          if (item) setTaskCompleted(item.id, false);
+        }],
+        [3200, () => {
+          localStorage.removeItem(STORAGE_KEY);
+          state = migrateState(seedState());
+          selectedNode = null;
+          multiSelectedNodes = [];
+          selectionAnchorNode = null;
+          undoStack = [];
+          undoActions = [];
+          lastUndoAction = null;
+          render();
+        }],
+      ];
+
+      function runStep(index) {
+        if (stopped) return;
+        const [delay, action] = steps[index % steps.length];
+        timer = window.setTimeout(() => {
+          if (stopped) return;
+          action();
+          runStep(index + 1);
+        }, delay);
+      }
+
+      function stopDriver() {
+        stopped = true;
+        if (timer) window.clearTimeout?.(timer);
+      }
+
+      document.addEventListener("pointerdown", stopDriver);
+      document.addEventListener("keydown", stopDriver);
+      runStep(0);
+    }
+
+    startDemoDriver();
 
     window.taskBoardTestApi = {
       get state() {
@@ -6631,6 +6748,8 @@
       insertEditingLineBreak,
       addTask,
       APP_VERSION,
+      IS_DEMO,
+      STORAGE_KEY,
       startOwnBoard,
       reset() {
         localStorage.removeItem(STORAGE_KEY);

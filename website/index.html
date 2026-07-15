@@ -237,52 +237,28 @@
     }
 
     .btn:hover { filter: brightness(1.06); }
-    .btn:focus-visible, .theme-toggle:focus-visible, input:focus-visible, .demo-check:focus-visible, .demo-text:focus-visible {
+    .btn:focus-visible, .theme-toggle:focus-visible, input:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
 
-    /* Live board demo, built from the app's real visual pieces */
-    .board-demo {
-      display: grid;
-      gap: 14px;
-      margin: 40px 0 8px;
+    /* The hero demo is the real app, framed */
+    .board-frame {
+      display: block;
+      width: 100%;
+      height: 640px;
+      margin: 40px 0 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
     }
 
     .demo-hint {
-      margin: 6px 0 0;
+      margin: 8px 0 0;
       color: var(--muted);
       font-size: 13px;
     }
-
-    .demo-group {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .demo-head {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      border-left: 6px solid var(--gc);
-      border-bottom: 1px solid var(--line);
-      background: color-mix(in srgb, var(--gc) 9%, var(--surface));
-      padding: 9px 12px;
-      font-weight: 800;
-    }
-
-    .demo-count {
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--gc) 18%, var(--surface));
-      padding: 1px 8px;
-      font-family: var(--mono);
-      font-size: 12px;
-    }
-
-    .demo-rows { padding: 6px 10px 10px; }
 
     .demo-row {
       display: flex;
@@ -313,50 +289,10 @@
     }
 
     .demo-check.done { border-color: var(--g-green); background: var(--g-green); }
-    .demo-row.done-text .demo-text { color: var(--muted); text-decoration: line-through; }
-
-    .demo-text {
-      border-radius: 4px;
-      padding: 0 2px;
-      min-width: 20px;
-    }
-
-    .demo-title {
-      border-radius: 4px;
-      padding: 0 2px;
-      min-width: 30px;
-    }
-
-    .demo-collapse {
-      display: grid;
-      place-items: center;
-      border: 0;
-      background: none;
-      color: var(--muted);
-      padding: 0 2px;
-      cursor: pointer;
-    }
-
-    .demo-collapse svg { width: 14px; height: 14px; transition: transform 160ms ease; }
-    .demo-group.collapsed .demo-collapse svg { transform: rotate(-90deg); }
-    .demo-group.collapsed .demo-rows { display: none; }
-    .demo-row.dragging { opacity: 0.45; }
-    .demo-row[draggable="true"] { cursor: grab; }
-    .demo-row { outline: none; }
-    .demo-row.selected { background: var(--accent-soft); border-radius: 8px; }
-    .demo-row.hidden-by-parent, .demo-image.hidden-by-parent { display: none; }
-
-    /* Same drop-edge language as the app's task rows & groups */
-    .demo-row.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
-    .demo-row.drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
-    .demo-group.drop-before { box-shadow: var(--shadow), inset 0 3px 0 var(--accent); }
-    .demo-group.drop-after { box-shadow: var(--shadow), inset 0 -3px 0 var(--accent); }
-    .demo-head[draggable="true"] { cursor: grab; }
-    .demo-group.dragging { opacity: 0.42; }
 
     /* Vertical indent guides, like the app's nested-children border */
     .demo-row { position: relative; }
-    .demo-row.child::before, .demo-row.grandchild::before, .demo-image::before {
+    .demo-row.child::before, .demo-row.grandchild::before {
       content: "";
       position: absolute;
       left: 13px;
@@ -373,82 +309,6 @@
       bottom: 0;
       width: 1px;
       background: var(--line);
-    }
-    .demo-image { position: relative; }
-
-    .demo-add {
-      margin-left: auto;
-      border: 0;
-      background: none;
-      border-radius: 6px;
-      color: var(--muted);
-      padding: 0 6px;
-      font: inherit;
-      font-size: 17px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-
-    .demo-add:hover { color: var(--ink); background: color-mix(in srgb, var(--gc) 14%, transparent); }
-
-    .row-collapse {
-      flex: 0 0 auto;
-      display: grid;
-      place-items: center;
-      border: 0;
-      background: none;
-      color: var(--muted);
-      padding: 0;
-      margin-left: -14px;
-      width: 14px;
-      cursor: pointer;
-    }
-
-    .row-collapse svg { width: 12px; height: 12px; transition: transform 160ms ease; }
-    .demo-row.subtree-collapsed .row-collapse svg { transform: rotate(-90deg); }
-
-    .demo-image {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 2px 4px 8px 62px;
-    }
-
-    .demo-image-thumb {
-      width: 96px;
-      height: 64px;
-      min-width: 48px;
-      min-height: 32px;
-      max-width: 340px;
-      max-height: 230px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: var(--surface-2);
-      resize: both;
-      overflow: hidden;
-    }
-
-    .demo-image-thumb svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-      color: var(--muted);
-    }
-
-    .demo-image span {
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    .demo-row.drag-lift {
-      position: relative;
-      z-index: 2;
-      background: var(--surface);
-      border-radius: 8px;
-      transform: scale(1.03) rotate(1deg);
-      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.20);
-      transition: transform 220ms ease, box-shadow 220ms ease;
     }
 
     .demo-chip {
@@ -600,27 +460,7 @@
     @media (max-width: 640px) {
       .hero { padding: 36px 0 20px; }
       .topbar .clock { font-size: 15px; }
-    }
-
-    @media (prefers-reduced-motion: no-preference) {
-      .demo-group { transition: transform 160ms ease; }
-      .demo-group:hover { transform: translateY(-2px); }
-    }
-
-    .demo-row.anim-in, .demo-group.anim-in { animation: demo-in 450ms ease; }
-    .demo-check.anim-pulse { animation: demo-pulse 400ms ease; }
-    .board-demo.demo-reset { animation: demo-fade 500ms ease; }
-
-    @keyframes demo-in {
-      from { opacity: 0; transform: translateY(-5px); }
-    }
-
-    @keyframes demo-pulse {
-      50% { transform: scale(1.3); }
-    }
-
-    @keyframes demo-fade {
-      from { opacity: 0.35; }
+      .board-frame { height: 560px; }
     }
   </style>
 </head>
@@ -658,26 +498,8 @@
       </a>
     </div>
 
-    <div class="board-demo" data-board-demo aria-label="Example board. The checkboxes toggle and the task text is editable.">
-      <div class="demo-group" style="--gc: var(--g-green)">
-        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Today</span> <span class="demo-count">5</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div>
-        <div class="demo-rows">
-          <div class="demo-row done-text"><button type="button" class="demo-check done" aria-label="Toggle done">✓</button><span class="demo-text">Book dentist appointment</span></div>
-          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Ship the invoice</span></div>
-          <div class="demo-row child"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Attach June hours</span></div>
-          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Draft the proposal</span><span class="demo-chip">09:00 · 90m</span></div>
-          <div class="demo-row" data-link="hinge"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Backlog</span></div>
-        </div>
-      </div>
-      <div class="demo-group" style="--gc: var(--g-purple)">
-        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Backlog</span> <span class="demo-count">2</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div>
-        <div class="demo-rows">
-          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Compare bike insurance quotes</span></div>
-          <div class="demo-row" data-link="hinge"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
-        </div>
-      </div>
-    </div>
-    <p class="demo-hint">This one's real, keyboard included: click a row to select it, browse with the arrow keys, Enter edits, Ctrl+Enter completes, Alt+arrows move an item, Tab & Shift+Tab nest it, Alt+A adds a group, Ctrl+Shift+Up/Down folds everything. Drag rows & groups, rename anything, resize the pasted image by its corner. The download adds saving, undo & everything below.</p>
+    <iframe class="board-frame" data-board-frame src="task-board.html?demo" title="The actual Punchlist board running in demo mode with an example board" loading="lazy"></iframe>
+    <p class="demo-hint">That's not a mockup. It's the actual app in a frame, running in demo mode: every click, key, drag & setting behaves exactly like the download, because it is the same file. It edits itself until you touch it; your edits stay on your device & the example board resets when the page reloads.</p>
   </header>
 
   <main class="wrap">
@@ -880,502 +702,18 @@
       }
     });
 
-    // Live hero demo. It edits itself on a loop (ticking, nesting, dragging,
-    // pasting an image, collapsing) until the visitor touches it, then it's theirs.
-    (() => {
-      const demo = document.querySelector("[data-board-demo]");
-      if (!demo) return;
-      const initialHtml = demo.innerHTML;
-      const CHEVRON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>';
-      let stopped = false;
-      let timer = null;
-
-      function levelOf(row) {
-        return row.classList.contains("grandchild") ? 3 : row.classList.contains("child") ? 2 : 1;
-      }
-
-      function makeChevron() {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "row-collapse";
-        button.setAttribute("aria-label", "Collapse or expand subtasks");
-        button.innerHTML = CHEVRON_SVG;
-        return button;
-      }
-
-      function subtreeNodes(row) {
-        const own = levelOf(row);
-        const nodes = [];
-        let el = row.nextElementSibling;
-        while (el) {
-          if (el.classList.contains("demo-image")) nodes.push(el);
-          else if (el.classList.contains("demo-row") && levelOf(el) > own) nodes.push(el);
-          else break;
-          el = el.nextElementSibling;
-        }
-        return nodes;
-      }
-
-      function toggleSubtree(row) {
-        const collapsed = row.classList.toggle("subtree-collapsed");
-        subtreeNodes(row).forEach((el) => el.classList.toggle("hidden-by-parent", collapsed));
-      }
-
-      // Parent rows grow the same disclosure arrow the app gives nested tasks.
-      function wireRowChevrons() {
-        demo.querySelectorAll(".demo-rows .demo-row").forEach((row) => {
-          let next = row.nextElementSibling;
-          while (next && next.classList.contains("demo-image")) next = next.nextElementSibling;
-          const hasKids = Boolean(next && next.classList.contains("demo-row") && levelOf(next) > levelOf(row));
-          const button = row.querySelector(".row-collapse");
-          if (hasKids && !button) row.prepend(makeChevron());
-          if (!hasKids && button) {
-            button.remove();
-            row.classList.remove("subtree-collapsed");
-          }
-        });
-      }
-
-      function updateCounts() {
-        demo.querySelectorAll(".demo-group").forEach((group) => {
-          const count = group.querySelector(".demo-count");
-          if (count) count.textContent = group.querySelectorAll(".demo-row").length;
-        });
-      }
-
-      function wire() {
-        demo.querySelectorAll(".demo-rows .demo-text, .demo-title").forEach((span) => {
-          span.contentEditable = "true";
-          span.spellcheck = false;
-        });
-        demo.querySelectorAll(".demo-row").forEach((row) => { row.draggable = true; row.tabIndex = -1; });
-        demo.querySelectorAll(".demo-head").forEach((head) => { head.draggable = true; });
-      }
-
-      function refresh() {
-        updateCounts();
-        wireRowChevrons();
-      }
-
-      function applyDone(row, on) {
-        const check = row.querySelector(".demo-check");
-        if (!check) return;
-        check.classList.toggle("done", on);
-        check.textContent = on ? "✓" : "";
-        row.classList.toggle("done-text", on);
-        check.classList.remove("anim-pulse");
-        void check.offsetWidth;
-        check.classList.add("anim-pulse");
-      }
-
-      // Linked copies stay in sync, like the app's alias placements.
-      function setDone(row, on) {
-        applyDone(row, on);
-        if (!row.dataset.link) return;
-        demo.querySelectorAll('.demo-row[data-link="' + row.dataset.link + '"]').forEach((other) => {
-          if (other !== row) applyDone(other, on);
-        });
-      }
-
-      let selectedRow = null;
-      function selectRow(row, focus = true) {
-        demo.querySelectorAll(".demo-row.selected").forEach((el) => el.classList.remove("selected"));
-        selectedRow = row || null;
-        if (selectedRow) {
-          selectedRow.classList.add("selected");
-          if (focus) selectedRow.focus({ preventScroll: true });
-        }
-      }
-
-      function makeRow(text, extraClass, chip) {
-        const row = document.createElement("div");
-        row.className = "demo-row anim-in" + (extraClass ? " " + extraClass : "");
-        row.draggable = true;
-        row.tabIndex = -1;
-        row.innerHTML = '<button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">' + text + "</span>"
-          + (chip ? '<span class="demo-chip">' + chip + "</span>" : "");
-        const span = row.querySelector(".demo-text");
-        span.contentEditable = "true";
-        span.spellcheck = false;
-        return row;
-      }
-
-      function makeImage(caption) {
-        const figure = document.createElement("div");
-        figure.className = "demo-image anim-in";
-        figure.innerHTML = '<div class="demo-image-thumb">'
-          + '<svg viewBox="0 0 120 80" fill="none" stroke="currentColor" stroke-width="2" preserveAspectRatio="xMidYMid meet" aria-label="Floor plan">'
-          + '<rect x="4" y="4" width="112" height="72"/>'
-          + '<path d="M62 4v26M62 46v30"/>'
-          + '<path d="M62 30a16 16 0 0 1 16 16" stroke-width="1"/>'
-          + '<path d="M62 46h16" stroke-width="1"/>'
-          + '<path d="M4 44h26M42 44h20"/>'
-          + '<path d="M30 44a12 12 0 0 0 12 12" stroke-width="1"/>'
-          + '<path d="M62 52h22M94 52h22"/>'
-          + '<rect x="10" y="54" width="16" height="14" stroke-width="1"/>'
-          + '<path d="M84 76h20" stroke-width="4"/>'
-          + "</svg>"
-          + "</div><span>" + caption + "</span>";
-        return figure;
-      }
-
-      demo.addEventListener("click", (event) => {
-        const rowCollapse = event.target.closest(".row-collapse");
-        if (rowCollapse) {
-          toggleSubtree(rowCollapse.closest(".demo-row"));
-          return;
-        }
-        const collapse = event.target.closest(".demo-collapse");
-        if (collapse) {
-          collapse.closest(".demo-group")?.classList.toggle("collapsed");
-          return;
-        }
-        const add = event.target.closest(".demo-add");
-        if (add) {
-          const rows = add.closest(".demo-group")?.querySelector(".demo-rows");
-          if (!rows) return;
-          const row = makeRow("", "");
-          rows.append(row);
-          refresh();
-          row.querySelector(".demo-text")?.focus();
-          return;
-        }
-        const check = event.target.closest(".demo-check");
-        if (check) {
-          setDone(check.closest(".demo-row"), !check.classList.contains("done"));
-          return;
-        }
-        const row = event.target.closest(".demo-row");
-        if (row) selectRow(row, !event.target.closest(".demo-text"));
-      });
-
-      // Linked copies mirror text edits both ways.
-      demo.addEventListener("input", (event) => {
-        const text = event.target.closest?.(".demo-text");
-        const row = text?.closest(".demo-row");
-        if (!row?.dataset.link) return;
-        demo.querySelectorAll('.demo-row[data-link="' + row.dataset.link + '"] .demo-text').forEach((span) => {
-          if (span !== text) span.textContent = text.textContent;
-        });
-      });
-
-      function visibleRows() {
-        return [...demo.querySelectorAll(".demo-row")].filter((row) => row.offsetParent !== null);
-      }
-
-      function indentRow(row, outdent) {
-        const level = levelOf(row);
-        const next = outdent ? Math.max(1, level - 1) : Math.min(3, level + 1);
-        row.classList.toggle("child", next === 2);
-        row.classList.toggle("grandchild", next === 3);
-        refresh();
-      }
-
-      // Alt+arrows hop a row (with its subtree & images) over its neighbor.
-      function moveRow(row, dir) {
-        const rows = visibleRows();
-        const subtree = [row, ...subtreeNodes(row)];
-        const i = rows.indexOf(row);
-        if (dir > 0) {
-          let j = i + 1;
-          while (j < rows.length && subtree.includes(rows[j])) j += 1;
-          const target = rows[j];
-          if (!target) return;
-          let anchor = [target, ...subtreeNodes(target)].pop();
-          subtree.forEach((el) => { anchor.after(el); anchor = el; });
-        } else {
-          const target = rows[i - 1];
-          if (!target) return;
-          subtree.forEach((el) => target.before(el));
-        }
-        refresh();
-        selectRow(row);
-      }
-
-      const GROUP_COLORS = ["var(--g-teal)", "var(--g-orange)", "var(--g-blue)", "var(--g-red)"];
-      function addDemoGroup() {
-        const group = document.createElement("div");
-        group.className = "demo-group anim-in";
-        group.style.setProperty("--gc", GROUP_COLORS[demo.querySelectorAll(".demo-group").length % GROUP_COLORS.length]);
-        group.innerHTML = '<div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group">' + CHEVRON_SVG + '</button><span class="demo-title">New group</span> <span class="demo-count">0</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div><div class="demo-rows"></div>';
-        demo.append(group);
-        wire();
-        refresh();
-        return group;
-      }
-
-      // The app's keyboard zones, demo-sized: while editing, Enter adds &
-      // Tab nests; while browsing, arrows move the selection, Alt+arrows
-      // move the item, Ctrl folds, Ctrl+Enter completes, Alt+A adds a group.
-      demo.addEventListener("keydown", (event) => {
-        const text = event.target.closest?.(".demo-text");
-        const title = event.target.closest?.(".demo-title");
-        const arrows = event.key === "ArrowDown" || event.key === "ArrowUp";
-
-        if (event.key === "Enter" && event.ctrlKey && selectedRow) {
-          event.preventDefault();
-          const check = selectedRow.querySelector(".demo-check");
-          if (check) setDone(selectedRow, !check.classList.contains("done"));
-          return;
-        }
-
-        if (text || title) {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            let fresh;
-            if (title) {
-              const rows = title.closest(".demo-group")?.querySelector(".demo-rows");
-              if (!rows) return;
-              fresh = makeRow("", "");
-              rows.prepend(fresh);
-            } else {
-              const row = text.closest(".demo-row");
-              fresh = makeRow("", row.classList.contains("grandchild") ? "grandchild" : row.classList.contains("child") ? "child" : "");
-              row.after(fresh);
-            }
-            refresh();
-            fresh.querySelector(".demo-text")?.focus();
-            return;
-          }
-          if (event.key === "Tab" && text) {
-            event.preventDefault();
-            indentRow(text.closest(".demo-row"), event.shiftKey);
-            text.focus();
-          }
-          return;
-        }
-
-        if (event.altKey && arrows && selectedRow) {
-          event.preventDefault();
-          moveRow(selectedRow, event.key === "ArrowDown" ? 1 : -1);
-          return;
-        }
-        if (event.altKey && event.key.toLowerCase() === "a") {
-          event.preventDefault();
-          addDemoGroup().querySelector(".demo-title")?.focus();
-          return;
-        }
-        if (event.ctrlKey && event.shiftKey && arrows) {
-          event.preventDefault();
-          const collapse = event.key === "ArrowUp";
-          demo.querySelectorAll(".demo-group").forEach((group) => group.classList.toggle("collapsed", collapse));
-          demo.querySelectorAll(".demo-row .row-collapse").forEach((button) => {
-            const row = button.closest(".demo-row");
-            if (row.classList.contains("subtree-collapsed") !== collapse) toggleSubtree(row);
-          });
-          return;
-        }
-        if (event.ctrlKey && arrows && selectedRow?.querySelector(".row-collapse")) {
-          event.preventDefault();
-          if ((event.key === "ArrowUp") !== selectedRow.classList.contains("subtree-collapsed")) toggleSubtree(selectedRow);
-          return;
-        }
-        if (arrows) {
-          event.preventDefault();
-          const rows = visibleRows();
-          if (!rows.length) return;
-          const i = rows.indexOf(selectedRow);
-          const next = event.key === "ArrowDown" ? Math.min(rows.length - 1, i + 1) : Math.max(0, i < 0 ? 0 : i - 1);
-          selectRow(rows[next]);
-          return;
-        }
-        if (event.key === "Enter" && selectedRow) {
-          event.preventDefault();
-          selectedRow.querySelector(".demo-text")?.focus();
-          return;
-        }
-        if (event.key === "Tab" && selectedRow) {
-          event.preventDefault();
-          indentRow(selectedRow, event.shiftKey);
-          selectRow(selectedRow);
-        }
-      });
-
-      // Drag rows & whole groups with the app's drop-edge indicators:
-      // top/bottom edge lights up where the drop would land; the move
-      // happens on drop, exactly like the board.
-      let dragRow = null;
-      let dragGroup = null;
-      let dropInfo = null;
-
-      function clearDropMarks() {
-        demo.querySelectorAll(".drop-before, .drop-after").forEach((el) => el.classList.remove("drop-before", "drop-after"));
-        dropInfo = null;
-      }
-
-      demo.addEventListener("dragstart", (event) => {
-        const head = event.target.closest?.(".demo-head");
-        if (head) {
-          dragGroup = head.closest(".demo-group");
-          event.dataTransfer.effectAllowed = "move";
-          event.dataTransfer.setData("text/plain", head.querySelector(".demo-title")?.textContent || "group");
-          requestAnimationFrame(() => dragGroup?.classList.add("dragging"));
-          return;
-        }
-        const row = event.target.closest?.(".demo-row");
-        if (!row) return;
-        dragRow = row;
-        event.dataTransfer.effectAllowed = "move";
-        event.dataTransfer.setData("text/plain", row.querySelector(".demo-text")?.textContent || "task");
-        requestAnimationFrame(() => row.classList.add("dragging"));
-      });
-
-      demo.addEventListener("dragover", (event) => {
-        if (dragGroup) {
-          event.preventDefault();
-          event.dataTransfer.dropEffect = "move";
-          clearDropMarks();
-          const over = event.target.closest?.(".demo-group");
-          if (!over || over === dragGroup) return;
-          const rect = over.getBoundingClientRect();
-          const before = event.clientY < rect.top + rect.height / 2;
-          over.classList.add(before ? "drop-before" : "drop-after");
-          dropInfo = { el: over, before, type: "group" };
-          return;
-        }
-        if (!dragRow) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "move";
-        clearDropMarks();
-        const over = event.target.closest?.(".demo-row");
-        if (over && over !== dragRow) {
-          const rect = over.getBoundingClientRect();
-          const before = event.clientY < rect.top + rect.height / 2;
-          over.classList.add(before ? "drop-before" : "drop-after");
-          dropInfo = { el: over, before, type: "row" };
-          return;
-        }
-        const rows = event.target.closest?.(".demo-group")?.querySelector(".demo-rows");
-        if (rows && !rows.contains(dragRow)) {
-          const all = rows.querySelectorAll(".demo-row");
-          const last = all[all.length - 1];
-          if (last) {
-            last.classList.add("drop-after");
-            dropInfo = { el: last, before: false, type: "row" };
-          } else {
-            dropInfo = { el: rows, type: "rows-append" };
-          }
-        }
-      });
-
-      demo.addEventListener("drop", (event) => {
-        event.preventDefault();
-        if (dropInfo) {
-          if (dropInfo.type === "group" && dragGroup) {
-            demo.insertBefore(dragGroup, dropInfo.before ? dropInfo.el : dropInfo.el.nextElementSibling);
-          } else if (dragRow && dropInfo.type === "rows-append") {
-            dropInfo.el.append(dragRow);
-          } else if (dragRow) {
-            dropInfo.el.parentElement.insertBefore(dragRow, dropInfo.before ? dropInfo.el : dropInfo.el.nextElementSibling);
-          }
-        }
-        clearDropMarks();
-        refresh();
-      });
-
-      demo.addEventListener("dragend", () => {
-        dragRow?.classList.remove("dragging");
-        dragGroup?.classList.remove("dragging");
-        dragRow = null;
-        dragGroup = null;
-        clearDropMarks();
-        refresh();
-      });
-
-      function groupRows(index) {
-        return demo.querySelectorAll(".demo-group")[index]?.querySelector(".demo-rows");
-      }
-
-      function todayRow(index) {
-        return groupRows(0)?.querySelectorAll(".demo-row")[index];
-      }
-
-      const steps = [
-        [1600, () => { // tick a task off
-          if (todayRow(1)) setDone(todayRow(1), true);
-        }],
-        [2200, () => { // add a sub-note under the proposal
-          todayRow(3)?.after(makeRow("Outline the scope first", "child"));
-          refresh();
-        }],
-        [2400, () => { // paste an image into the subtree
-          todayRow(4)?.after(makeImage("floor-plan.png"));
-          refresh();
-        }],
-        [2600, () => { // pick up a Backlog task...
-          const row = groupRows(1)?.querySelector(".demo-row");
-          if (!row) return;
-          row.classList.add("drag-lift");
-          setTimeout(() => { // ...and drop it into Today
-            if (stopped) return;
-            row.remove();
-            groupRows(0)?.append(makeRow("Compare bike insurance quotes", ""));
-            refresh();
-          }, 700);
-        }],
-        [2300, () => { // fold the proposal's subtasks away
-          const row = todayRow(3);
-          if (row?.querySelector(".row-collapse") && !row.classList.contains("subtree-collapsed")) toggleSubtree(row);
-        }],
-        [1800, () => { // and open them again
-          const row = todayRow(3);
-          if (row?.classList.contains("subtree-collapsed")) toggleSubtree(row);
-        }],
-        [2100, () => { // collapse a whole group
-          demo.querySelectorAll(".demo-group")[1]?.classList.add("collapsed");
-        }],
-        [1700, () => { // expand it
-          demo.querySelectorAll(".demo-group")[1]?.classList.remove("collapsed");
-        }],
-        [2400, () => { // a new group appears
-          const group = document.createElement("div");
-          group.className = "demo-group anim-in";
-          group.style.setProperty("--gc", "var(--g-teal)");
-          group.innerHTML = '<div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group">' + CHEVRON_SVG + '</button><span class="demo-title">Weekend</span> <span class="demo-count">1</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div><div class="demo-rows"></div>';
-          group.querySelector(".demo-rows").append(makeRow("Plan the Saturday hike", ""));
-          demo.append(group);
-          wire();
-          refresh();
-        }],
-        [2000, () => { // toggle one on...
-          const row = groupRows(1)?.querySelector(".demo-row");
-          if (row) setDone(row, true);
-        }],
-        [1600, () => { // ...and off again
-          const row = groupRows(1)?.querySelector(".demo-row");
-          if (row) setDone(row, false);
-        }],
-        [3000, () => { // reset the loop
-          demo.innerHTML = initialHtml;
-          wire();
-          refresh();
-          demo.classList.remove("demo-reset");
-          void demo.offsetWidth;
-          demo.classList.add("demo-reset");
-        }],
-      ];
-
-      function run(index) {
-        if (stopped) return;
-        const [delay, action] = steps[index % steps.length];
-        timer = setTimeout(() => {
-          if (stopped) return;
-          action();
-          run(index + 1);
-        }, delay);
-      }
-
-      function stop() {
-        stopped = true;
-        clearTimeout(timer);
-      }
-
-      ["pointerdown", "keydown", "focusin"].forEach((type) => demo.addEventListener(type, stop));
-
-      wire();
-      refresh();
-      run(0);
-    })();
+    // The embedded demo is the real app in demo mode; keep its theme in step
+    // with the page. Changing src reloads the frame, which just reseeds the demo.
+    const frame = document.querySelector("[data-board-frame]");
+    function syncFrameTheme() {
+      if (!frame) return;
+      const dark = document.documentElement.dataset.theme === "dark"
+        || (!document.documentElement.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
+      const next = "task-board.html?demo" + (dark ? "&dark" : "");
+      if (frame.getAttribute("src") !== next) frame.setAttribute("src", next);
+    }
+    syncFrameTheme();
+    toggle.addEventListener("click", syncFrameTheme);
   </script>
 </body>
 </html>

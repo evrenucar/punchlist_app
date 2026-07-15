@@ -11,7 +11,7 @@ async function readBoard() {
   return readFile(boardPath, "utf8");
 }
 
-async function loadBoardApi() {
+async function loadBoardApi(overrides = {}) {
   const html = await readBoard();
   const script = html.match(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/)?.[1];
   assert.ok(script, "expected inline board script");
@@ -94,6 +94,7 @@ async function loadBoardApi() {
     },
   };
 
+  Object.assign(context, overrides);
   vm.createContext(context);
   vm.runInContext(script, context);
   return context.window.taskBoardTestApi;
@@ -1424,4 +1425,18 @@ test("app version is exposed and wired into the sidebar", async () => {
   assert.match(html, /data-app-version/);
   assert.match(html, /data-example-banner-host/);
   assert.match(html, /Get latest/);
+});
+
+test("demo mode isolates storage and always seeds; real key untouched", async () => {
+  const api = await loadBoardApi();
+  assert.equal(api.IS_DEMO, false);
+  assert.equal(api.STORAGE_KEY, "scheduling-task-management-board-v1");
+
+  const demo = await loadBoardApi({ location: { search: "?demo" } });
+  assert.equal(demo.IS_DEMO, true);
+  assert.equal(demo.STORAGE_KEY, "scheduling-task-management-board-v1-demo");
+  assert.equal(demo.state.example, true);
+
+  const html = await readBoard();
+  assert.match(html, /startDemoDriver/);
 });
