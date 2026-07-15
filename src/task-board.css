@@ -559,6 +559,12 @@
       scrollbar-color: transparent transparent;
     }
 
+    /* Demo embed: the document grows with its content so the embedding page
+       can size the frame and no inner scrollbar appears. */
+    body[data-demo] .app { height: auto; }
+    body[data-demo] .sidebar { height: auto; }
+    body[data-demo] main { height: auto; overflow: visible; }
+
     main:hover {
       scrollbar-color: var(--line-strong) transparent;
     }

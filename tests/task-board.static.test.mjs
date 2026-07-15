@@ -1436,6 +1436,9 @@ test("demo mode isolates storage and always seeds; real key untouched", async ()
   assert.equal(demo.IS_DEMO, true);
   assert.equal(demo.STORAGE_KEY, "scheduling-task-management-board-v1-demo");
   assert.equal(demo.state.example, true);
+  assert.equal(demo.state.groups.length, 3, "demo board is the trimmed example");
+  assert.equal(demo.state.groups.map((group) => group.title).join(","), "Getting started,Today,Projects");
+  assert.equal(demo.state.settings.sidebarCollapsed, true);
 
   const html = await readBoard();
   assert.match(html, /startDemoDriver/);

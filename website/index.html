@@ -714,6 +714,25 @@
     }
     syncFrameTheme();
     toggle.addEventListener("click", syncFrameTheme);
+
+    // Size the frame to the board so the demo sits in the page without its
+    // own scrollbar. Same-origin, so the document height is readable.
+    let fitTimer = null;
+    function fitFrame() {
+      try {
+        const doc = frame?.contentDocument;
+        if (!doc?.documentElement) return;
+        const height = Math.max(420, doc.documentElement.scrollHeight);
+        if (frame.style.height !== height + "px") frame.style.height = height + "px";
+      } catch {}
+    }
+    if (frame) {
+      frame.addEventListener("load", () => {
+        clearInterval(fitTimer);
+        fitFrame();
+        fitTimer = setInterval(fitFrame, 600);
+      });
+    }
   </script>
 </body>
 </html>

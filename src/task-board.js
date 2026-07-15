@@ -236,6 +236,20 @@
       };
     }
 
+    // The landing-page embed shows a trimmed example: the Getting started
+    // guide plus enough tasks for the demo driver, sidebar tucked away.
+    function demoSeedState() {
+      const seed = seedState();
+      const keep = ["Getting started", "Today", "Projects"];
+      seed.groups = seed.groups.filter((group) => keep.includes(group.title));
+      const today = seed.groups.find((group) => group.title === "Today");
+      if (today) today.tasks = today.tasks.filter((item) => item.text !== "Reply to Sam about the weekend");
+      const projects = seed.groups.find((group) => group.title === "Projects");
+      if (projects) projects.tasks = projects.tasks.filter((item) => item.text === "Plan a weekend trip");
+      seed.settings.sidebarCollapsed = true;
+      return seed;
+    }
+
     function loadStateFromLocalStorage() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (!saved) return migrateState(seedState());
@@ -253,7 +267,7 @@
     }
 
     function loadState() {
-      if (IS_DEMO) return migrateState(seedState());
+      if (IS_DEMO) return migrateState(demoSeedState());
       return loadStateFromLocalStorage();
     }
 
@@ -4279,6 +4293,7 @@
 
     applyTheme(loadTheme());
     if (IS_DEMO && /[?&]dark\b/.test(location.search || "")) applyTheme("dark");
+    if (IS_DEMO) document.body?.setAttribute("data-demo", "true");
     applySidebarWidth();
     syncSettingsControls();
     updateClock();
@@ -4286,7 +4301,9 @@
     if (typeof window.setInterval === "function") window.setInterval(runLifecycleMaintenance, 1000);
     if (typeof window.setInterval === "function") window.setInterval(() => checkDueReminders(), 5000);
     render();
-    selectedNode = getVisibleNodes()[0] || null;
+    // In demo mode nothing is preselected: focusing a row on load or during
+    // the driver loop would scroll the embedding page to the iframe.
+    selectedNode = IS_DEMO ? null : (getVisibleNodes()[0] || null);
     if (selectedNode) selectNode(selectedNode);
 
     // Demo driver: edits the live board through the app's own functions on a
@@ -4368,7 +4385,7 @@
         }],
         [3200, () => {
           localStorage.removeItem(STORAGE_KEY);
-          state = migrateState(seedState());
+          state = migrateState(demoSeedState());
           selectedNode = null;
           multiSelectedNodes = [];
           selectionAnchorNode = null;
