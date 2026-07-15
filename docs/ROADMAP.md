@@ -2,7 +2,9 @@
 
 Priority is based on data safety, frequency of use, and dependency order.
 
-**Status (2026-07-11, end of first build day):** P0 through P3 shipped, plus six live-feedback iteration rounds (Punchlist branding, side-docked timeline, history panel with restore, task images with captions and lightbox, focus-mode editing parity, keyboard-zone navigation, settings export). 67 static tests pass; the optional Playwright smoke test skips when no runtime is installed. Browser acceptance ran through the Chrome DevTools MCP at 1440x900 and 390x844 in both themes. Remaining open work: the research backlog below, the deferred JSON-file sync helper, PWA/server-capable reminders, calendar integration, and the rough edges listed at the end of `docs/AGENT_HANDOFF.md`.
+**Status (2026-07-11, end of first build day):** P0 through P3 shipped, plus six live-feedback iteration rounds (Punchlist branding, side-docked timeline, history panel with restore, task images with captions and lightbox, focus-mode editing parity, keyboard-zone navigation, settings export). 67 static tests pass; the optional Playwright smoke test skips when no runtime is installed. Browser acceptance ran through the Chrome DevTools MCP at 1440x900 and 390x844 in both themes. Remaining open work: the research backlog below, PWA/server-capable reminders, calendar integration, and the rough edges listed at the end of `docs/AGENT_HANDOFF.md`.
+
+**Update (2026-07-15, v1.2.0):** GitHub sync v1 shipped — the first slice of the deferred vision below, deliberately scoped to Evren's own GitHub per the grill session (strangers get a gentler flow only if a later decision asks for one). The landing page gained Open-the-board + Download CTAs, the demo embed auto-sizes instead of cropping, and iOS Safari users get a one-time Add-to-Home-Screen nudge because Safari deletes site storage after 7 days unused. 77 static tests pass.
 
 ## P0 - Trust and editing
 
@@ -43,9 +45,9 @@ Priority is based on data safety, frequency of use, and dependency order.
 - Add a clear Markdown-based help card in Settings.
 - Verify every control, label, nested row, timeline block, and focus view at narrow phone widths.
 
-## Deferred vision - URL-hosted board with offline sync (noted 2026-07-15, not scheduled)
+## Deferred vision - URL-hosted board with offline sync (noted 2026-07-15; first slice shipped same day)
 
-Captured from Evren during a product grill session. Explicitly deferred by him ("note it down, I'll give you a different task first"). Do not design or build any of this without a fresh go-ahead.
+Captured from Evren during a product grill session, initially deferred in full. Later that day he gave the go-ahead for a v1: GitHub sync via a private repo and a fine-grained token, built for his own use (see AGENT_HANDOFF "GitHub sync"). That covers "reachable over a URL", "offline-first", and "PC and phone connect to the same board" for one GitHub user. Everything below beyond that — strangers without accounts, sharing/linking sections, encryption, hashed identities — stays deferred; do not build it without a fresh go-ahead.
 
 Context that produced it: success metric is "Punchlist is my daily driver"; the #1 daily-driver gap is phone capture; the 2026-07-15 research report names omnipresent low-friction capture as the space's most indispensable feature and warns against one-off "snowflake" sync infrastructure.
 

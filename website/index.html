@@ -246,12 +246,13 @@
     .board-frame {
       display: block;
       width: 100%;
-      height: 640px;
+      height: 640px; /* placeholder until the demo reports its real height */
       margin: 40px 0 0;
       border: 1px solid var(--line);
       border-radius: 10px;
       background: var(--surface);
       box-shadow: var(--shadow);
+      transition: height 200ms ease;
     }
 
     .demo-hint {
@@ -461,6 +462,7 @@
       .hero { padding: 36px 0 20px; }
       .topbar .clock { font-size: 15px; }
       .board-frame { height: 560px; }
+      .brand-ver small { display: none; }
     }
   </style>
 </head>
@@ -471,7 +473,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
       </div>
       <div class="brand-name">Punchlist</div>
-      <div class="brand-ver">v1.1.0<small>July 15, 2026</small></div>
+      <div class="brand-ver">v1.2.0<small>July 15, 2026</small></div>
       <div class="clock" data-clock aria-label="Current time">--:--</div>
       <button class="theme-toggle" type="button" data-theme-toggle>Theme</button>
     </div>
@@ -479,16 +481,20 @@
 
   <header class="hero wrap">
     <h1>A day planner that's one HTML file.</h1>
-    <p class="lede">No account, no server, no install, no network requests. The whole app is <strong>one 240 KB HTML file</strong>. Download it, open it in a browser, start typing. Tasks save to your browser's own storage & export to JSON or Markdown whenever you want them out.</p>
+    <p class="lede">No account, no server, no install, no network requests. The whole app is <strong>one 260 KB HTML file</strong>. Use it right here, or download it & open it from disk. Tasks save to your browser's own storage & export to JSON or Markdown whenever you want them out.</p>
     <div class="facts" aria-label="Project facts">
       <span class="fact"><b>1</b> file</span>
       <span class="fact"><b>0</b> dependencies</span>
       <span class="fact"><b>0</b> requests after download</span>
       <span class="fact"><b>40</b>-step undo</span>
-      <span class="fact"><b>v1.1.0</b></span>
+      <span class="fact"><b>v1.2.0</b></span>
     </div>
     <div class="cta-row">
-      <a class="btn primary" href="task-board.html" download>
+      <a class="btn primary" href="task-board.html" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3"/></svg>
+        Open the board
+      </a>
+      <a class="btn" href="task-board.html" download>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
         Download the board
       </a>
@@ -497,6 +503,7 @@
         Get updates by email
       </a>
     </div>
+    <p class="demo-hint">Both buttons are the same 260 KB file. Open it here & it runs at this URL, saving tasks to this browser's storage. Download it & the identical file runs from your disk, offline, zero requests, even if this site disappears. Each copy keeps its own board, unless you point your devices at one private GitHub repo under Settings → Sync.</p>
 
     <iframe class="board-frame" data-board-frame src="task-board.html?demo" title="The actual Punchlist board running in demo mode with an example board" loading="lazy"></iframe>
     <p class="demo-hint">That's not a mockup. It's the actual app in a frame, running in demo mode: every click, key, drag & setting behaves exactly like the download, because it is the same file. It edits itself until you touch it; your edits stay on your device & the example board resets when the page reloads.</p>
@@ -507,7 +514,7 @@
       <h2>Why this exists</h2>
       <div class="prose">
         <p>My tasks lived in five places: a notes app, chat messages to myself, two abandoned to-do apps, & whatever paper was on the desk. Every tool I tried wanted an account, a sync service, or a subscription before it would let me type a first task. Then it wanted me to stay, so getting my own lists back out came down to whatever its exporter felt like giving me.</p>
-        <p>So I set one rule for this build: the whole app has to fit in a single file you can open from disk. No database, no server, no framework, no npm install. Today's build is v1.1.0, 245,707 bytes of native HTML, CSS & JavaScript.</p>
+        <p>So I set one rule for this build: the whole app has to fit in a single file you can open from disk. No database, no server, no framework, no npm install. Today's build is v1.2.0, 266,809 bytes of native HTML, CSS & JavaScript.</p>
         <p>Your data never leaves the browser. Tasks persist in local storage, export losslessly to JSON, & copy out as indented Markdown that pastes clean into Obsidian, Notion, or any text editor. There's no telemetry to switch off because the file doesn't contain any.</p>
         <p>The name is a construction term. When a building is nearly done, the contractor walks the site & writes the punch list: every unfinished fix, one line each, worked down to zero before handover. I came across the format on a project in that world & liked what it does to scope: the job isn't done until the list is empty. Same idea here, minus the drywall.</p>
       </div>
@@ -584,9 +591,9 @@
     <section id="plan">
       <h2>What's planned</h2>
       <div class="prose">
-        <p>Punchlist has no online features. That's deliberate, & offline will stay the default. But it means the file can't sync itself between your phone & your laptop, and it can't remind you of anything while it's closed. What I want next, in rough order:</p>
+        <p>Offline is still the default: the file makes zero requests until you switch something on. v1.2.0 added the first opt-in online feature, GitHub sync. Point your phone & your laptop at one private repo under Settings → Sync & every change lands there as a commit, so the board carries its own full history. The file still can't remind you of anything while it's closed. What I want next, in rough order:</p>
         <ul>
-          <li>Safe, active sync between phone & laptop.</li>
+          <li>Sync for people who don't want a GitHub account or a token.</li>
           <li>Sharing a section of your board with someone else, linked so both sides stay current, unlinkable at any time.</li>
           <li>Identity without accounts: hashed usernames that are unique without a signup form.</li>
           <li>Optional encryption for anything that ever leaves your machine.</li>
@@ -623,7 +630,7 @@
 
   <footer>
     <div class="wrap">
-      <span>Punchlist v1.1.0, first build July 11, 2026.</span>
+      <span>Punchlist v1.2.0, first build July 11, 2026.</span>
       <span>This page makes zero external requests. View source; it's one file too.</span>
     </div>
   </footer>
@@ -716,23 +723,13 @@
     toggle.addEventListener("click", syncFrameTheme);
 
     // Size the frame to the board so the demo sits in the page without its
-    // own scrollbar. Same-origin, so the document height is readable.
-    let fitTimer = null;
-    function fitFrame() {
-      try {
-        const doc = frame?.contentDocument;
-        if (!doc?.documentElement) return;
-        const height = Math.max(420, doc.documentElement.scrollHeight);
-        if (frame.style.height !== height + "px") frame.style.height = height + "px";
-      } catch {}
-    }
-    if (frame) {
-      frame.addEventListener("load", () => {
-        clearInterval(fitTimer);
-        fitFrame();
-        fitTimer = setInterval(fitFrame, 600);
-      });
-    }
+    // own scrollbar or cropping. The app reports its height in demo mode
+    // (works on file:// too, where contentDocument is blocked).
+    addEventListener("message", (event) => {
+      if (!frame || event.source !== frame.contentWindow) return;
+      const height = Number(event.data && event.data.punchlistDemoHeight);
+      if (height >= 200) frame.style.height = Math.max(420, Math.ceil(height)) + "px";
+    });
   </script>
 </body>
 </html>

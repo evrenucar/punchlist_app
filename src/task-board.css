@@ -374,6 +374,55 @@
       display: none;
     }
 
+    [data-sync-fields] {
+      display: grid;
+      gap: 8px;
+    }
+
+    [data-sync-fields][hidden],
+    [data-sync-section][hidden] {
+      display: none;
+    }
+
+    [data-sync-fields] input {
+      min-width: 0;
+      max-width: 170px;
+    }
+
+    .sync-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .sync-status:empty {
+      display: none;
+    }
+
+    .home-screen-hint {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 60;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    }
+
+    .home-screen-hint p {
+      margin: 0;
+      flex: 1 1 220px;
+      font-size: 13px;
+    }
+
     .settings-duration input {
       width: 72px;
       border: 1px solid var(--line);
@@ -561,9 +610,11 @@
 
     /* Demo embed: the document grows with its content so the embedding page
        can size the frame and no inner scrollbar appears. */
+    body[data-demo] { height: auto; overflow: visible; }
     body[data-demo] .app { height: auto; }
     body[data-demo] .sidebar { height: auto; }
     body[data-demo] main { height: auto; overflow: visible; }
+    body[data-demo] [data-sync-section] { display: none; }
 
     main:hover {
       scrollbar-color: var(--line-strong) transparent;

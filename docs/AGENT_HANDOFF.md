@@ -40,7 +40,11 @@ The user routinely dumps unstructured work, then needs to:
 
 - Settings also holds a "Give feedback" button that copies `evrenucar1999@gmail.com` to the clipboard with a toast asking for a kind email.
 
-Verification as of wrap-up (2026-07-11 night): 70 tests in `tests/task-board.static.test.mjs` pass; the Playwright smoke test skips (no runtime installed); browser acceptance ran continuously through the Chrome DevTools MCP against the built file at desktop and phone widths in both themes.
+- GitHub sync (v1.2.0, built for Evren's own use per the 2026-07-15 grill): Settings → Sync holds a toggle, repo (`owner/name`, pasted URLs normalized), and token field. The board syncs as one JSON file (`punchlist-board.json`) in a private repo through the GitHub contents API — pull on load/focus/visibility, debounced push 2.5 s after edits, `sha`-guarded writes. Divergence resolves local-wins with a toast; the overwritten version survives as the previous commit. Sync payloads are lossless (they ignore the export filters) and strip `settings`. Config lives in its own key `scheduling-task-management-board-v1-sync` so the token can never land in a board or settings export. Demo mode hides the section and `syncIsActive()` is hard-false there.
+- Data durability: `navigator.storage.persist()` is requested on boot (non-demo). iOS Safari (not standalone, not framed) gets a one-time dismissible bottom banner explaining the 7-day storage deletion and pointing at Add to Home Screen; `apple-mobile-web-app-*` meta tags are set. Dismissal is remembered under `…-home-screen-hint`.
+- Landing page (2026-07-15): hero has three CTAs — Open the board (hosted app in a new tab), Download the board, email updates — plus one line explaining hosted vs downloaded. The demo iframe auto-sizes: in demo mode the app posts `{punchlistDemoHeight}` to its parent from a ResizeObserver, and `index.html` sets the frame height (the old 640px fixed height plus `body{overflow:hidden}` was cropping the board; demo now sets `body{height:auto;overflow:visible}`). Demo theme always follows the `&dark` flag in the embed URL, never the remembered theme key.
+
+Verification as of 2026-07-15: 77 tests in `tests/task-board.static.test.mjs` pass; the Playwright smoke test skips (no runtime installed); browser acceptance ran through the Chrome DevTools MCP against the built file at desktop and phone widths in both themes, including a mocked-GitHub run of every sync path (create, push, pull, divergence) in an isolated browser context.
 
 One historical note: a "rename to cosmo_vid" request (branding, folder, README) was executed and then FULLY rolled back — it was meant for a different project. The name stays Punchlist; do not resurrect cosmo_vid from git history or transcripts. `CLAUDE.md` at the repo root is the entry point for new agents.
 
@@ -58,7 +62,9 @@ Do not encode mutable placement into task IDs; aliases/references, lifecycle his
 - **History**: `pushUndoState(action, detail)` logs to `state.history` (capped 50, persisted). Deletion entries carry `trashId` for precise restore. The `collapse` action logs nothing on purpose. History survives undo (log first, then snapshot).
 - **Images** live on tasks as `{id, src(dataURL), width, caption}`. localStorage caps around 5 MB per origin — compressed screenshots run 50–200 KB, so warn the user before they hoard. `normalizeTask` drops non-`data:image/` sources.
 - **Artifact hosting**: the built file is republished (same URL) by stripping the outer `doctype/html/head/body` wrapper and calling the Artifact tool with the same scratchpad path: https://claude.ai/code/artifact/df565bd3-dabf-4e57-af42-a2eef8e3a27f — its board data is a separate localStorage origin from the local file.
-- **Website** (`website/index.html`): static landing page, zero external requests by design (claims so in its footer — keep it true). Copy follows the `no-ai-slop` + `rossmann-voice` skills in `.claude/skills/` (also `ponytail`). Email capture posts to `FORM_ENDPOINT` (empty → mailto fallback).
+- **Website** (`website/index.html`): static landing page, zero external requests by design (claims so in its footer — keep it true). Copy follows the `no-ai-slop` + `rossmann-voice` skills in `.claude/skills/` (also `ponytail`). Email capture posts to `FORM_ENDPOINT` (empty → mailto fallback). Live at https://evrenucar.github.io/punchlist_app/ via `.github/workflows/pages.yml`; pushing main deploys.
+- **Sync traps**: never move sync config into `state.settings` — the separate `-sync` localStorage key is what keeps the token out of exports. Pulls must set `syncApplying` around `saveState()` or the pull re-marks the board dirty and echoes a push. The contents API GET returns empty `content` past ~1 MB (guarded with an explicit error). Chrome caches API GETs, hence `cache: "no-store"`. `syncNow` is serialized by `syncBusy`/`syncQueued`; don't add a second caller path that bypasses it.
+- **Testing sync in a browser**: the Chrome DevTools MCP `new_page` accepts `isolatedContext`, which gives fresh storage — use it so file:// testing can't touch the real board. Mock `window.fetch` and drive the Settings inputs with `change` events; the 401 path is reachable with any fake token.
 
 ## Known rough edges
 
@@ -141,7 +147,7 @@ Before staging or committing behavior changes:
 
 ## Deferred work
 
-- Optional JSON-file sync helper for sharing one board between browsers.
+- Sync for people without a GitHub account or token (v1 sync deliberately serves Evren only; see the grill decisions and `docs/ROADMAP.md` deferred vision for the rest: sharing sections, accountless identity, encryption).
 - Reliable reminders while the board is closed; this requires a PWA/server-capable mode.
 - External calendar integration.
 - Research task: compare Obsidian, ClickUp, Todoist, Things, Notion, and Reddit discussions to identify recurring task-management pain points and valuable workflows before expanding scope.

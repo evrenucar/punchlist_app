@@ -10,7 +10,7 @@ Single-file, local-first task board. One HTML file, zero dependencies, no server
 
 ```powershell
 node scripts/build-task-board.mjs          # src/ -> outputs/task-board.html (+ website copy)
-node --test tests/task-board.static.test.mjs   # 69 tests; must pass before any commit
+node --test tests/task-board.static.test.mjs   # 77 tests; must pass before any commit
 ```
 
 ## Rules that override convenience

@@ -4,7 +4,7 @@
     const STORAGE_KEY = "scheduling-task-management-board-v1" + (IS_DEMO ? "-demo" : "");
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1" + (IS_DEMO ? "-demo" : "");
     const SCHEMA_VERSION = 2;
-    const APP_VERSION = "1.1.0";
+    const APP_VERSION = "1.2.0";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";
     const DEFAULT_SETTINGS = Object.freeze({
@@ -100,6 +100,13 @@
     const usernameEl = document.querySelector("[data-username]");
     const exportSettingsEl = document.querySelector("[data-export-settings]");
     const feedbackEl = document.querySelector("[data-feedback]");
+    const syncSectionEl = document.querySelector("[data-sync-section]");
+    const syncEnabledEl = document.querySelector("[data-sync-enabled]");
+    const syncFieldsEl = document.querySelector("[data-sync-fields]");
+    const syncRepoEl = document.querySelector("[data-sync-repo]");
+    const syncTokenEl = document.querySelector("[data-sync-token]");
+    const syncNowEl = document.querySelector("[data-sync-now]");
+    const syncStatusEl = document.querySelector("[data-sync-status]");
     const lightboxEl = document.querySelector("[data-lightbox]");
     const lightboxImgEl = document.querySelector("[data-lightbox-img]");
     const toastEl = document.querySelector("[data-toast]");
@@ -135,6 +142,15 @@
     let timelineDrag = null;
     let toastTimer = null;
     let state = loadState();
+
+    // GitHub sync keeps its config (token included) in its own localStorage
+    // key so board and settings exports can never leak it.
+    const SYNC_STORAGE_KEY = STORAGE_KEY + "-sync";
+    let syncConfig = loadSyncConfig();
+    let syncApplying = false;
+    let syncBusy = false;
+    let syncQueued = false;
+    let syncTimer = null;
 
     function createId(prefix = "task") {
       return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -273,6 +289,10 @@
 
     function saveState() {
       saveStateToLocalStorage();
+      if (syncIsActive() && !syncApplying) {
+        saveSyncConfig({ dirty: true });
+        scheduleSyncPush();
+      }
     }
 
     function loadTheme() {
@@ -410,6 +430,169 @@
       });
       reader.readAsText(file);
     }
+
+    // ---- GitHub sync -------------------------------------------------------
+    // The board lives as one JSON file in a private repo the user owns; every
+    // device reads and writes it through the GitHub contents API with a
+    // fine-grained token scoped to that repo. Each push is a commit, so any
+    // overwritten version stays recoverable in the repo's git history.
+    // ponytail: the contents API caps files at ~1 MB; switch to the git blob
+    // API if a board ever outgrows that.
+
+    function loadSyncConfig() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(SYNC_STORAGE_KEY) || "{}");
+        return parsed && typeof parsed === "object" ? parsed : {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveSyncConfig(patch) {
+      Object.assign(syncConfig, patch);
+      localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(syncConfig));
+    }
+
+    function syncIsActive() {
+      return !IS_DEMO && Boolean(syncConfig.enabled && syncConfig.repo && syncConfig.token);
+    }
+
+    function encodeBase64Utf8(text) {
+      const bytes = new TextEncoder().encode(text);
+      let binary = "";
+      for (let index = 0; index < bytes.length; index += 0x8000) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+      }
+      return btoa(binary);
+    }
+
+    function decodeBase64Utf8(base64) {
+      const binary = atob(String(base64).replace(/\s+/g, ""));
+      return new TextDecoder().decode(Uint8Array.from(binary, (ch) => ch.charCodeAt(0)));
+    }
+
+    // Pure decision core: given where local and remote stand, one action.
+    // Divergence resolves local-wins because the losing version survives as
+    // the previous commit; there is no merge in v1.
+    function syncDecision({ remoteExists, remoteSha, lastSha, dirty }) {
+      if (!remoteExists) return "create";
+      if (remoteSha === lastSha) return dirty ? "push" : "none";
+      return dirty ? "push" : "pull";
+    }
+
+    // Sync payloads are lossless: unlike user exports they ignore the
+    // exportCompleted/exportTrash filters and only strip per-device settings.
+    function getSyncPayload() {
+      return JSON.stringify({
+        version: SCHEMA_VERSION,
+        syncedAt: new Date().toISOString(),
+        state: JSON.parse(JSON.stringify({ ...state, settings: undefined })),
+      }, null, 2);
+    }
+
+    function applySyncedState(payload) {
+      const imported = payload?.state;
+      if (!imported || !Array.isArray(imported.groups)) throw new Error("The synced file has no board in it.");
+      if (focusModeTaskId) exitFocusMode();
+      pushUndoState("board", "Pulled board changes from GitHub");
+      const currentSettings = state.settings;
+      state = migrateState(imported, new Date().toISOString(), { includeResearch: false });
+      state.settings = currentSettings;
+      selectedNode = getVisibleNodes()[0] || null;
+      multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
+      selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
+      syncApplying = true;
+      try {
+        saveState();
+      } finally {
+        syncApplying = false;
+      }
+      render();
+    }
+
+    function syncApiUrl() {
+      const repo = String(syncConfig.repo || "").trim();
+      return `https://api.github.com/repos/${repo}/contents/punchlist-board.json`;
+    }
+
+    function syncAuthHeaders() {
+      return {
+        Authorization: `Bearer ${syncConfig.token}`,
+        Accept: "application/vnd.github+json",
+      };
+    }
+
+    function setSyncStatus(message) {
+      if (syncStatusEl) syncStatusEl.textContent = message || "";
+    }
+
+    function scheduleSyncPush() {
+      if (typeof window.setTimeout !== "function") return;
+      if (syncTimer !== null) window.clearTimeout?.(syncTimer);
+      syncTimer = window.setTimeout(() => {
+        syncTimer = null;
+        syncNow("edit");
+      }, 2500);
+    }
+
+    async function syncNow(trigger) {
+      if (!syncIsActive() || typeof fetch !== "function") return;
+      if (syncBusy) {
+        syncQueued = true;
+        return;
+      }
+      syncBusy = true;
+      setSyncStatus("Syncing…");
+      try {
+        const branch = syncConfig.branch || "main";
+        const get = await fetch(`${syncApiUrl()}?ref=${branch}`, { headers: syncAuthHeaders(), cache: "no-store" });
+        let remote = { exists: false, sha: null, content: null };
+        if (get.ok) {
+          const data = await get.json();
+          if (!data.content && data.size > 0) throw new Error("Board file exceeds the 1 MB contents-API cap.");
+          remote = { exists: true, sha: data.sha, content: data.content };
+        } else if (get.status !== 404) {
+          throw new Error(`GitHub answered ${get.status}${get.status === 401 ? "; check the token" : ""}.`);
+        }
+        const action = syncDecision({
+          remoteExists: remote.exists,
+          remoteSha: remote.sha,
+          lastSha: syncConfig.lastSha || null,
+          dirty: Boolean(syncConfig.dirty),
+        });
+        if (action === "pull") {
+          applySyncedState(JSON.parse(decodeBase64Utf8(remote.content)));
+          saveSyncConfig({ lastSha: remote.sha, dirty: false, lastSyncedAt: new Date().toISOString() });
+          showToast("Pulled board changes from GitHub.");
+        } else if (action === "push" || action === "create") {
+          const overwroteRemote = remote.exists && remote.sha !== (syncConfig.lastSha || null);
+          const put = await fetch(syncApiUrl(), {
+            method: "PUT",
+            headers: syncAuthHeaders(),
+            body: JSON.stringify({
+              message: `punchlist sync (${trigger})`,
+              content: encodeBase64Utf8(getSyncPayload()),
+              branch,
+              ...(remote.exists ? { sha: remote.sha } : {}),
+            }),
+          });
+          if (!put.ok) throw new Error(`GitHub answered ${put.status} on push.`);
+          const putData = await put.json();
+          saveSyncConfig({ lastSha: putData.content?.sha || null, dirty: false, lastSyncedAt: new Date().toISOString() });
+          if (overwroteRemote) showToast("Pushed this device's board over newer remote changes; the overwritten version is in the repo's commit history.");
+        }
+        setSyncStatus(`Synced ${formatClockTime()}`);
+      } catch (error) {
+        setSyncStatus(`Sync failed: ${error?.message || error}`);
+      } finally {
+        syncBusy = false;
+        if (syncQueued) {
+          syncQueued = false;
+          scheduleSyncPush();
+        }
+      }
+    }
+    // ---- end GitHub sync ---------------------------------------------------
 
     const HISTORY_LABELS = {
       board: "Changed the board",
@@ -3505,6 +3688,11 @@
       if (featureRemindersEl) featureRemindersEl.checked = Boolean(settings.reminders);
       if (featureNotificationsEl) featureNotificationsEl.checked = Boolean(settings.browserNotifications);
       if (usernameEl) usernameEl.value = String(settings.username || "");
+      if (syncSectionEl) syncSectionEl.hidden = IS_DEMO;
+      if (syncEnabledEl) syncEnabledEl.checked = Boolean(syncConfig.enabled);
+      if (syncFieldsEl) syncFieldsEl.hidden = !syncConfig.enabled;
+      if (syncRepoEl) syncRepoEl.value = String(syncConfig.repo || "");
+      if (syncTokenEl) syncTokenEl.value = String(syncConfig.token || "");
     }
 
     function updateSettings(patch) {
@@ -3545,6 +3733,25 @@
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
     usernameEl?.addEventListener("change", () => updateSettings({ username: usernameEl.value.trim() }));
     exportSettingsEl?.addEventListener("click", downloadSettingsExport);
+
+    syncEnabledEl?.addEventListener("change", () => {
+      saveSyncConfig({ enabled: syncEnabledEl.checked });
+      syncSettingsControls();
+      if (syncIsActive()) syncNow("enable");
+    });
+    syncRepoEl?.addEventListener("change", () => {
+      // Accept a pasted repo URL; store it as owner/name. A new repo means the
+      // remembered sha no longer describes anything.
+      const repo = syncRepoEl.value.trim().replace(/^https:\/\/github\.com\//, "").replace(/\.git$|\/+$/, "");
+      saveSyncConfig({ repo, lastSha: null });
+      syncSettingsControls();
+      if (syncIsActive()) syncNow("config");
+    });
+    syncTokenEl?.addEventListener("change", () => {
+      saveSyncConfig({ token: syncTokenEl.value.trim() });
+      if (syncIsActive()) syncNow("config");
+    });
+    syncNowEl?.addEventListener("click", () => syncNow("manual"));
 
     const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
     feedbackEl?.addEventListener("click", () => {
@@ -4292,7 +4499,9 @@
     });
 
     applyTheme(loadTheme());
-    if (IS_DEMO && /[?&]dark\b/.test(location.search || "")) applyTheme("dark");
+    // Demo theme always follows the embedding page (the &dark flag), never a
+    // remembered value: the frame must match the page around it on every load.
+    if (IS_DEMO) applyTheme(/[?&]dark\b/.test(location.search || "") ? "dark" : "light");
     if (IS_DEMO) document.body?.setAttribute("data-demo", "true");
     applySidebarWidth();
     syncSettingsControls();
@@ -4305,6 +4514,60 @@
     // the driver loop would scroll the embedding page to the iframe.
     selectedNode = IS_DEMO ? null : (getVisibleNodes()[0] || null);
     if (selectedNode) selectNode(selectedNode);
+
+    // Sync on load, when the tab regains focus (that's the moment a second
+    // device's edits matter), and after edits via the debounce in saveState.
+    if (syncIsActive()) syncNow("load");
+    window.addEventListener?.("focus", () => {
+      if (syncIsActive()) syncNow("focus");
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && syncIsActive()) syncNow("visible");
+    });
+
+    // Ask the browser to exempt this origin's storage from eviction under
+    // storage pressure. Chromium grants it silently; failures don't matter.
+    if (!IS_DEMO && typeof navigator !== "undefined") navigator.storage?.persist?.().catch?.(() => {});
+
+    // Safari deletes a site's script-writable storage (tasks included) after
+    // 7 days of Safari use without visiting the site. Web apps opened from
+    // the Home Screen are exempt, so nudge iOS Safari users there once.
+    function maybeShowHomeScreenHint() {
+      if (IS_DEMO || typeof navigator === "undefined" || !document.body || typeof document.createElement !== "function") return;
+      if (window.parent && window.parent !== window) return;
+      if (localStorage.getItem(STORAGE_KEY + "-home-screen-hint")) return;
+      const ua = navigator.userAgent || "";
+      const isIos = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+      const isSafari = /Safari\//.test(ua) && !/CriOS|FxiOS|EdgiOS|Chrome/.test(ua);
+      if (!isIos || !isSafari || navigator.standalone === true) return;
+      const hint = document.createElement("div");
+      hint.className = "home-screen-hint";
+      const text = document.createElement("p");
+      text.textContent = "Safari deletes this site's saved data, tasks included, after 7 days without a visit. Add Punchlist to your Home Screen (Share button, then Add to Home Screen); the copy that opens from there keeps its data.";
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "control";
+      dismiss.textContent = "Got it";
+      dismiss.addEventListener("click", () => {
+        localStorage.setItem(STORAGE_KEY + "-home-screen-hint", "dismissed");
+        hint.remove();
+      });
+      hint.append(text, dismiss);
+      document.body.appendChild(hint);
+    }
+    maybeShowHomeScreenHint();
+
+    // The landing page embeds ?demo in an iframe it sizes from these reports,
+    // so the whole board stays visible with no cropping or inner scrollbar.
+    if (IS_DEMO && window.parent && window.parent !== window) {
+      const postDemoHeight = () => {
+        const height = Math.max(document.body?.scrollHeight || 0, document.documentElement?.scrollHeight || 0);
+        if (height) window.parent.postMessage?.({ punchlistDemoHeight: height }, "*");
+      };
+      if (typeof ResizeObserver === "function" && document.body) new ResizeObserver(postDemoHeight).observe(document.body);
+      window.addEventListener?.("load", postDemoHeight);
+      postDemoHeight();
+    }
 
     // Demo driver: edits the live board through the app's own functions on a
     // loop, stopping forever at the first real interaction. Runs only with
@@ -4445,6 +4708,13 @@
       setPolicyOverride,
       updateSettings,
       syncSettingsControls,
+      syncDecision,
+      encodeBase64Utf8,
+      decodeBase64Utf8,
+      getSyncPayload,
+      applySyncedState,
+      syncIsActive,
+      saveSyncConfig,
       setTaskSchedule,
       getTimelineEntries,
       timelineTimeFromOffset,

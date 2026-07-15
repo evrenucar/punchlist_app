@@ -1443,3 +1443,68 @@ test("demo mode isolates storage and always seeds; real key untouched", async ()
   const html = await readBoard();
   assert.match(html, /startDemoDriver/);
 });
+
+test("github sync: decision table and utf8 base64 roundtrip", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
+
+  assert.equal(api.syncDecision({ remoteExists: false, remoteSha: null, lastSha: null, dirty: true }), "create");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "a", lastSha: "a", dirty: false }), "none");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "a", lastSha: "a", dirty: true }), "push");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: false }), "pull");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: true }), "push", "divergence resolves local-wins; git history keeps the loser");
+
+  const text = "Ünïcödé ✓ görev listesi 🎯";
+  assert.equal(api.decodeBase64Utf8(api.encodeBase64Utf8(text)), text);
+  const wrapped = api.encodeBase64Utf8(text).replace(/(.{8})/g, "$1\n");
+  assert.equal(api.decodeBase64Utf8(wrapped), text, "GitHub newline-wrapped base64 decodes");
+});
+
+test("github sync payload is lossless; token stays out of exports; demo never syncs", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
+
+  api.updateSettings({ exportCompleted: false });
+  const placement = api.state.groups[0].tasks[0];
+  const item = api.resolveTaskItem(placement);
+  api.setTaskCompleted(item.id, true);
+
+  const payload = JSON.parse(api.getSyncPayload());
+  assert.equal(payload.state.settings, undefined, "per-device settings never sync");
+  const syncedTexts = JSON.stringify(payload.state.groups);
+  assert.ok(syncedTexts.includes(item.id), "completed task still in the sync payload");
+  const exported = JSON.stringify(JSON.parse(api.serializeBoardState()).state.groups);
+  assert.equal(exported.includes(item.id), false, "export filter still drops completed tasks");
+
+  api.saveSyncConfig({ enabled: true, repo: "evren/punchlist-data", token: "github_pat_secret" });
+  assert.equal(api.syncIsActive(), true);
+  assert.equal(api.serializeBoardState().includes("github_pat_secret"), false, "token never lands in a board export");
+  api.saveSyncConfig({ enabled: false });
+  assert.equal(api.syncIsActive(), false);
+
+  const demo = await loadBoardApi({ location: { search: "?demo" }, TextEncoder, TextDecoder, btoa, atob });
+  demo.saveSyncConfig({ enabled: true, repo: "evren/punchlist-data", token: "github_pat_secret" });
+  assert.equal(demo.syncIsActive(), false, "demo mode can never talk to GitHub");
+});
+
+test("github sync pull applies a remote board and keeps local settings", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
+  api.updateSettings({ username: "local-name" });
+
+  const remote = JSON.parse(api.getSyncPayload());
+  remote.state.groups = [{ id: "group-remote", title: "From the other device", tasks: [], collapsed: false }];
+  api.applySyncedState(remote);
+
+  assert.equal(api.state.groups.some((group) => group.title === "From the other device"), true);
+  assert.equal(api.state.settings.username, "local-name", "pull never clobbers per-device settings");
+});
+
+test("sync ui, home-screen hint, and demo height reporter are wired into the build", async () => {
+  const html = await readBoard();
+  assert.match(html, /data-sync-section/);
+  assert.match(html, /data-sync-token/);
+  assert.match(html, /apple-mobile-web-app-capable/);
+  assert.match(html, /punchlistDemoHeight/);
+  assert.match(html, /maybeShowHomeScreenHint/);
+
+  const site = await readFile(path.join(root, "website", "index.html"), "utf8");
+  assert.match(site, /punchlistDemoHeight/);
+});
