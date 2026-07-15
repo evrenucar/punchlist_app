@@ -1,0 +1,17 @@
+# Stray/experimental app copies not produced by the build
+website/punchlist/
+
+# Exported board backups (personal task data must never be committed)
+*.punchlist.json
+*-backup.json
+*-board-export.json
+
+# OS cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editor cruft
+*.swp
+.vscode/
+.idea/
