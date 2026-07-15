@@ -342,6 +342,8 @@
     .demo-group.collapsed .demo-rows { display: none; }
     .demo-row.dragging { opacity: 0.45; }
     .demo-row[draggable="true"] { cursor: grab; }
+    .demo-row { outline: none; }
+    .demo-row.selected { background: var(--accent-soft); border-radius: 8px; }
     .demo-row.hidden-by-parent, .demo-image.hidden-by-parent { display: none; }
 
     /* Same drop-edge language as the app's task rows & groups */
@@ -658,23 +660,24 @@
 
     <div class="board-demo" data-board-demo aria-label="Example board. The checkboxes toggle and the task text is editable.">
       <div class="demo-group" style="--gc: var(--g-green)">
-        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Today</span> <span class="demo-count">4</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div>
+        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Today</span> <span class="demo-count">5</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div>
         <div class="demo-rows">
           <div class="demo-row done-text"><button type="button" class="demo-check done" aria-label="Toggle done">✓</button><span class="demo-text">Book dentist appointment</span></div>
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Ship the invoice</span></div>
           <div class="demo-row child"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Attach June hours</span></div>
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Draft the proposal</span><span class="demo-chip">09:00 · 90m</span></div>
+          <div class="demo-row" data-link="hinge"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Backlog</span></div>
         </div>
       </div>
       <div class="demo-group" style="--gc: var(--g-purple)">
         <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Backlog</span> <span class="demo-count">2</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div>
         <div class="demo-rows">
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Compare bike insurance quotes</span></div>
-          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
+          <div class="demo-row" data-link="hinge"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
         </div>
       </div>
     </div>
-    <p class="demo-hint">This one's real: tick boxes, click any text & type, Enter adds a task, Tab & Shift+Tab nest it, drag rows & whole groups by their headers, fold tasks & groups with their arrows, rename anything, & resize the pasted image by its corner. The download adds undo, saving & everything below.</p>
+    <p class="demo-hint">This one's real, keyboard included: click a row to select it, browse with the arrow keys, Enter edits, Ctrl+Enter completes, Alt+arrows move an item, Tab & Shift+Tab nest it, Alt+A adds a group, Ctrl+Shift+Up/Down folds everything. Drag rows & groups, rename anything, resize the pasted image by its corner. The download adds saving, undo & everything below.</p>
   </header>
 
   <main class="wrap">
@@ -945,7 +948,7 @@
           span.contentEditable = "true";
           span.spellcheck = false;
         });
-        demo.querySelectorAll(".demo-row").forEach((row) => { row.draggable = true; });
+        demo.querySelectorAll(".demo-row").forEach((row) => { row.draggable = true; row.tabIndex = -1; });
         demo.querySelectorAll(".demo-head").forEach((head) => { head.draggable = true; });
       }
 
@@ -954,7 +957,7 @@
         wireRowChevrons();
       }
 
-      function setDone(row, on) {
+      function applyDone(row, on) {
         const check = row.querySelector(".demo-check");
         if (!check) return;
         check.classList.toggle("done", on);
@@ -965,10 +968,30 @@
         check.classList.add("anim-pulse");
       }
 
+      // Linked copies stay in sync, like the app's alias placements.
+      function setDone(row, on) {
+        applyDone(row, on);
+        if (!row.dataset.link) return;
+        demo.querySelectorAll('.demo-row[data-link="' + row.dataset.link + '"]').forEach((other) => {
+          if (other !== row) applyDone(other, on);
+        });
+      }
+
+      let selectedRow = null;
+      function selectRow(row, focus = true) {
+        demo.querySelectorAll(".demo-row.selected").forEach((el) => el.classList.remove("selected"));
+        selectedRow = row || null;
+        if (selectedRow) {
+          selectedRow.classList.add("selected");
+          if (focus) selectedRow.focus({ preventScroll: true });
+        }
+      }
+
       function makeRow(text, extraClass, chip) {
         const row = document.createElement("div");
         row.className = "demo-row anim-in" + (extraClass ? " " + extraClass : "");
         row.draggable = true;
+        row.tabIndex = -1;
         row.innerHTML = '<button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">' + text + "</span>"
           + (chip ? '<span class="demo-chip">' + chip + "</span>" : "");
         const span = row.querySelector(".demo-text");
@@ -1018,40 +1041,153 @@
           return;
         }
         const check = event.target.closest(".demo-check");
-        if (!check) return;
-        setDone(check.closest(".demo-row"), !check.classList.contains("done"));
+        if (check) {
+          setDone(check.closest(".demo-row"), !check.classList.contains("done"));
+          return;
+        }
+        const row = event.target.closest(".demo-row");
+        if (row) selectRow(row, !event.target.closest(".demo-text"));
       });
 
-      // Enter adds a task, Tab & Shift+Tab nest it, like the app's outline.
+      // Linked copies mirror text edits both ways.
+      demo.addEventListener("input", (event) => {
+        const text = event.target.closest?.(".demo-text");
+        const row = text?.closest(".demo-row");
+        if (!row?.dataset.link) return;
+        demo.querySelectorAll('.demo-row[data-link="' + row.dataset.link + '"] .demo-text').forEach((span) => {
+          if (span !== text) span.textContent = text.textContent;
+        });
+      });
+
+      function visibleRows() {
+        return [...demo.querySelectorAll(".demo-row")].filter((row) => row.offsetParent !== null);
+      }
+
+      function indentRow(row, outdent) {
+        const level = levelOf(row);
+        const next = outdent ? Math.max(1, level - 1) : Math.min(3, level + 1);
+        row.classList.toggle("child", next === 2);
+        row.classList.toggle("grandchild", next === 3);
+        refresh();
+      }
+
+      // Alt+arrows hop a row (with its subtree & images) over its neighbor.
+      function moveRow(row, dir) {
+        const rows = visibleRows();
+        const subtree = [row, ...subtreeNodes(row)];
+        const i = rows.indexOf(row);
+        if (dir > 0) {
+          let j = i + 1;
+          while (j < rows.length && subtree.includes(rows[j])) j += 1;
+          const target = rows[j];
+          if (!target) return;
+          let anchor = [target, ...subtreeNodes(target)].pop();
+          subtree.forEach((el) => { anchor.after(el); anchor = el; });
+        } else {
+          const target = rows[i - 1];
+          if (!target) return;
+          subtree.forEach((el) => target.before(el));
+        }
+        refresh();
+        selectRow(row);
+      }
+
+      const GROUP_COLORS = ["var(--g-teal)", "var(--g-orange)", "var(--g-blue)", "var(--g-red)"];
+      function addDemoGroup() {
+        const group = document.createElement("div");
+        group.className = "demo-group anim-in";
+        group.style.setProperty("--gc", GROUP_COLORS[demo.querySelectorAll(".demo-group").length % GROUP_COLORS.length]);
+        group.innerHTML = '<div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group">' + CHEVRON_SVG + '</button><span class="demo-title">New group</span> <span class="demo-count">0</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div><div class="demo-rows"></div>';
+        demo.append(group);
+        wire();
+        refresh();
+        return group;
+      }
+
+      // The app's keyboard zones, demo-sized: while editing, Enter adds &
+      // Tab nests; while browsing, arrows move the selection, Alt+arrows
+      // move the item, Ctrl folds, Ctrl+Enter completes, Alt+A adds a group.
       demo.addEventListener("keydown", (event) => {
         const text = event.target.closest?.(".demo-text");
         const title = event.target.closest?.(".demo-title");
-        if (event.key === "Enter" && !event.shiftKey && (text || title)) {
+        const arrows = event.key === "ArrowDown" || event.key === "ArrowUp";
+
+        if (event.key === "Enter" && event.ctrlKey && selectedRow) {
           event.preventDefault();
-          let fresh;
-          if (title) {
-            const rows = title.closest(".demo-group")?.querySelector(".demo-rows");
-            if (!rows) return;
-            fresh = makeRow("", "");
-            rows.prepend(fresh);
-          } else {
-            const row = text.closest(".demo-row");
-            fresh = makeRow("", row.classList.contains("grandchild") ? "grandchild" : row.classList.contains("child") ? "child" : "");
-            row.after(fresh);
-          }
-          refresh();
-          fresh.querySelector(".demo-text")?.focus();
+          const check = selectedRow.querySelector(".demo-check");
+          if (check) setDone(selectedRow, !check.classList.contains("done"));
           return;
         }
-        if (event.key === "Tab" && text) {
+
+        if (text || title) {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            let fresh;
+            if (title) {
+              const rows = title.closest(".demo-group")?.querySelector(".demo-rows");
+              if (!rows) return;
+              fresh = makeRow("", "");
+              rows.prepend(fresh);
+            } else {
+              const row = text.closest(".demo-row");
+              fresh = makeRow("", row.classList.contains("grandchild") ? "grandchild" : row.classList.contains("child") ? "child" : "");
+              row.after(fresh);
+            }
+            refresh();
+            fresh.querySelector(".demo-text")?.focus();
+            return;
+          }
+          if (event.key === "Tab" && text) {
+            event.preventDefault();
+            indentRow(text.closest(".demo-row"), event.shiftKey);
+            text.focus();
+          }
+          return;
+        }
+
+        if (event.altKey && arrows && selectedRow) {
           event.preventDefault();
-          const row = text.closest(".demo-row");
-          const level = levelOf(row);
-          const next = event.shiftKey ? Math.max(1, level - 1) : Math.min(3, level + 1);
-          row.classList.toggle("child", next === 2);
-          row.classList.toggle("grandchild", next === 3);
-          refresh();
-          text.focus();
+          moveRow(selectedRow, event.key === "ArrowDown" ? 1 : -1);
+          return;
+        }
+        if (event.altKey && event.key.toLowerCase() === "a") {
+          event.preventDefault();
+          addDemoGroup().querySelector(".demo-title")?.focus();
+          return;
+        }
+        if (event.ctrlKey && event.shiftKey && arrows) {
+          event.preventDefault();
+          const collapse = event.key === "ArrowUp";
+          demo.querySelectorAll(".demo-group").forEach((group) => group.classList.toggle("collapsed", collapse));
+          demo.querySelectorAll(".demo-row .row-collapse").forEach((button) => {
+            const row = button.closest(".demo-row");
+            if (row.classList.contains("subtree-collapsed") !== collapse) toggleSubtree(row);
+          });
+          return;
+        }
+        if (event.ctrlKey && arrows && selectedRow?.querySelector(".row-collapse")) {
+          event.preventDefault();
+          if ((event.key === "ArrowUp") !== selectedRow.classList.contains("subtree-collapsed")) toggleSubtree(selectedRow);
+          return;
+        }
+        if (arrows) {
+          event.preventDefault();
+          const rows = visibleRows();
+          if (!rows.length) return;
+          const i = rows.indexOf(selectedRow);
+          const next = event.key === "ArrowDown" ? Math.min(rows.length - 1, i + 1) : Math.max(0, i < 0 ? 0 : i - 1);
+          selectRow(rows[next]);
+          return;
+        }
+        if (event.key === "Enter" && selectedRow) {
+          event.preventDefault();
+          selectedRow.querySelector(".demo-text")?.focus();
+          return;
+        }
+        if (event.key === "Tab" && selectedRow) {
+          event.preventDefault();
+          indentRow(selectedRow, event.shiftKey);
+          selectRow(selectedRow);
         }
       });
 
