@@ -335,6 +335,69 @@
     .demo-group.collapsed .demo-rows { display: none; }
     .demo-row.dragging { opacity: 0.45; }
     .demo-row[draggable="true"] { cursor: grab; }
+    .demo-row.hidden-by-parent, .demo-image.hidden-by-parent { display: none; }
+
+    .demo-add {
+      margin-left: auto;
+      border: 0;
+      background: none;
+      border-radius: 6px;
+      color: var(--muted);
+      padding: 0 6px;
+      font: inherit;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .demo-add:hover { color: var(--ink); background: color-mix(in srgb, var(--gc) 14%, transparent); }
+
+    .row-collapse {
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border: 0;
+      background: none;
+      color: var(--muted);
+      padding: 0;
+      margin-left: -14px;
+      width: 14px;
+      cursor: pointer;
+    }
+
+    .row-collapse svg { width: 12px; height: 12px; transition: transform 160ms ease; }
+    .demo-row.subtree-collapsed .row-collapse svg { transform: rotate(-90deg); }
+
+    .demo-image {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 2px 4px 8px 62px;
+    }
+
+    .demo-image-thumb {
+      width: 72px;
+      height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--surface-2) 55%, color-mix(in srgb, var(--g-teal) 35%, var(--surface)) 100%);
+    }
+
+    .demo-image span {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .demo-row.drag-lift {
+      position: relative;
+      z-index: 2;
+      background: var(--surface);
+      border-radius: 8px;
+      transform: scale(1.03) rotate(1deg);
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.20);
+      transition: transform 220ms ease, box-shadow 220ms ease;
+    }
 
     .demo-chip {
       margin-left: auto;
@@ -545,7 +608,7 @@
 
     <div class="board-demo" data-board-demo aria-label="Example board. The checkboxes toggle and the task text is editable.">
       <div class="demo-group" style="--gc: var(--g-green)">
-        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Today</span> <span class="demo-count">4</span></div>
+        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Today</span> <span class="demo-count">4</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div>
         <div class="demo-rows">
           <div class="demo-row done-text"><button type="button" class="demo-check done" aria-label="Toggle done">✓</button><span class="demo-text">Book dentist appointment</span></div>
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Ship the invoice</span></div>
@@ -554,14 +617,14 @@
         </div>
       </div>
       <div class="demo-group" style="--gc: var(--g-purple)">
-        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Backlog</span> <span class="demo-count">2</span></div>
+        <div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Backlog</span> <span class="demo-count">2</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div>
         <div class="demo-rows">
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Compare bike insurance quotes</span></div>
           <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
         </div>
       </div>
     </div>
-    <p class="demo-hint">This one's real: tick the boxes, click any text & type, drag rows between groups, rename or collapse a group with its arrow. The download adds undo, keyboard control & everything below.</p>
+    <p class="demo-hint">This one's real: tick the boxes, click any text & type, press Enter for a new task, Tab & Shift+Tab to nest, drag rows between groups, collapse tasks & groups with their arrows, rename anything. The download adds undo, saving & everything below.</p>
   </header>
 
   <main class="wrap">
@@ -571,6 +634,7 @@
         <p>My tasks lived in five places: a notes app, chat messages to myself, two abandoned to-do apps, & whatever paper was on the desk. Every tool I tried wanted an account, a sync service, or a subscription before it would let me type a first task. Then it wanted me to stay, so getting my own lists back out came down to whatever its exporter felt like giving me.</p>
         <p>So I set one rule for this build: the whole app has to fit in a single file you can open from disk. No database, no server, no framework, no npm install. Today's build is v1.1.0, 245,707 bytes of native HTML, CSS & JavaScript.</p>
         <p>Your data never leaves the browser. Tasks persist in local storage, export losslessly to JSON, & copy out as indented Markdown that pastes clean into Obsidian, Notion, or any text editor. There's no telemetry to switch off because the file doesn't contain any.</p>
+        <p>The name is a construction term. When a building is nearly done, the contractor walks the site & writes the punch list: every unfinished fix, one line each, worked down to zero before handover. I came across the format on a project in that world & liked what it does to scope: the job isn't done until the list is empty. Same idea here, minus the drywall.</p>
       </div>
     </section>
 
@@ -763,14 +827,68 @@
       }
     });
 
-    // Live hero demo. It edits itself on a loop (tasks ticked, moved, added,
-    // a group appearing) until the visitor touches it, then it's theirs.
+    // Live hero demo. It edits itself on a loop (ticking, nesting, dragging,
+    // pasting an image, collapsing) until the visitor touches it, then it's theirs.
     (() => {
       const demo = document.querySelector("[data-board-demo]");
       if (!demo) return;
       const initialHtml = demo.innerHTML;
+      const CHEVRON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg>';
       let stopped = false;
       let timer = null;
+
+      function levelOf(row) {
+        return row.classList.contains("grandchild") ? 3 : row.classList.contains("child") ? 2 : 1;
+      }
+
+      function makeChevron() {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "row-collapse";
+        button.setAttribute("aria-label", "Collapse or expand subtasks");
+        button.innerHTML = CHEVRON_SVG;
+        return button;
+      }
+
+      function subtreeNodes(row) {
+        const own = levelOf(row);
+        const nodes = [];
+        let el = row.nextElementSibling;
+        while (el) {
+          if (el.classList.contains("demo-image")) nodes.push(el);
+          else if (el.classList.contains("demo-row") && levelOf(el) > own) nodes.push(el);
+          else break;
+          el = el.nextElementSibling;
+        }
+        return nodes;
+      }
+
+      function toggleSubtree(row) {
+        const collapsed = row.classList.toggle("subtree-collapsed");
+        subtreeNodes(row).forEach((el) => el.classList.toggle("hidden-by-parent", collapsed));
+      }
+
+      // Parent rows grow the same disclosure arrow the app gives nested tasks.
+      function wireRowChevrons() {
+        demo.querySelectorAll(".demo-rows .demo-row").forEach((row) => {
+          let next = row.nextElementSibling;
+          while (next && next.classList.contains("demo-image")) next = next.nextElementSibling;
+          const hasKids = Boolean(next && next.classList.contains("demo-row") && levelOf(next) > levelOf(row));
+          const button = row.querySelector(".row-collapse");
+          if (hasKids && !button) row.prepend(makeChevron());
+          if (!hasKids && button) {
+            button.remove();
+            row.classList.remove("subtree-collapsed");
+          }
+        });
+      }
+
+      function updateCounts() {
+        demo.querySelectorAll(".demo-group").forEach((group) => {
+          const count = group.querySelector(".demo-count");
+          if (count) count.textContent = group.querySelectorAll(".demo-row").length;
+        });
+      }
 
       function wire() {
         demo.querySelectorAll(".demo-rows .demo-text, .demo-title").forEach((span) => {
@@ -780,11 +898,9 @@
         demo.querySelectorAll(".demo-row").forEach((row) => { row.draggable = true; });
       }
 
-      function updateCounts() {
-        demo.querySelectorAll(".demo-group").forEach((group) => {
-          const count = group.querySelector(".demo-count");
-          if (count) count.textContent = group.querySelectorAll(".demo-row").length;
-        });
+      function refresh() {
+        updateCounts();
+        wireRowChevrons();
       }
 
       function setDone(row, on) {
@@ -798,16 +914,82 @@
         check.classList.add("anim-pulse");
       }
 
+      function makeRow(text, extraClass, chip) {
+        const row = document.createElement("div");
+        row.className = "demo-row anim-in" + (extraClass ? " " + extraClass : "");
+        row.draggable = true;
+        row.innerHTML = '<button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">' + text + "</span>"
+          + (chip ? '<span class="demo-chip">' + chip + "</span>" : "");
+        const span = row.querySelector(".demo-text");
+        span.contentEditable = "true";
+        span.spellcheck = false;
+        return row;
+      }
+
+      function makeImage(caption) {
+        const figure = document.createElement("div");
+        figure.className = "demo-image anim-in";
+        figure.innerHTML = '<div class="demo-image-thumb"></div><span>' + caption + "</span>";
+        return figure;
+      }
+
       demo.addEventListener("click", (event) => {
+        const rowCollapse = event.target.closest(".row-collapse");
+        if (rowCollapse) {
+          toggleSubtree(rowCollapse.closest(".demo-row"));
+          return;
+        }
         const collapse = event.target.closest(".demo-collapse");
         if (collapse) {
           collapse.closest(".demo-group")?.classList.toggle("collapsed");
           return;
         }
+        const add = event.target.closest(".demo-add");
+        if (add) {
+          const rows = add.closest(".demo-group")?.querySelector(".demo-rows");
+          if (!rows) return;
+          const row = makeRow("", "");
+          rows.append(row);
+          refresh();
+          row.querySelector(".demo-text")?.focus();
+          return;
+        }
         const check = event.target.closest(".demo-check");
         if (!check) return;
-        const row = check.closest(".demo-row");
-        setDone(row, !check.classList.contains("done"));
+        setDone(check.closest(".demo-row"), !check.classList.contains("done"));
+      });
+
+      // Enter adds a task, Tab & Shift+Tab nest it, like the app's outline.
+      demo.addEventListener("keydown", (event) => {
+        const text = event.target.closest?.(".demo-text");
+        const title = event.target.closest?.(".demo-title");
+        if (event.key === "Enter" && !event.shiftKey && (text || title)) {
+          event.preventDefault();
+          let fresh;
+          if (title) {
+            const rows = title.closest(".demo-group")?.querySelector(".demo-rows");
+            if (!rows) return;
+            fresh = makeRow("", "");
+            rows.prepend(fresh);
+          } else {
+            const row = text.closest(".demo-row");
+            fresh = makeRow("", row.classList.contains("grandchild") ? "grandchild" : row.classList.contains("child") ? "child" : "");
+            row.after(fresh);
+          }
+          refresh();
+          fresh.querySelector(".demo-text")?.focus();
+          return;
+        }
+        if (event.key === "Tab" && text) {
+          event.preventDefault();
+          const row = text.closest(".demo-row");
+          const level = levelOf(row);
+          const next = event.shiftKey ? Math.max(1, level - 1) : Math.min(3, level + 1);
+          row.classList.toggle("child", next === 2);
+          row.classList.toggle("grandchild", next === 3);
+          refresh();
+          text.focus();
+        }
       });
 
       // Drag rows within & between groups, same as the app's outline drag.
@@ -823,7 +1005,7 @@
       demo.addEventListener("dragend", () => {
         dragRow?.classList.remove("dragging");
         dragRow = null;
-        updateCounts();
+        refresh();
       });
       demo.addEventListener("dragover", (event) => {
         if (!dragRow) return;
@@ -840,63 +1022,76 @@
       });
       demo.addEventListener("drop", (event) => {
         event.preventDefault();
-        updateCounts();
+        refresh();
       });
-
-      function makeRow(text, extraClass, chip) {
-        const row = document.createElement("div");
-        row.className = "demo-row anim-in" + (extraClass ? " " + extraClass : "");
-        row.draggable = true;
-        row.innerHTML = '<button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">' + text + "</span>"
-          + (chip ? '<span class="demo-chip">' + chip + "</span>" : "");
-        const span = row.querySelector(".demo-text");
-        span.contentEditable = "true";
-        span.spellcheck = false;
-        return row;
-      }
 
       function groupRows(index) {
         return demo.querySelectorAll(".demo-group")[index]?.querySelector(".demo-rows");
       }
 
+      function todayRow(index) {
+        return groupRows(0)?.querySelectorAll(".demo-row")[index];
+      }
+
       const steps = [
-        [1400, () => { // tick a task off
-          const rows = groupRows(0)?.querySelectorAll(".demo-row");
-          if (rows?.[1]) setDone(rows[1], true);
+        [1600, () => { // tick a task off
+          if (todayRow(1)) setDone(todayRow(1), true);
         }],
-        [2100, () => { // add a sub-note under the proposal
-          const rows = groupRows(0)?.querySelectorAll(".demo-row");
-          if (rows?.[3]) rows[3].after(makeRow("Outline the scope first", "child"));
-          updateCounts();
+        [2200, () => { // add a sub-note under the proposal
+          todayRow(3)?.after(makeRow("Outline the scope first", "child"));
+          refresh();
         }],
-        [2300, () => { // move a task from Backlog into Today
-          const backlogRow = groupRows(1)?.querySelector(".demo-row");
-          if (!backlogRow) return;
-          backlogRow.remove();
-          const clone = makeRow("Compare bike insurance quotes", "");
-          groupRows(0)?.append(clone);
-          updateCounts();
+        [2400, () => { // paste an image into the subtree
+          todayRow(4)?.after(makeImage("floor-plan.png"));
+          refresh();
         }],
-        [2300, () => { // a new group appears
+        [2600, () => { // pick up a Backlog task...
+          const row = groupRows(1)?.querySelector(".demo-row");
+          if (!row) return;
+          row.classList.add("drag-lift");
+          setTimeout(() => { // ...and drop it into Today
+            if (stopped) return;
+            row.remove();
+            groupRows(0)?.append(makeRow("Compare bike insurance quotes", ""));
+            refresh();
+          }, 700);
+        }],
+        [2300, () => { // fold the proposal's subtasks away
+          const row = todayRow(3);
+          if (row?.querySelector(".row-collapse") && !row.classList.contains("subtree-collapsed")) toggleSubtree(row);
+        }],
+        [1800, () => { // and open them again
+          const row = todayRow(3);
+          if (row?.classList.contains("subtree-collapsed")) toggleSubtree(row);
+        }],
+        [2100, () => { // collapse a whole group
+          demo.querySelectorAll(".demo-group")[1]?.classList.add("collapsed");
+        }],
+        [1700, () => { // expand it
+          demo.querySelectorAll(".demo-group")[1]?.classList.remove("collapsed");
+        }],
+        [2400, () => { // a new group appears
           const group = document.createElement("div");
           group.className = "demo-group anim-in";
           group.style.setProperty("--gc", "var(--g-teal)");
-          group.innerHTML = '<div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m7 10 5 5 5-5"/></svg></button><span class="demo-title">Weekend</span> <span class="demo-count">1</span></div><div class="demo-rows"></div>';
+          group.innerHTML = '<div class="demo-head"><button type="button" class="demo-collapse" aria-label="Collapse or expand group">' + CHEVRON_SVG + '</button><span class="demo-title">Weekend</span> <span class="demo-count">1</span><button type="button" class="demo-add" aria-label="Add a task to this group">+</button></div><div class="demo-rows"></div>';
           group.querySelector(".demo-rows").append(makeRow("Plan the Saturday hike", ""));
           demo.append(group);
           wire();
+          refresh();
         }],
         [2000, () => { // toggle one on...
-          const rows = groupRows(1)?.querySelectorAll(".demo-row");
-          if (rows?.[0]) setDone(rows[0], true);
+          const row = groupRows(1)?.querySelector(".demo-row");
+          if (row) setDone(row, true);
         }],
-        [1500, () => { // ...and off again
-          const rows = groupRows(1)?.querySelectorAll(".demo-row");
-          if (rows?.[0]) setDone(rows[0], false);
+        [1600, () => { // ...and off again
+          const row = groupRows(1)?.querySelector(".demo-row");
+          if (row) setDone(row, false);
         }],
-        [2600, () => { // reset the loop
+        [3000, () => { // reset the loop
           demo.innerHTML = initialHtml;
           wire();
+          refresh();
           demo.classList.remove("demo-reset");
           void demo.offsetWidth;
           demo.classList.add("demo-reset");
@@ -921,6 +1116,7 @@
       ["pointerdown", "keydown", "focusin"].forEach((type) => demo.addEventListener(type, stop));
 
       wire();
+      refresh();
       run(0);
     })();
   </script>
