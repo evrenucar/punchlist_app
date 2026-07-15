@@ -1397,3 +1397,30 @@ test("focus mode tracks and resumes accumulated task time", async () => {
   const exportedKora = exported.state.groups.find((group) => group.title === "Projects");
   assert.equal(exportedKora.tasks[0].focusSeconds, 125);
 });
+
+test("seed board is marked example and start-own-board wipes it", async () => {
+  const api = await loadBoardApi();
+  assert.equal(api.state.example, true);
+
+  api.startOwnBoard();
+  assert.equal(api.state.example, false);
+  assert.equal(api.state.groups.length, 1);
+  assert.equal(api.state.groups[0].tasks.length, 0);
+  assert.equal(api.state.trash.length, 0);
+
+  const legacy = api.migrateState({ version: 2, groups: [] });
+  assert.equal(legacy.example, false);
+
+  api.reset();
+  assert.equal(api.state.example, true);
+});
+
+test("app version is exposed and wired into the sidebar", async () => {
+  const api = await loadBoardApi();
+  assert.match(api.APP_VERSION, /^\d+\.\d+\.\d+$/);
+
+  const html = await readBoard();
+  assert.match(html, /data-app-version/);
+  assert.match(html, /data-example-banner-host/);
+  assert.match(html, /Get latest/);
+});

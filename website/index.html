@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Punchlist: a day planner that's one HTML file</title>
-  <meta name="description" content="Punchlist is a 182 KB task organizer that runs from a single HTML file. No account, no server, no network requests. Nested outlining, day timeline, focus timing, Markdown export.">
+  <meta name="description" content="Punchlist is a 240 KB task organizer that runs from a single HTML file. No account, no server, no network requests. Nested outlining, day timeline, focus timing, Markdown export.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
   <style>
     :root {
@@ -133,6 +133,14 @@
       text-transform: uppercase;
     }
 
+    .brand-ver {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      opacity: 0.85;
+      font-variant-numeric: tabular-nums;
+    }
+
     .topbar .clock {
       margin-left: auto;
       font-family: var(--mono);
@@ -199,7 +207,9 @@
     .cta-row { display: flex; flex-wrap: wrap; gap: 10px; }
 
     .btn {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
       border: 1px solid var(--line);
       border-radius: 8px;
       background: var(--surface);
@@ -211,6 +221,8 @@
       cursor: pointer;
     }
 
+    .btn svg { width: 16px; height: 16px; flex: 0 0 auto; }
+
     .btn.primary {
       border-color: var(--accent);
       background: var(--accent);
@@ -218,16 +230,22 @@
     }
 
     .btn:hover { filter: brightness(1.06); }
-    .btn:focus-visible, .theme-toggle:focus-visible, input:focus-visible {
+    .btn:focus-visible, .theme-toggle:focus-visible, input:focus-visible, .demo-check:focus-visible, .demo-text:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
 
-    /* Mini board mockup, built from the app's real visual pieces */
+    /* Live board demo, built from the app's real visual pieces */
     .board-demo {
       display: grid;
       gap: 14px;
       margin: 40px 0 8px;
+    }
+
+    .demo-hint {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
     }
 
     .demo-group {
@@ -268,6 +286,7 @@
     }
 
     .demo-row.child { padding-left: 34px; }
+    .demo-row.grandchild { padding-left: 62px; }
 
     .demo-check {
       flex: 0 0 auto;
@@ -281,10 +300,19 @@
       color: #fff;
       font-size: 12px;
       line-height: 1;
+      padding: 0;
+      cursor: pointer;
+      font-family: inherit;
     }
 
     .demo-check.done { border-color: var(--g-green); background: var(--g-green); }
-    .demo-row.done-text span { color: var(--muted); text-decoration: line-through; }
+    .demo-row.done-text .demo-text { color: var(--muted); text-decoration: line-through; }
+
+    .demo-text {
+      border-radius: 4px;
+      padding: 0 2px;
+      min-width: 20px;
+    }
 
     .demo-chip {
       margin-left: auto;
@@ -310,56 +338,69 @@
 
     .prose { max-width: 64ch; }
     .prose p { margin: 0 0 14px; }
+    .prose ul { margin: 0 0 14px; padding-left: 22px; }
+    .prose li { margin-bottom: 6px; }
 
-    /* Build timeline: hour ruler like the app's day view */
-    .timeline { border-left: 2px solid var(--line); }
-
-    .tl-row {
-      position: relative;
+    /* Feature cards */
+    .feature-grid {
       display: grid;
-      grid-template-columns: 64px 1fr;
-      gap: 12px;
-      padding: 9px 0 9px 18px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
     }
 
-    .tl-row::before {
-      content: "";
-      position: absolute;
-      top: 18px;
-      left: -6px;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--dot, var(--accent));
+    .feature-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 16px;
     }
 
-    .tl-time {
-      font-family: var(--mono);
-      font-size: 13px;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      color: var(--muted);
-      padding-top: 2px;
-    }
-
-    .tl-body strong { display: block; }
-    .tl-body small { color: var(--muted); font-size: 13.5px; }
-
-    /* Feature checklist rendered as app task rows */
-    .feature-list { display: grid; gap: 4px; max-width: 70ch; }
-
-    .feature-row {
+    .feature-card h3 {
       display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      padding: 8px 10px;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 8px;
+      font-size: 15.5px;
+      font-weight: 800;
     }
 
-    .feature-row:hover { border-color: var(--line); background: var(--surface); }
-    .feature-row .demo-check { margin-top: 3px; }
-    .feature-row b { font-weight: 800; }
+    .f-icon {
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: var(--surface-2);
+      color: var(--ink);
+    }
+
+    .f-icon svg { width: 16px; height: 16px; }
+
+    .feature-card p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .feature-demo {
+      border-top: 1px dashed var(--line);
+      padding-top: 8px;
+    }
+
+    .feature-demo .demo-row { padding: 4px 2px; font-size: 14px; }
+
+    .f-md {
+      margin: 0;
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.6;
+      white-space: pre;
+      overflow-x: auto;
+    }
 
     /* Email form */
     .signup {
@@ -401,6 +442,14 @@
       min-height: 20px;
     }
 
+    .contact-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
     footer {
       border-top: 1px solid var(--line);
       margin-top: 30px;
@@ -413,13 +462,28 @@
 
     @media (max-width: 640px) {
       .hero { padding: 36px 0 20px; }
-      .tl-row { grid-template-columns: 52px 1fr; }
       .topbar .clock { font-size: 15px; }
     }
 
     @media (prefers-reduced-motion: no-preference) {
       .demo-group { transition: transform 160ms ease; }
       .demo-group:hover { transform: translateY(-2px); }
+
+      .demo-row.anim-in, .demo-group.anim-in { animation: demo-in 450ms ease; }
+      .demo-check.anim-pulse { animation: demo-pulse 400ms ease; }
+      .board-demo.demo-reset { animation: demo-fade 500ms ease; }
+    }
+
+    @keyframes demo-in {
+      from { opacity: 0; transform: translateY(-5px); }
+    }
+
+    @keyframes demo-pulse {
+      50% { transform: scale(1.3); }
+    }
+
+    @keyframes demo-fade {
+      from { opacity: 0.35; }
     }
   </style>
 </head>
@@ -430,6 +494,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
       </div>
       <div class="brand-name">Punchlist</div>
+      <div class="brand-ver">v1.1.0</div>
       <div class="clock" data-clock aria-label="Current time">--:--</div>
       <button class="theme-toggle" type="button" data-theme-toggle>Theme</button>
     </div>
@@ -437,37 +502,44 @@
 
   <header class="hero wrap">
     <h1>A day planner that's one HTML file.</h1>
-    <p class="lede">No account, no server, no install, no network requests. You download <strong>one 182 KB file</strong>, open it in a browser, & your task board runs entirely on your machine. It keeps working on a plane, in a train tunnel, or ten years from now.</p>
+    <p class="lede">No account, no server, no install, no network requests. The whole app is <strong>one 240 KB HTML file</strong>. Download it, open it in a browser, start typing. Tasks save to your browser's own storage & export to JSON or Markdown whenever you want them out.</p>
     <div class="facts" aria-label="Project facts">
       <span class="fact"><b>1</b> file</span>
       <span class="fact"><b>0</b> dependencies</span>
       <span class="fact"><b>0</b> requests after download</span>
-      <span class="fact"><b>58</b> automated tests</span>
       <span class="fact"><b>40</b>-step undo</span>
+      <span class="fact"><b>v1.1.0</b></span>
     </div>
     <div class="cta-row">
-      <a class="btn primary" href="task-board.html" download>Download the board</a>
-      <a class="btn" href="#signup">Get updates by email</a>
+      <a class="btn primary" href="task-board.html" download>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Download the board
+      </a>
+      <a class="btn" href="#signup">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="m22 6-10 7L2 6"/></svg>
+        Get updates by email
+      </a>
     </div>
 
-    <div class="board-demo" aria-hidden="true">
+    <div class="board-demo" data-board-demo aria-label="Example board. The checkboxes toggle and the task text is editable.">
       <div class="demo-group" style="--gc: var(--g-green)">
         <div class="demo-head">Today <span class="demo-count">4</span></div>
         <div class="demo-rows">
-          <div class="demo-row done-text"><span class="demo-check done">✓</span><span>Book dentist appointment</span></div>
-          <div class="demo-row"><span class="demo-check"></span><span>Ship the invoice</span></div>
-          <div class="demo-row child"><span class="demo-check"></span><span>Attach June hours</span></div>
-          <div class="demo-row"><span class="demo-check"></span><span>Draft the proposal</span><span class="demo-chip">09:00 · 90m</span></div>
+          <div class="demo-row done-text"><button type="button" class="demo-check done" aria-label="Toggle done">✓</button><span class="demo-text">Book dentist appointment</span></div>
+          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Ship the invoice</span></div>
+          <div class="demo-row child"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Attach June hours</span></div>
+          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Draft the proposal</span><span class="demo-chip">09:00 · 90m</span></div>
         </div>
       </div>
       <div class="demo-group" style="--gc: var(--g-purple)">
         <div class="demo-head">Backlog <span class="demo-count">2</span></div>
         <div class="demo-rows">
-          <div class="demo-row"><span class="demo-check"></span><span>Compare bike insurance quotes</span></div>
-          <div class="demo-row"><span class="demo-check"></span><span>Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
+          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Compare bike insurance quotes</span></div>
+          <div class="demo-row"><button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">Fix the balcony door hinge</span><span class="demo-chip">linked in Today</span></div>
         </div>
       </div>
     </div>
+    <p class="demo-hint">This one's real: tick the boxes, click a task & type. The download works the same, plus drag, undo & everything below.</p>
   </header>
 
   <main class="wrap">
@@ -475,54 +547,114 @@
       <h2>Why this exists</h2>
       <div class="prose">
         <p>My tasks lived in five places: a notes app, chat messages to myself, two abandoned to-do apps, & whatever paper was on the desk. Every tool I tried wanted an account, a sync service, or a subscription before it would let me type a first task. Then it wanted me to stay, so getting my own lists back out came down to whatever its exporter felt like giving me.</p>
-        <p>So I set one rule for this build: the whole app has to fit in a single file you can open from disk. No database, no server, no framework, no npm install. If it can't survive being emailed to yourself as an attachment, it's too heavy. Today's build is 185,841 bytes of native HTML, CSS & JavaScript.</p>
+        <p>So I set one rule for this build: the whole app has to fit in a single file you can open from disk. No database, no server, no framework, no npm install. Today's build is v1.1.0, 245,707 bytes of native HTML, CSS & JavaScript.</p>
         <p>Your data never leaves the browser. Tasks persist in local storage, export losslessly to JSON, & copy out as indented Markdown that pastes clean into Obsidian, Notion, or any text editor. There's no telemetry to switch off because the file doesn't contain any.</p>
-      </div>
-    </section>
-
-    <section id="how">
-      <h2>How it was built, commit by commit</h2>
-      <div class="prose">
-        <p>I ran this as a spec-first build with Claude Code writing the implementation against my requirements & my live feedback. Every feature landed the same way: write the failing test, make it pass, rebuild the single file, then click through it in a real browser at 1440×900 and 390×844 before committing. The static suite sits at 58 tests across 1,067 lines. The app itself is 3,271 lines of JavaScript & 1,187 lines of CSS.</p>
-        <p>The core build happened in one sitting on July 11, 2026. The git log is the honest diary:</p>
-      </div>
-      <div class="timeline" role="list">
-        <div class="tl-row" role="listitem" style="--dot: var(--g-orange)"><span class="tl-time">14:33</span><span class="tl-body"><strong>Baseline</strong><small>Working prototype & the design spec checked in.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-orange)"><span class="tl-time">14:37</span><span class="tl-body"><strong>Build script</strong><small>Three source files inlined into one output file. Node standard library only.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-teal)"><span class="tl-time">14:41</span><span class="tl-body"><strong>Schema v2</strong><small>Immutable task IDs & creation metadata, with migration that keeps existing boards intact.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-teal)"><span class="tl-time">14:46</span><span class="tl-body"><strong>Editor fixes</strong><small>Caret-aware Enter, deterministic Shift+Tab, long-press touch drag that doesn't block scrolling.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-blue)"><span class="tl-time">14:54</span><span class="tl-body"><strong>Markdown & links</strong><small>Clipboard interchange, plus linked copies & shortcuts: one task, several placements.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-blue)"><span class="tl-time">15:20</span><span class="tl-body"><strong>Lifecycle</strong><small>Completed & Trash views with retention policies. Task overrides beat group overrides beat globals.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-purple)"><span class="tl-time">15:30</span><span class="tl-body"><strong>Day planning</strong><small>Timeline from 06:00 to midnight, drag rescheduling snapped to 15 minutes, focus timing, planned-versus-actual variance.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-purple)"><span class="tl-time">16:00</span><span class="tl-body"><strong>Responsive shell</strong><small>Collapsible sidebar, phone drawer, dark-mode group tints, 44 px touch targets.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-green)"><span class="tl-time">16:04</span><span class="tl-body"><strong>Acceptance</strong><small>Real-browser pass in both themes at both viewports, plus a reusable Playwright smoke test.</small></span></div>
-        <div class="tl-row" role="listitem" style="--dot: var(--g-green)"><span class="tl-time">16:40</span><span class="tl-body"><strong>First real-use fixes</strong><small>Settings overflow, Enter inside a group title, copying collapsed groups, a proper task details panel.</small></span></div>
       </div>
     </section>
 
     <section id="what">
       <h2>What the file does</h2>
-      <div class="feature-list">
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Nested outline.</b> Enter splits a task at the caret, Tab indents, Alt+arrows move items, & undo holds your last 40 board actions.</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Markdown clipboard.</b> Ctrl+C turns any selection into clean indented Markdown. Collapsed groups copy in full, children included.</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Linked copies & shortcuts.</b> Put one task in two places; edit either copy & both update. A shortcut jumps to the original instead.</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Completed & Trash.</b> Finished tasks hide on your schedule: immediately, after 7 days, or never. Deletes go to a restorable Trash by default.</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Day timeline.</b> Optional view from 06:00 to midnight with a current-time line & drag rescheduling snapped to 15 minutes.</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Focus mode.</b> One task full-screen with a running timer. Time accumulates per task & reads out against your plan, like "+10m vs plan".</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Works on your phone.</b> Drawer sidebar, 44 px touch targets, long-press drag. Light & dark themes with per-group color tints in both.</span></div>
-        <div class="feature-row"><span class="demo-check done">✓</span><span><b>Your data, portable.</b> Lossless JSON export & import. Off by default means invisible: disabled features add zero buttons to the screen.</span></div>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M8 12h12M12 18h8"/></svg></span>Nested outline</h3>
+          <p>Enter adds a task, Tab indents, Alt+arrows move anything anywhere. Undo holds your last 40 board actions.</p>
+          <div class="feature-demo">
+            <div class="demo-row"><span class="demo-check" aria-hidden="true"></span><span>Plan a weekend trip</span></div>
+            <div class="demo-row child"><span class="demo-check" aria-hidden="true"></span><span>Compare train versus driving</span></div>
+            <div class="demo-row grandchild"><span class="demo-check done" aria-hidden="true">✓</span><span style="text-decoration: line-through; color: var(--muted)">Check ticket prices</span></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></span>Markdown clipboard</h3>
+          <p>Ctrl+C turns any selection into indented Markdown. Collapsed groups copy in full, children included. Pasting Markdown creates tasks.</p>
+          <div class="feature-demo"><pre class="f-md">- [ ] Ship the invoice
+  - [x] Attach June hours</pre></div>
+        </div>
+
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>Linked copies</h3>
+          <p>One task, two places. Edit or complete either copy & both update. A shortcut jumps to the original instead.</p>
+          <div class="feature-demo">
+            <div class="demo-row"><span class="demo-check" aria-hidden="true"></span><span>Fix the balcony door hinge</span><span class="demo-chip">in Today</span></div>
+            <div class="demo-row"><span class="demo-check" aria-hidden="true"></span><span>Fix the balcony door hinge</span><span class="demo-chip">in Backlog · linked</span></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"/></svg></span>Completed & Trash</h3>
+          <p>Done tasks hide on your schedule: immediately, after a period, or never. Deletes land in a restorable Trash by default.</p>
+          <div class="feature-demo">
+            <div class="demo-row"><span class="demo-check done" aria-hidden="true">✓</span><span style="text-decoration: line-through; color: var(--muted)">Renew the car registration</span><span class="demo-chip">hides in 7 days</span></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg></span>Day timeline</h3>
+          <p>Optional day view from 06:00 to midnight with a current-time line. Drag to reschedule in 15-minute steps.</p>
+          <div class="feature-demo">
+            <div class="demo-row"><span class="demo-check" aria-hidden="true"></span><span>Draft the proposal</span><span class="demo-chip">09:00 · 90m</span></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></span>Focus mode</h3>
+          <p>One task full-screen with a running timer. Time accumulates per task & reads out against your plan.</p>
+          <div class="feature-demo">
+            <div class="demo-row"><span class="demo-check" aria-hidden="true"></span><span>Draft the proposal</span><span class="demo-chip">23:12 · +10m vs plan</span></div>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M12 18h.01"/></svg></span>Works on your phone</h3>
+          <p>Drawer sidebar, 44 px touch targets, long-press drag. Light & dark themes with per-group color tints in both.</p>
+        </div>
+
+        <div class="feature-card">
+          <h3><span class="f-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8M1 3h22v5H1zM10 12h4"/></svg></span>Your data, portable</h3>
+          <p>Lossless JSON export & import. Features you don't enable render zero buttons; the default screen stays clean.</p>
+          <div class="feature-demo">
+            <div class="demo-row"><span class="demo-chip" style="margin-left:0">board.json</span><span class="demo-chip" style="margin-left:0">tasks.md</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="plan">
+      <h2>What's planned</h2>
+      <div class="prose">
+        <p>Punchlist has no online features. That's deliberate, & offline will stay the default. But it means the file can't sync itself between your phone & your laptop, and it can't remind you of anything while it's closed. What I want next, in rough order:</p>
+        <ul>
+          <li>Safe, active sync between phone & laptop.</li>
+          <li>Sharing a section of your board with someone else, linked so both sides stay current, unlinkable at any time.</li>
+          <li>Identity without accounts: hashed usernames that are unique without a signup form.</li>
+          <li>Optional encryption for anything that ever leaves your machine.</li>
+          <li>Deeper reminders, scheduling & time tracking, kept invisible until you switch them on.</li>
+        </ul>
+        <p>No dates. It ships when it works. If you want one of these first, or you want something that isn't on the list, write me:</p>
+        <button class="btn" type="button" data-copy-email="Copy my email address">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy my email address
+        </button>
       </div>
     </section>
 
     <section id="signup">
       <div class="signup">
         <h2>Get the file & the next build</h2>
-        <p class="prose" style="margin: 0;">The board is free. Leave your email & you'll get one message when a new build ships or the schema changes, with the file attached. No welcome sequence, no weekly digest; the last thing a to-do app needs is a funnel.</p>
+        <p class="prose" style="margin: 0;">I'm Evren. I built Punchlist for myself because my tasks were spread across five apps & every one of them wanted an account before it would let me type. It's free & it stays free. If it earns a place in your day, share the file with a friend; that's the whole ask.</p>
         <form data-signup-form novalidate>
-          <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address">
+          <input type="email" name="email" autocomplete="email" required placeholder="you@example.com" aria-label="Email address">
           <button class="btn primary" type="submit">Send me the board</button>
         </form>
         <p class="status" data-signup-status role="status"></p>
+        <div class="contact-row">
+          <button class="btn" type="button" data-copy-email="Copy my email address">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy my email address
+          </button>
+          <span class="note" style="margin:0">One message per new build, with the file attached. No welcome sequence, no digest.</span>
+        </div>
         <p class="note">This page sets no cookies & loads nothing from third parties. Your address lands in one inbox & nowhere else.</p>
       </div>
     </section>
@@ -530,7 +662,7 @@
 
   <footer>
     <div class="wrap">
-      <span>Punchlist, built July 2026.</span>
+      <span>Punchlist v1.1.0, first build July 11, 2026.</span>
       <span>This page makes zero external requests. View source; it's one file too.</span>
     </div>
   </footer>
@@ -556,6 +688,25 @@
       localStorage.setItem("task-board-site-theme", next);
     });
 
+    // Contact address stays out of the static HTML so scrapers that regex pages
+    // for emails come up empty. It is assembled only on a real click.
+    // ponytail: a crawler that executes JS and clicks buttons can still get it; accepted ceiling for a static page.
+    const EMAIL_PARTS = ["evrenucar1999", "gmail", "com"];
+    const contactEmail = () => EMAIL_PARTS[0] + "@" + EMAIL_PARTS[1] + "." + EMAIL_PARTS[2];
+    document.querySelectorAll("[data-copy-email]").forEach((button) => {
+      const label = button.textContent.trim();
+      button.addEventListener("click", async () => {
+        const address = contactEmail();
+        try {
+          await navigator.clipboard.writeText(address);
+          button.textContent = "Copied: " + address;
+        } catch {
+          button.textContent = address;
+        }
+        setTimeout(() => { button.textContent = label; }, 4000);
+      });
+    });
+
     // Email capture. Set FORM_ENDPOINT to a form service URL (e.g. a Formspree
     // endpoint like https://formspree.io/f/XXXXXXXX) to collect addresses
     // server-side. Left empty, the form falls back to a prefilled email draft,
@@ -571,8 +722,8 @@
         return;
       }
       if (!FORM_ENDPOINT) {
-        location.href = "mailto:anilgulbeden@gmail.com?subject=" + encodeURIComponent("Task Board updates")
-          + "&body=" + encodeURIComponent("Send Task Board builds to: " + email);
+        location.href = "mailto:" + contactEmail() + "?subject=" + encodeURIComponent("Punchlist updates")
+          + "&body=" + encodeURIComponent("Send Punchlist builds to: " + email);
         status.textContent = "Opening your mail app with a prefilled message. Hit send & you're on the list.";
         return;
       }
@@ -589,6 +740,123 @@
         status.textContent = "Couldn't reach the form service. Check your connection & try again.";
       }
     });
+
+    // Live hero demo. It edits itself on a loop (tasks ticked, moved, added,
+    // a group appearing) until the visitor touches it, then it's theirs.
+    (() => {
+      const demo = document.querySelector("[data-board-demo]");
+      if (!demo) return;
+      const initialHtml = demo.innerHTML;
+      let stopped = false;
+      let timer = null;
+
+      function wire() {
+        demo.querySelectorAll(".demo-rows .demo-text").forEach((span) => {
+          span.contentEditable = "true";
+          span.spellcheck = false;
+        });
+      }
+
+      function setDone(row, on) {
+        const check = row.querySelector(".demo-check");
+        if (!check) return;
+        check.classList.toggle("done", on);
+        check.textContent = on ? "✓" : "";
+        row.classList.toggle("done-text", on);
+        check.classList.remove("anim-pulse");
+        void check.offsetWidth;
+        check.classList.add("anim-pulse");
+      }
+
+      demo.addEventListener("click", (event) => {
+        const check = event.target.closest(".demo-check");
+        if (!check) return;
+        const row = check.closest(".demo-row");
+        setDone(row, !check.classList.contains("done"));
+      });
+
+      function makeRow(text, extraClass, chip) {
+        const row = document.createElement("div");
+        row.className = "demo-row anim-in" + (extraClass ? " " + extraClass : "");
+        row.innerHTML = '<button type="button" class="demo-check" aria-label="Toggle done"></button><span class="demo-text">' + text + "</span>"
+          + (chip ? '<span class="demo-chip">' + chip + "</span>" : "");
+        return row;
+      }
+
+      function groupRows(index) {
+        return demo.querySelectorAll(".demo-group")[index]?.querySelector(".demo-rows");
+      }
+
+      function updateCount(index) {
+        const group = demo.querySelectorAll(".demo-group")[index];
+        const count = group?.querySelector(".demo-count");
+        if (count) count.textContent = group.querySelectorAll(".demo-row").length;
+      }
+
+      const steps = [
+        [1400, () => { // tick a task off
+          const rows = groupRows(0)?.querySelectorAll(".demo-row");
+          if (rows?.[1]) setDone(rows[1], true);
+        }],
+        [2100, () => { // add a sub-note under the proposal
+          const rows = groupRows(0)?.querySelectorAll(".demo-row");
+          if (rows?.[3]) rows[3].after(makeRow("Outline the scope first", "child"));
+          updateCount(0);
+        }],
+        [2300, () => { // move a task from Backlog into Today
+          const backlogRow = groupRows(1)?.querySelector(".demo-row");
+          if (!backlogRow) return;
+          backlogRow.remove();
+          const clone = makeRow("Compare bike insurance quotes", "");
+          groupRows(0)?.append(clone);
+          updateCount(0);
+          updateCount(1);
+        }],
+        [2300, () => { // a new group appears
+          const group = document.createElement("div");
+          group.className = "demo-group anim-in";
+          group.style.setProperty("--gc", "var(--g-teal)");
+          group.innerHTML = '<div class="demo-head">Weekend <span class="demo-count">1</span></div><div class="demo-rows"></div>';
+          group.querySelector(".demo-rows").append(makeRow("Plan the Saturday hike", ""));
+          demo.append(group);
+        }],
+        [2000, () => { // toggle one on...
+          const rows = groupRows(1)?.querySelectorAll(".demo-row");
+          if (rows?.[0]) setDone(rows[0], true);
+        }],
+        [1500, () => { // ...and off again
+          const rows = groupRows(1)?.querySelectorAll(".demo-row");
+          if (rows?.[0]) setDone(rows[0], false);
+        }],
+        [2600, () => { // reset the loop
+          demo.innerHTML = initialHtml;
+          wire();
+          demo.classList.remove("demo-reset");
+          void demo.offsetWidth;
+          demo.classList.add("demo-reset");
+        }],
+      ];
+
+      function run(index) {
+        if (stopped) return;
+        const [delay, action] = steps[index % steps.length];
+        timer = setTimeout(() => {
+          if (stopped) return;
+          action();
+          run(index + 1);
+        }, delay);
+      }
+
+      function stop() {
+        stopped = true;
+        clearTimeout(timer);
+      }
+
+      ["pointerdown", "keydown", "focusin"].forEach((type) => demo.addEventListener(type, stop));
+
+      wire();
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) run(0);
+    })();
   </script>
 </body>
 </html>

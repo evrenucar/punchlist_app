@@ -1,6 +1,8 @@
     const STORAGE_KEY = "scheduling-task-management-board-v1";
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1";
     const SCHEMA_VERSION = 2;
+    const APP_VERSION = "1.1.0";
+    const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";
     const DEFAULT_SETTINGS = Object.freeze({
       dailyPlanning: false,
@@ -50,6 +52,9 @@
       "group-later": GROUP_PALETTES[4],
     };
     const boardEl = document.querySelector("[data-board]");
+    const appVersionEl = document.querySelector("[data-app-version]");
+    if (appVersionEl) appVersionEl.textContent = "v" + APP_VERSION;
+    const exampleBannerHostEl = document.querySelector("[data-example-banner-host]");
     const sidebarToggleEl = document.querySelector("[data-sidebar-toggle]");
     const sidebarBackdropEl = document.querySelector("[data-sidebar-backdrop]");
     const viewsNavEl = document.querySelector("[data-views-nav]");
@@ -156,6 +161,7 @@
     function seedState() {
       return {
         version: SCHEMA_VERSION,
+        example: true,
         settings: { ...DEFAULT_SETTINGS },
         trash: [],
         groups: [
@@ -1828,6 +1834,22 @@
       document.querySelector(`[data-group-title="${group.id}"]`)?.focus();
     }
 
+    function startOwnBoard() {
+      if (typeof window.confirm === "function"
+        && !window.confirm("Remove the example tasks and start your own empty board? Export JSON first if you want to keep them.")) {
+        return;
+      }
+      state = normalizeState({ version: SCHEMA_VERSION, settings: state.settings, example: false });
+      selectedNode = null;
+      multiSelectedNodes = [];
+      selectionAnchorNode = null;
+      undoStack = [];
+      undoActions = [];
+      lastUndoAction = null;
+      exitFocusMode();
+      addGroup();
+    }
+
     function setEveryCollapsed(collapsed) {
       function walk(tasks) {
         tasks.forEach((item) => {
@@ -2352,6 +2374,7 @@
 
     function normalizeState(boardState, now = new Date().toISOString()) {
       boardState.version = SCHEMA_VERSION;
+      boardState.example = Boolean(boardState.example);
       boardState.settings = {
         ...DEFAULT_SETTINGS,
         ...(boardState.settings && typeof boardState.settings === "object" ? boardState.settings : {}),
@@ -2516,7 +2539,9 @@
     function renderGroup(group, query, index) {
       const visibleTasks = group.tasks.map((item) => renderTask(item, group.id, query)).join("");
       const count = countTasks(group.tasks);
-      const empty = visibleTasks.trim() ? "" : '<p class="empty">No tasks match this search.</p>';
+      const empty = visibleTasks.trim()
+        ? ""
+        : `<p class="empty">${query ? "No tasks match this search." : "No tasks yet. Select the group and press Enter to add one."}</p>`;
       const palette = getGroupPalette(group, index);
       const collapsed = group.collapsed && !query;
       return `
@@ -2877,6 +2902,11 @@
         timelinePaneEl.innerHTML = showTimeline ? renderTimelineSection(timelineDate) : "";
       }
       boardEl.hidden = !showList;
+      if (exampleBannerHostEl) {
+        exampleBannerHostEl.innerHTML = state.example && showList
+          ? '<div class="example-banner"><span>These are example tasks. Click around, then clear them when you are ready.</span><button class="control primary" type="button" data-action="start-own-board">Start my own board</button></div>'
+          : "";
+      }
       renderHistoryList();
       if (!showList) {
         lifecycleSignature = getLifecycleSignature();
@@ -3872,6 +3902,7 @@
       const button = event.target.closest("[data-action]");
       if (!button || boardEl.contains(button)) return;
       if (button.dataset.action === "add-group") addGroup();
+      if (button.dataset.action === "start-own-board") startOwnBoard();
       if (button.dataset.action === "expand-all") setEveryCollapsed(false);
       if (button.dataset.action === "collapse-all") setEveryCollapsed(true);
       if (button.dataset.action === "restore-trash") {
@@ -4385,6 +4416,8 @@
       focusSelectedTextField,
       insertEditingLineBreak,
       addTask,
+      APP_VERSION,
+      startOwnBoard,
       reset() {
         localStorage.removeItem(STORAGE_KEY);
         state = migrateState(seedState());
