@@ -139,6 +139,13 @@
       color: var(--muted);
       opacity: 0.85;
       font-variant-numeric: tabular-nums;
+      line-height: 1.25;
+    }
+
+    .brand-ver small {
+      display: block;
+      font-size: 10px;
+      opacity: 0.85;
     }
 
     .topbar .clock {
@@ -337,6 +344,36 @@
     .demo-row[draggable="true"] { cursor: grab; }
     .demo-row.hidden-by-parent, .demo-image.hidden-by-parent { display: none; }
 
+    /* Same drop-edge language as the app's task rows & groups */
+    .demo-row.drop-before { box-shadow: inset 0 3px 0 var(--accent); }
+    .demo-row.drop-after { box-shadow: inset 0 -3px 0 var(--accent); }
+    .demo-group.drop-before { box-shadow: var(--shadow), inset 0 3px 0 var(--accent); }
+    .demo-group.drop-after { box-shadow: var(--shadow), inset 0 -3px 0 var(--accent); }
+    .demo-head[draggable="true"] { cursor: grab; }
+    .demo-group.dragging { opacity: 0.42; }
+
+    /* Vertical indent guides, like the app's nested-children border */
+    .demo-row { position: relative; }
+    .demo-row.child::before, .demo-row.grandchild::before, .demo-image::before {
+      content: "";
+      position: absolute;
+      left: 13px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--line);
+    }
+    .demo-row.grandchild::after {
+      content: "";
+      position: absolute;
+      left: 41px;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: var(--line);
+    }
+    .demo-image { position: relative; }
+
     .demo-add {
       margin-left: auto;
       border: 0;
@@ -376,11 +413,24 @@
     }
 
     .demo-image-thumb {
-      width: 72px;
-      height: 48px;
+      width: 96px;
+      height: 64px;
+      min-width: 48px;
+      min-height: 32px;
+      max-width: 340px;
+      max-height: 230px;
       border: 1px solid var(--line);
       border-radius: 6px;
-      background: linear-gradient(135deg, var(--accent-soft) 0%, var(--surface-2) 55%, color-mix(in srgb, var(--g-teal) 35%, var(--surface)) 100%);
+      background: var(--surface-2);
+      resize: both;
+      overflow: hidden;
+    }
+
+    .demo-image-thumb svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      color: var(--muted);
     }
 
     .demo-image span {
@@ -579,7 +629,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
       </div>
       <div class="brand-name">Punchlist</div>
-      <div class="brand-ver">v1.1.0</div>
+      <div class="brand-ver">v1.1.0<small>July 15, 2026</small></div>
       <div class="clock" data-clock aria-label="Current time">--:--</div>
       <button class="theme-toggle" type="button" data-theme-toggle>Theme</button>
     </div>
@@ -624,7 +674,7 @@
         </div>
       </div>
     </div>
-    <p class="demo-hint">This one's real: tick the boxes, click any text & type, press Enter for a new task, Tab & Shift+Tab to nest, drag rows between groups, collapse tasks & groups with their arrows, rename anything. The download adds undo, saving & everything below.</p>
+    <p class="demo-hint">This one's real: tick boxes, click any text & type, Enter adds a task, Tab & Shift+Tab nest it, drag rows & whole groups by their headers, fold tasks & groups with their arrows, rename anything, & resize the pasted image by its corner. The download adds undo, saving & everything below.</p>
   </header>
 
   <main class="wrap">
@@ -896,6 +946,7 @@
           span.spellcheck = false;
         });
         demo.querySelectorAll(".demo-row").forEach((row) => { row.draggable = true; });
+        demo.querySelectorAll(".demo-head").forEach((head) => { head.draggable = true; });
       }
 
       function refresh() {
@@ -929,7 +980,19 @@
       function makeImage(caption) {
         const figure = document.createElement("div");
         figure.className = "demo-image anim-in";
-        figure.innerHTML = '<div class="demo-image-thumb"></div><span>' + caption + "</span>";
+        figure.innerHTML = '<div class="demo-image-thumb">'
+          + '<svg viewBox="0 0 120 80" fill="none" stroke="currentColor" stroke-width="2" preserveAspectRatio="xMidYMid meet" aria-label="Floor plan">'
+          + '<rect x="4" y="4" width="112" height="72"/>'
+          + '<path d="M62 4v26M62 46v30"/>'
+          + '<path d="M62 30a16 16 0 0 1 16 16" stroke-width="1"/>'
+          + '<path d="M62 46h16" stroke-width="1"/>'
+          + '<path d="M4 44h26M42 44h20"/>'
+          + '<path d="M30 44a12 12 0 0 0 12 12" stroke-width="1"/>'
+          + '<path d="M62 52h22M94 52h22"/>'
+          + '<rect x="10" y="54" width="16" height="14" stroke-width="1"/>'
+          + '<path d="M84 76h20" stroke-width="4"/>'
+          + "</svg>"
+          + "</div><span>" + caption + "</span>";
         return figure;
       }
 
@@ -992,9 +1055,27 @@
         }
       });
 
-      // Drag rows within & between groups, same as the app's outline drag.
+      // Drag rows & whole groups with the app's drop-edge indicators:
+      // top/bottom edge lights up where the drop would land; the move
+      // happens on drop, exactly like the board.
       let dragRow = null;
+      let dragGroup = null;
+      let dropInfo = null;
+
+      function clearDropMarks() {
+        demo.querySelectorAll(".drop-before, .drop-after").forEach((el) => el.classList.remove("drop-before", "drop-after"));
+        dropInfo = null;
+      }
+
       demo.addEventListener("dragstart", (event) => {
+        const head = event.target.closest?.(".demo-head");
+        if (head) {
+          dragGroup = head.closest(".demo-group");
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData("text/plain", head.querySelector(".demo-title")?.textContent || "group");
+          requestAnimationFrame(() => dragGroup?.classList.add("dragging"));
+          return;
+        }
         const row = event.target.closest?.(".demo-row");
         if (!row) return;
         dragRow = row;
@@ -1002,26 +1083,66 @@
         event.dataTransfer.setData("text/plain", row.querySelector(".demo-text")?.textContent || "task");
         requestAnimationFrame(() => row.classList.add("dragging"));
       });
-      demo.addEventListener("dragend", () => {
-        dragRow?.classList.remove("dragging");
-        dragRow = null;
-        refresh();
-      });
+
       demo.addEventListener("dragover", (event) => {
+        if (dragGroup) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          clearDropMarks();
+          const over = event.target.closest?.(".demo-group");
+          if (!over || over === dragGroup) return;
+          const rect = over.getBoundingClientRect();
+          const before = event.clientY < rect.top + rect.height / 2;
+          over.classList.add(before ? "drop-before" : "drop-after");
+          dropInfo = { el: over, before, type: "group" };
+          return;
+        }
         if (!dragRow) return;
         event.preventDefault();
         event.dataTransfer.dropEffect = "move";
+        clearDropMarks();
         const over = event.target.closest?.(".demo-row");
         if (over && over !== dragRow) {
           const rect = over.getBoundingClientRect();
-          over.parentElement.insertBefore(dragRow, event.clientY < rect.top + rect.height / 2 ? over : over.nextSibling);
+          const before = event.clientY < rect.top + rect.height / 2;
+          over.classList.add(before ? "drop-before" : "drop-after");
+          dropInfo = { el: over, before, type: "row" };
           return;
         }
         const rows = event.target.closest?.(".demo-group")?.querySelector(".demo-rows");
-        if (rows && !rows.contains(dragRow)) rows.append(dragRow);
+        if (rows && !rows.contains(dragRow)) {
+          const all = rows.querySelectorAll(".demo-row");
+          const last = all[all.length - 1];
+          if (last) {
+            last.classList.add("drop-after");
+            dropInfo = { el: last, before: false, type: "row" };
+          } else {
+            dropInfo = { el: rows, type: "rows-append" };
+          }
+        }
       });
+
       demo.addEventListener("drop", (event) => {
         event.preventDefault();
+        if (dropInfo) {
+          if (dropInfo.type === "group" && dragGroup) {
+            demo.insertBefore(dragGroup, dropInfo.before ? dropInfo.el : dropInfo.el.nextElementSibling);
+          } else if (dragRow && dropInfo.type === "rows-append") {
+            dropInfo.el.append(dragRow);
+          } else if (dragRow) {
+            dropInfo.el.parentElement.insertBefore(dragRow, dropInfo.before ? dropInfo.el : dropInfo.el.nextElementSibling);
+          }
+        }
+        clearDropMarks();
+        refresh();
+      });
+
+      demo.addEventListener("dragend", () => {
+        dragRow?.classList.remove("dragging");
+        dragGroup?.classList.remove("dragging");
+        dragRow = null;
+        dragGroup = null;
+        clearDropMarks();
         refresh();
       });
 
