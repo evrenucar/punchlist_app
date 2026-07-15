@@ -15,3 +15,6 @@ Desktop.ini
 *.swp
 .vscode/
 .idea/
+
+# Browser tooling debris
+.playwright-mcp/
