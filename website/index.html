@@ -728,7 +728,12 @@
     addEventListener("message", (event) => {
       if (!frame || event.source !== frame.contentWindow) return;
       const height = Number(event.data && event.data.punchlistDemoHeight);
-      if (height >= 200) frame.style.height = Math.max(420, Math.ceil(height)) + "px";
+      if (height < 200) return;
+      // Ratchet: the first report sizes the frame, later ones only grow it.
+      // Shrinking mid-animation would shift everything below while reading.
+      const next = Math.max(420, Math.ceil(height));
+      const current = parseFloat(frame.style.height) || 0;
+      if (next > current) frame.style.height = next + "px";
     });
   </script>
 </body>

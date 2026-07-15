@@ -6856,6 +6856,9 @@
     // The landing page embeds ?demo in an iframe it sizes from these reports,
     // so the whole board stays visible with no cropping or inner scrollbar.
     if (IS_DEMO && window.parent && window.parent !== window) {
+      // The frame catches up to reported heights with a delay; the document
+      // must never grow a scrollbar of its own in that gap.
+      if (document.documentElement) document.documentElement.style.overflow = "hidden";
       const postDemoHeight = () => {
         const height = Math.max(document.body?.scrollHeight || 0, document.documentElement?.scrollHeight || 0);
         if (height) window.parent.postMessage?.({ punchlistDemoHeight: height }, "*");

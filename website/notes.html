@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Punchlist build notes</title>
+  <meta name="description" content="Running build notes for Punchlist: what changed, why, and how to use what shipped. Newest entry first.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --surface: #ffffff;
+      --surface-2: #eef4f1;
+      --ink: #202422;
+      --muted: #65716b;
+      --line: #d8ded8;
+      --accent: #246bfe;
+      --accent-soft: #e9f0ff;
+      --g-red: #c92a2a;
+      --g-green: #2f6f4e;
+      --shadow: 0 18px 48px rgba(26, 38, 33, 0.10);
+      --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151716;
+        --surface: #202321;
+        --surface-2: #292d2a;
+        --ink: #f1f4ef;
+        --muted: #a8b2aa;
+        --line: #3a403c;
+        --accent-soft: #1f315f;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    a { color: var(--accent); }
+
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 10px 20px;
+    }
+
+    .brand-mark {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #191b1a;
+      color: #fff;
+      transform: rotate(-4deg);
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      background: var(--g-red);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .brand-mark { background: #f1f4ef; color: #191b1a; }
+    }
+
+    .brand-name {
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+
+    .topbar .page-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .topbar .back {
+      margin-left: auto;
+      font-size: 14px;
+    }
+
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      margin: 40px 0 6px;
+    }
+
+    .lede {
+      color: var(--muted);
+      margin: 0 0 28px;
+    }
+
+    article {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 26px 28px 30px;
+      margin: 0 0 28px;
+    }
+
+    article header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 8px 14px;
+      margin: 0 0 14px;
+    }
+
+    article h2 {
+      font-size: 22px;
+      letter-spacing: -0.01em;
+      margin: 0;
+    }
+
+    .entry-date {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    article h3 {
+      font-size: 16px;
+      margin: 26px 0 8px;
+    }
+
+    article p { margin: 0 0 12px; }
+    article ul, article ol { margin: 0 0 12px; padding-left: 22px; }
+    article li { margin: 0 0 6px; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 13px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 10px 14px;
+      margin: 0 0 12px;
+      font-size: 15px;
+    }
+
+    .callout.warn { border-left-color: var(--g-red); }
+
+    /* A drawn copy of the app's Settings -> Sync card, so the steps have a
+       picture to match against without shipping a screenshot. */
+    .mock-settings {
+      max-width: 340px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      padding: 12px 14px;
+      margin: 14px 0 16px;
+      font-size: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mock-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+    }
+
+    .mock-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .mock-row code { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .mock-check {
+      width: 18px;
+      height: 18px;
+      border-radius: 5px;
+      background: var(--accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 12px;
+      flex: 0 0 auto;
+    }
+
+    .mock-btn {
+      justify-self: start;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-weight: 600;
+      font-size: 13px;
+      background: var(--surface-2);
+    }
+
+    .mock-status {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
+      </div>
+      <div class="brand-name">Punchlist</div>
+      <div class="page-name">build notes</div>
+      <a class="back" href="index.html">Back to the site</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>Build notes</h1>
+    <p class="lede">What changed in each build, why, & how to use it. Newest entry first.</p>
+
+    <!-- NEW ENTRIES GO DIRECTLY BELOW THIS LINE, NEWEST FIRST -->
+
+    <article>
+      <header>
+        <h2>v1.2.0: sync between your devices, the demo un-cropped, & an iOS storage warning</h2>
+        <span class="entry-date">July 15, 2026</span>
+      </header>
+
+      <h3>What changed</h3>
+      <ul>
+        <li><strong>GitHub sync shipped.</strong> Your board can now live as one JSON file in a private GitHub repository & every device that points at it stays current. Details & setup below.</li>
+        <li><strong>The landing demo no longer crops.</strong> The app's own stylesheet pinned the demo body to the frame's height & hid the overflow, so everything below 640 pixels was cut off with no way to scroll. The demo now reports its real height to the page & the frame grows to fit; the frame only ever grows, so the page below it doesn't jump while the demo animates, & the stray scrollbar that flickered during animation steps is gone.</li>
+        <li><strong>Phone layout works in the embed.</strong> At 390 pixels the framed demo now renders the same layout the app uses on a phone, full width, every group reachable.</li>
+        <li><strong>Two clear ways in.</strong> The hero now has "Open the board" (runs at this site's URL) & "Download the board" (the identical file, saved to disk, works offline forever). Same 266,809-byte file behind both buttons.</li>
+        <li><strong>Demo theme obeys the page.</strong> The demo used to remember dark mode forever once it had seen it; it now follows the embedding page on every load.</li>
+        <li><strong>iOS Safari gets a one-time warning.</strong> Safari deletes a site's stored data, tasks included, after 7 days of Safari use without visiting that site. Web apps opened from the Home Screen are exempt, so the board shows one dismissible banner on iOS Safari pointing at Share, then Add to Home Screen. On every platform the app also asks the browser for persistent storage on load.</li>
+      </ul>
+      <p>77 automated tests pass on this build, 8 of them new for sync. Every sync path (first push, edit push, pull, conflict) also ran in a real browser against a mocked GitHub API before shipping.</p>
+
+      <h3>How to turn on sync</h3>
+      <p>Sync v1 assumes you have a GitHub account. It costs nothing: a free account includes unlimited private repositories.</p>
+      <ol>
+        <li><strong>Create a private repository</strong> to hold the board, for example <code>punchlist-data</code>. Empty is fine; the app creates the file itself.</li>
+        <li><strong>Create a token the board will use.</strong> On GitHub: Settings, Developer settings, Personal access tokens, <em>Fine-grained tokens</em>, Generate new token. Under "Repository access" pick <em>Only select repositories</em> & choose the repo from step 1. Under "Permissions", set <em>Contents</em> to <em>Read and write</em>. Nothing else. That token can touch that one repository & nothing more.</li>
+        <li><strong>Enter both in the app.</strong> Open Settings, expand <em>Sync</em>, tick <em>GitHub sync</em>, then fill the two fields. It should look like this:</li>
+      </ol>
+      <div class="mock-settings" role="img" aria-label="The Sync section in Settings with GitHub sync ticked, a repository, a token, a Sync now button, and a synced status line">
+        <div class="mock-title">Sync</div>
+        <div class="mock-row"><span>GitHub sync</span><span class="mock-check">✓</span></div>
+        <div class="mock-row"><span>Repository</span><code>evrenucar/punchlist-data</code></div>
+        <div class="mock-row"><span>Token</span><code>github_pat_••••••••••••</code></div>
+        <div class="mock-btn">Sync now</div>
+        <div class="mock-status">Synced 14:32</div>
+      </div>
+      <p>Repeat step 3 on each device: open the same board URL (or file) there & paste the same repository & token. The first device to sync fills the repository; every later device pulls that board on its first sync.</p>
+      <div class="callout warn">Order matters once: do this first on the device whose board you want to keep. Its first push becomes the shared board, & the other devices adopt it. Their previous local boards are replaced (a backup lands in History, & you can export JSON first if you want belt & braces).</div>
+
+      <h3>How sync behaves day to day</h3>
+      <ul>
+        <li>The board pulls when it loads & whenever its tab regains focus; it pushes 2.5 seconds after you stop editing. There's a <em>Sync now</em> button when you'd rather not wait.</li>
+        <li>Every push is a git commit. The repository holds the board's full history, so any earlier state is recoverable from GitHub's own interface.</li>
+        <li>If two devices edited while apart, the device that syncs keeps its version & the other version stays one commit back in history; a toast tells you when that happened. No silent data loss, no merge screens.</li>
+        <li>The token & repository name stay in this browser only. They're stored apart from the board, so JSON exports & settings exports can never contain them.</li>
+        <li>Per-device things (theme, sidebar width, export preferences) don't sync; tasks, groups, images, Completed & Trash all do.</li>
+        <li>Ceiling to know about: GitHub's contents API caps the file at about 1 MB. Compressed screenshots run 50 to 200 KB each, so it's roomy but not infinite; the app tells you if a sync ever hits it.</li>
+      </ul>
+
+      <h3>Why the iPhone popup exists</h3>
+      <p>WebKit's tracking prevention wipes a site's script-writable storage after 7 days of Safari use without a visit to that site. A task board you open daily is safe; one you leave for a week on a trip isn't. Adding the board to the Home Screen exempts it, & with sync on, the GitHub copy survives regardless. The banner shows once & never returns after "Got it".</p>
+    </article>
+
+    <footer>
+      <p>This page is written by the agent that builds Punchlist, one entry per working session, newest at the top. It loads nothing from third parties & runs no scripts.</p>
+    </footer>
+  </div>
+</body>
+</html>
