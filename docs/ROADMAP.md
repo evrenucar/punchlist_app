@@ -43,6 +43,25 @@ Priority is based on data safety, frequency of use, and dependency order.
 - Add a clear Markdown-based help card in Settings.
 - Verify every control, label, nested row, timeline block, and focus view at narrow phone widths.
 
+## Deferred vision - URL-hosted board with offline sync (noted 2026-07-15, not scheduled)
+
+Captured from Evren during a product grill session. Explicitly deferred by him ("note it down, I'll give you a different task first"). Do not design or build any of this without a fresh go-ahead.
+
+Context that produced it: success metric is "Punchlist is my daily driver"; the #1 daily-driver gap is phone capture; the 2026-07-15 research report names omnipresent low-friction capture as the space's most indispensable feature and warns against one-off "snowflake" sync infrastructure.
+
+The vision, as stated:
+
+- The board is reachable over a URL (e.g. GitHub Pages) yet stays a static app.
+- Offline-first: fully usable and editable offline; edits are kept locally.
+- When a device comes back online, conflicts ("interference") between devices get resolved somehow.
+- PC, phone, and other devices all connect to the same board.
+- People can easily host their own boards on GitHub; GitHub Actions does the machinery.
+- Data stays private despite being hosted.
+- Users can share data or sections with each other, and link/unlink them.
+- Identity without accounts - or with just GitHub accounts, or hashed special usernames.
+
+Open tensions to resolve before any of this is real: private data on a public host (encryption? private repos?), conflict-resolution model (CRDT? last-writer-wins? manual merge?), and whether GitHub-as-backend violates the no-server rule or satisfies it.
+
 ## Research backlog
 
 ### Task-management workflow research
