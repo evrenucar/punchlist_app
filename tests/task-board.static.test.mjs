@@ -161,7 +161,7 @@ test("legacy state migrates to version two without losing task data", async () =
 
 test("new tasks retain immutable creation context", async () => {
   const api = await loadBoardApi();
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   const parent = group.tasks[0];
   const child = api.addTask(group.id, parent.id);
 
@@ -242,7 +242,7 @@ test("nested task selections serialize to and parse from clean markdown", async 
 
 test("aliases share task content while references retain a compact linked placement", async () => {
   const api = await loadBoardApi();
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   const original = group.tasks[0];
   const alias = api.createLinkedTaskTree(original, "alias", "group-today");
   const reference = api.createLinkedTaskTree(original, "reference", "group-today");
@@ -261,7 +261,7 @@ test("aliases share task content while references retain a compact linked placem
 
 test("internal paste mode creates aliases by default and cut paste moves originals", async () => {
   const api = await loadBoardApi();
-  const kora = api.state.groups.find((item) => item.id === "group-kora");
+  const kora = api.state.groups.find((item) => item.id === "group-projects");
   const today = api.state.groups.find((item) => item.id === "group-today");
   const original = kora.tasks[0];
 
@@ -278,7 +278,7 @@ test("internal paste mode creates aliases by default and cut paste moves origina
 
 test("linked paste rejects placing a task beneath its own descendant", async () => {
   const api = await loadBoardApi();
-  const kora = api.state.groups.find((item) => item.id === "group-kora");
+  const kora = api.state.groups.find((item) => item.id === "group-projects");
   const parent = kora.tasks.find((item) => item.children.length > 0);
   const child = parent.children[0];
 
@@ -289,7 +289,7 @@ test("linked paste rejects placing a task beneath its own descendant", async () 
 
 test("completion retention supports seconds and restores tasks", async () => {
   const api = await loadBoardApi();
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   const item = group.tasks[0];
   api.state.settings.completionRetentionSeconds = 10;
 
@@ -303,7 +303,7 @@ test("completion retention supports seconds and restores tasks", async () => {
 
 test("task and group lifecycle overrides take precedence over global settings", async () => {
   const api = await loadBoardApi();
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   const item = group.tasks[0];
   api.state.settings.completionRetentionSeconds = 50;
   group.policyOverrides = { completionRetentionSeconds: 5 };
@@ -318,7 +318,7 @@ test("task and group lifecycle overrides take precedence over global settings", 
 
 test("delete moves tasks to restorable trash or permanently removes them by policy", async () => {
   const api = await loadBoardApi();
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   const first = group.tasks[0];
   const firstIndex = group.tasks.indexOf(first);
   api.state.settings.deleteMode = "trash";
@@ -342,7 +342,7 @@ test("delete moves tasks to restorable trash or permanently removes them by poli
 
 test("trash retention purges expired records and export inclusion is configurable", async () => {
   const api = await loadBoardApi();
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   api.state.settings.deleteMode = "trash";
   api.state.settings.trashRetentionSeconds = 5;
   api.deleteTaskWithPolicy(group.tasks[0].id, "2026-07-11T12:00:00.000Z");
@@ -538,14 +538,14 @@ test("copying selected groups includes their full contents even when collapsed",
   const clipboard = api.rememberInternalClipboard("copy");
   assert.ok(clipboard);
   assert.match(clipboard.markdown, /## Priorities/);
-  assert.match(clipboard.markdown, /- Askerlik/);
-  assert.match(clipboard.markdown, /- Visa check/);
+  assert.match(clipboard.markdown, /- Finish the slides for the Monday review/);
+  assert.match(clipboard.markdown, /- Send the signed lease back/);
 
   const mixed = api.selectedNodesToMarkdown([
     { kind: "group", id: group.id },
     { kind: "task", id: group.tasks[0].id },
   ]);
-  assert.equal(mixed.match(/Askerlik/g).length, 1);
+  assert.equal(mixed.match(/Finish the slides for the Monday review/g).length, 1);
 });
 
 test("relative date labels describe today, tomorrow, and day offsets", async () => {
@@ -586,19 +586,19 @@ test("details panel shows identity and location for tasks and groups", async () 
 
 test("deleting a group requires confirmation before it reaches the trash", async () => {
   const api = await loadBoardApi();
-  api.selectNode("group", "group-kora");
+  api.selectNode("group", "group-projects");
   api.deleteSelectedNodes();
-  assert.equal(api.state.groups.some((group) => group.id === "group-kora"), true);
+  assert.equal(api.state.groups.some((group) => group.id === "group-projects"), true);
   assert.ok(api.pendingGroupDelete);
-  assert.equal(api.pendingGroupDelete.groupId, "group-kora");
+  assert.equal(api.pendingGroupDelete.groupId, "group-projects");
   api.deleteSelectedNodesConfirmed(api.pendingGroupDelete.nodes);
-  assert.equal(api.state.groups.some((group) => group.id === "group-kora"), false);
+  assert.equal(api.state.groups.some((group) => group.id === "group-projects"), false);
   assert.equal(api.state.trash.some((record) => record.kind === "group"), true);
 });
 
 test("focus mode accepts groups and hides retention-hidden children", async () => {
   const api = await loadBoardApi();
-  assert.equal(api.enterGroupFocusMode("group-kora"), true);
+  assert.equal(api.enterGroupFocusMode("group-projects"), true);
   assert.equal(api.toggleFocusMode(), false);
 
   const html = api.renderFocusChildren([
@@ -607,7 +607,7 @@ test("focus mode accepts groups and hides retention-hidden children", async () =
   ]);
   assert.equal((html.match(/<li/g) || []).length, 2, "empty rows stay editable in focus mode");
 
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   api.state.settings.completionRetentionSeconds = 0;
   api.setTaskCompleted(group.tasks[0].id, true, "2020-01-01T00:00:00.000Z");
   const filtered = api.renderFocusChildren(group.tasks, 0, group);
@@ -678,18 +678,18 @@ test("task images become keyboard nodes and delete removes just the image", asyn
 
 test("trash records describe their origin group and parent", async () => {
   const api = await loadBoardApi();
-  const group = api.state.groups.find((item) => item.id === "group-kora");
+  const group = api.state.groups.find((item) => item.id === "group-projects");
   const parent = group.tasks.find((item) => item.children.length > 0);
   const child = parent.children[0];
   const record = api.deleteTaskWithPolicy(child.id, "2026-07-11T12:00:00.000Z");
   const origin = api.describeTrashOrigin(record);
-  assert.match(origin, /^In Kora/);
+  assert.match(origin, /^In Projects/);
   assert.match(origin, new RegExp(parent.text.slice(0, 10).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("alt arrows move a task through subtrees and across groups", async () => {
   const api = await loadBoardApi();
-  const kora = api.state.groups.find((group) => group.id === "group-kora");
+  const kora = api.state.groups.find((group) => group.id === "group-projects");
   const first = kora.tasks[0];
   const withChildren = kora.tasks[1];
   assert.ok(withChildren.children.length > 0);
@@ -702,10 +702,10 @@ test("alt arrows move a task through subtrees and across groups", async () => {
   assert.equal(kora.tasks[0].id, first.id);
 
   const priorities = api.state.groups.find((group) => group.id === "group-priorities");
-  const today = api.state.groups.find((group) => group.id === "group-today");
+  const projects = api.state.groups.find((group) => group.id === "group-projects");
   const last = priorities.tasks.at(-1);
   assert.equal(api.moveTaskVisually(last.id, 1), true);
-  assert.equal(today.tasks[0].id, last.id);
+  assert.equal(projects.tasks[0].id, last.id);
   assert.equal(api.moveTaskVisually(last.id, -1), true);
   assert.equal(priorities.tasks.at(-1).id, last.id);
 });
@@ -788,17 +788,15 @@ test("task board file contains the seeded task groups and nested tasks", async (
   const html = await readBoard();
 
   for (const text of [
-    "Priorities",
-    "Kora",
-    "Scaled Autonomy",
+    "Getting started",
     "Today",
-    "Work and reply",
-    "Later / Trolling motor",
-    "At oma / Scaled Autonomy focus",
-    "Visa stuff",
-    "Jetson Orin Nano Super 8GB",
-    "Buy 3 patch antennas",
-    "Make the bus servo rotate",
+    "Priorities",
+    "Projects",
+    "Later",
+    "Redesign the personal website",
+    "Write the landing-page copy",
+    "Compare train versus driving",
+    "Compare Obsidian, ClickUp, Todoist, Things, and Notion workflows",
   ]) {
     assert.match(html, new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
@@ -839,8 +837,8 @@ test("top-level categories have distinct color accents", async () => {
 
   assert.match(html, /--group-color/);
   assert.match(html, /group-priorities[\s\S]*color/);
-  assert.match(html, /group-kora[\s\S]*color/);
-  assert.match(html, /group-scaled-autonomy[\s\S]*color/);
+  assert.match(html, /group-projects[\s\S]*color/);
+  assert.match(html, /group-later[\s\S]*color/);
 });
 
 test("main task board renders as a single column", async () => {
@@ -989,11 +987,11 @@ test("selected ranges can be moved deleted and toggled", async () => {
   assert.equal(today.tasks[0].id, fourth.id);
 
   api.restoreUndoState();
-  const kora = api.state.groups.find((group) => group.id === "group-kora");
-  const koraDecision = kora.tasks.find((task) => task.text === "Kora CAD final decisions");
-  api.selectNode({ kind: "task", id: koraDecision.id });
+  const projects = api.state.groups.find((group) => group.id === "group-projects");
+  const projectDecision = projects.tasks.find((task) => task.text === "Redesign the personal website");
+  api.selectNode({ kind: "task", id: projectDecision.id });
   api.toggleSelectedNodes(true);
-  assert.equal(koraDecision.collapsed, true);
+  assert.equal(projectDecision.collapsed, true);
 
   api.restoreUndoState();
   const restoredToday = api.state.groups.find((group) => group.title === "Today");
@@ -1041,7 +1039,7 @@ test("groups have stable editable colors across reordering", async () => {
   }
 
   const api = await loadBoardApi();
-  const sidequests = api.state.groups.find((group) => group.id === "group-sidequests");
+  const sidequests = api.state.groups.find((group) => group.id === "group-getting-started");
   const priorities = api.state.groups.find((group) => group.id === "group-priorities");
   assert.ok(sidequests);
   assert.ok(priorities);
@@ -1235,7 +1233,7 @@ test("static task board supports export and import without server storage", asyn
   const exported = JSON.parse(api.serializeBoardState());
   assert.equal(exported.version, 2);
   assert.ok(Array.isArray(exported.state.groups));
-  assert.equal(exported.state.groups.some((group) => group.title === "Kora"), true);
+  assert.equal(exported.state.groups.some((group) => group.title === "Projects"), true);
 
   const importedState = {
     groups: [
@@ -1267,7 +1265,7 @@ test("task board can copy any task into Doing now without removing the original"
   }
 
   const api = await loadBoardApi();
-  const kora = api.state.groups.find((group) => group.title === "Kora");
+  const kora = api.state.groups.find((group) => group.title === "Projects");
   assert.ok(kora);
   const source = kora.tasks[0];
 
@@ -1381,7 +1379,7 @@ test("focus mode tracks and resumes accumulated task time", async () => {
   }
 
   const api = await loadBoardApi();
-  const kora = api.state.groups.find((group) => group.title === "Kora");
+  const kora = api.state.groups.find((group) => group.title === "Projects");
   assert.ok(kora);
   const firstTask = kora.tasks[0];
 
@@ -1396,6 +1394,6 @@ test("focus mode tracks and resumes accumulated task time", async () => {
   assert.equal(firstTask.focusSeconds, 125);
 
   const exported = JSON.parse(api.serializeBoardState());
-  const exportedKora = exported.state.groups.find((group) => group.title === "Kora");
+  const exportedKora = exported.state.groups.find((group) => group.title === "Projects");
   assert.equal(exportedKora.tasks[0].focusSeconds, 125);
 });
