@@ -18,3 +18,4 @@ Desktop.ini
 
 # Browser tooling debris
 .playwright-mcp/
+*.stackdump
