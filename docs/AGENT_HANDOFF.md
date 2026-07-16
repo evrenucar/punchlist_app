@@ -48,6 +48,8 @@ The user routinely dumps unstructured work, then needs to:
 
 Verification as of 2026-07-16: 83 tests in `tests/task-board.static.test.mjs` pass; the Playwright smoke test skips (no runtime installed); browser acceptance ran through the Chrome DevTools MCP against the built file at desktop and phone widths in both themes, including a two-context signed export/import round trip (first-contact, known, tampered-refused) and the earlier mocked-GitHub run of every sync path in isolated browser contexts.
 
+Current priority (2026-07-16): the funnel is done-for-now and the active direction is mobile/touch refinement from Evren's own friction list — the ranked directions, to-do lists, whole-repo ponytail audit, and matched skills are in `docs/DIRECTIONS.md`. Read that file before proposing new work.
+
 One historical note: a "rename to cosmo_vid" request (branding, folder, README) was executed and then FULLY rolled back — it was meant for a different project. The name stays Punchlist; do not resurrect cosmo_vid from git history or transcripts. `CLAUDE.md` at the repo root is the entry point for new agents.
 
 Do not encode mutable placement into task IDs; aliases/references, lifecycle history, and scheduling all rely on stable task identity.

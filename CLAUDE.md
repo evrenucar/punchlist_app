@@ -1,16 +1,17 @@
 # Punchlist (repo: scheduling & task management)
 
-Single-file, local-first task board. One HTML file, zero dependencies, no server. Everything a new agent needs is in three documents — read them in this order before changing anything:
+Single-file, local-first task board. One HTML file, zero dependencies, no server. Everything a new agent needs is in four documents — read them in this order before changing anything:
 
 1. `docs/AGENT_HANDOFF.md` — purpose, constraints, full current state, **Hard-won working notes** (real traps that already bit once), and known rough edges.
-2. `docs/ROADMAP.md` — status and what remains, including the deferred research backlog.
-3. `README.md` — user-facing summary, commands, product rules.
+2. `docs/DIRECTIONS.md` — the CURRENT priority (as of 2026-07-16: mobile/touch refinement from Evren's friction list; funnel declared done-for-now), ranked directions with to-do lists, ponytail audit, and which skills fit the work.
+3. `docs/ROADMAP.md` — status and what remains, including the deferred research backlog.
+4. `README.md` — user-facing summary, commands, product rules.
 
 ## Commands
 
 ```powershell
 node scripts/build-task-board.mjs          # src/ -> outputs/task-board.html (+ website copy)
-node --test tests/task-board.static.test.mjs   # 77 tests; must pass before any commit
+node --test tests/task-board.static.test.mjs   # 83 tests; must pass before any commit
 ```
 
 ## Rules that override convenience

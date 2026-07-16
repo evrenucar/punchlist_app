@@ -8,6 +8,8 @@ Priority is based on data safety, frequency of use, and dependency order.
 
 **Update (2026-07-16, v1.3.0):** Device identity and signed exports shipped (grill Q10–Q12, design record in `docs/IDENTITY.md`). Each device gets a local name that labels history entries, sync commit messages, and a device list in Settings → Sync; one ECDSA keypair per user syncs through the private repo and signs board exports; imports verify the signature and recognize repeat senders by key fingerprint (trust on first use). This is identity groundwork for the sharing items below — the sharing/collaboration features themselves stay deferred. 83 static tests pass.
 
+**Current direction (2026-07-16, grill Q9/Q13):** Evren declared the funnel done-for-now. The active priority is mobile/touch refinement driven by his own friction list, with the phone-capture loop running alongside; the ranked directions, to-do lists, ponytail audit, and matched skills live in `docs/DIRECTIONS.md`. Next concrete step: collect and triage his voice-dictated UI/UX issue list, then a design-review audit pass at phone widths before fixing.
+
 ## P0 - Trust and editing
 
 - Preserve and migrate all existing local data into the expanded schema.
