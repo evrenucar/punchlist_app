@@ -163,16 +163,22 @@
                   Sync now
                 </button>
                 <p class="sync-status" data-sync-status></p>
+                <div data-sync-devices title="Devices that have saved to this board, per the synced roster"></div>
               </div>
             </details>
             <label class="settings-row" title="Reveal optional policy controls on groups and tasks">
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
             </label>
-            <label class="settings-row" title="Shown in settings files you export">
+            <label class="settings-row" title="Shown in settings files you export and named as the sender of signed board exports">
               Username
               <input type="text" data-username placeholder="your name" maxlength="40">
             </label>
+            <label class="settings-row" title="Names this browser in history entries and sync commits. Stays on this device.">
+              Device name
+              <input type="text" data-device-name placeholder="e.g. laptop" maxlength="40">
+            </label>
+            <p class="sync-status" data-identity-line hidden title="Board exports are signed with this board's own key; people who import them can tell your exports apart from anyone else's by this fingerprint"></p>
             <button class="control" type="button" data-export-settings title="Download just your settings as a small JSON file you can share">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
               Export settings

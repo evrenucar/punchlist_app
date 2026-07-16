@@ -6,6 +6,8 @@ Priority is based on data safety, frequency of use, and dependency order.
 
 **Update (2026-07-15, v1.2.0):** GitHub sync v1 shipped — the first slice of the deferred vision below, deliberately scoped to Evren's own GitHub per the grill session (strangers get a gentler flow only if a later decision asks for one). The landing page gained Open-the-board + Download CTAs, the demo embed auto-sizes instead of cropping, and iOS Safari users get a one-time Add-to-Home-Screen nudge because Safari deletes site storage after 7 days unused. 77 static tests pass.
 
+**Update (2026-07-16, v1.3.0):** Device identity and signed exports shipped (grill Q10–Q12, design record in `docs/IDENTITY.md`). Each device gets a local name that labels history entries, sync commit messages, and a device list in Settings → Sync; one ECDSA keypair per user syncs through the private repo and signs board exports; imports verify the signature and recognize repeat senders by key fingerprint (trust on first use). This is identity groundwork for the sharing items below — the sharing/collaboration features themselves stay deferred. 83 static tests pass.
+
 ## P0 - Trust and editing
 
 - Preserve and migrate all existing local data into the expanded schema.

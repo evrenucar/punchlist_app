@@ -349,9 +349,9 @@ test("trash retention purges expired records and export inclusion is configurabl
   api.deleteTaskWithPolicy(group.tasks[0].id, "2026-07-11T12:00:00.000Z");
 
   api.state.settings.exportTrash = false;
-  assert.equal(JSON.parse(api.serializeBoardState()).state.trash.length, 0);
+  assert.equal(JSON.parse(await api.serializeBoardState()).state.trash.length, 0);
   api.state.settings.exportTrash = true;
-  assert.equal(JSON.parse(api.serializeBoardState()).state.trash.length, 1);
+  assert.equal(JSON.parse(await api.serializeBoardState()).state.trash.length, 1);
   assert.equal(api.purgeExpiredTrash(Date.parse("2026-07-11T12:00:04.000Z")), 0);
   assert.equal(api.purgeExpiredTrash(Date.parse("2026-07-11T12:00:05.000Z")), 1);
   assert.equal(api.state.trash.length, 0);
@@ -1231,7 +1231,7 @@ test("static task board supports export and import without server storage", asyn
   }
 
   const api = await loadBoardApi();
-  const exported = JSON.parse(api.serializeBoardState());
+  const exported = JSON.parse(await api.serializeBoardState());
   assert.equal(exported.version, 2);
   assert.ok(Array.isArray(exported.state.groups));
   assert.equal(exported.state.groups.some((group) => group.title === "Projects"), true);
@@ -1248,7 +1248,7 @@ test("static task board supports export and import without server storage", asyn
       },
     ],
   };
-  assert.equal(api.importBoardStateFromJson(JSON.stringify({ state: importedState })), true);
+  assert.equal(await api.importBoardStateFromJson(JSON.stringify({ state: importedState })), true);
   assert.equal(api.state.groups.length, 1);
   assert.equal(api.state.groups[0].title, "Imported");
   assert.equal(api.state.groups[0].tasks[0].text, "Imported task");
@@ -1395,7 +1395,7 @@ test("focus mode tracks and resumes accumulated task time", async () => {
   assert.equal(api.addFocusElapsedSeconds(firstTask.id, 66000, 126000), true);
   assert.equal(firstTask.focusSeconds, 125);
 
-  const exported = JSON.parse(api.serializeBoardState());
+  const exported = JSON.parse(await api.serializeBoardState());
   const exportedKora = exported.state.groups.find((group) => group.title === "Projects");
   assert.equal(exportedKora.tasks[0].focusSeconds, 125);
 });
@@ -1471,12 +1471,12 @@ test("github sync payload is lossless; token stays out of exports; demo never sy
   assert.equal(payload.state.settings, undefined, "per-device settings never sync");
   const syncedTexts = JSON.stringify(payload.state.groups);
   assert.ok(syncedTexts.includes(item.id), "completed task still in the sync payload");
-  const exported = JSON.stringify(JSON.parse(api.serializeBoardState()).state.groups);
+  const exported = JSON.stringify(JSON.parse(await api.serializeBoardState()).state.groups);
   assert.equal(exported.includes(item.id), false, "export filter still drops completed tasks");
 
   api.saveSyncConfig({ enabled: true, repo: "evren/punchlist-data", token: "github_pat_secret" });
   assert.equal(api.syncIsActive(), true);
-  assert.equal(api.serializeBoardState().includes("github_pat_secret"), false, "token never lands in a board export");
+  assert.equal((await api.serializeBoardState()).includes("github_pat_secret"), false, "token never lands in a board export");
   api.saveSyncConfig({ enabled: false });
   assert.equal(api.syncIsActive(), false);
 
@@ -1507,4 +1507,112 @@ test("sync ui, home-screen hint, and demo height reporter are wired into the bui
 
   const site = await readFile(path.join(root, "website", "index.html"), "utf8");
   assert.match(site, /punchlistDemoHeight/);
+});
+
+test("device identity labels history entries and the synced roster", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
+  const device = api.getDeviceIdentity();
+  assert.ok(device.id, "every board load has a device id");
+  api.saveDeviceIdentity({ name: "laptop" });
+  assert.equal(api.deviceDisplayName(device.id), "laptop");
+
+  api.logHistory("Changed the board");
+  const entry = api.state.history[api.state.history.length - 1];
+  assert.equal(entry.deviceId, device.id, "history entries carry the writing device's id");
+
+  api.touchDeviceRoster();
+  assert.equal(api.state.devices[device.id].name, "laptop", "roster records this device");
+  assert.match(api.renderDeviceRoster(), /laptop/);
+  assert.match(api.renderDeviceRoster(), /this device/);
+
+  api.state.devices["device-x9k2"] = { name: "phone", lastSeenAt: "2026-07-16T08:00:00.000Z" };
+  assert.equal(api.deviceDisplayName("device-x9k2"), "phone", "other devices resolve through the roster");
+  assert.equal(api.deviceDisplayName("device-a1b2"), "device a1b2", "unnamed devices fall back to an id suffix");
+
+  const html = await readBoard();
+  assert.match(html, /data-device-name/);
+  assert.match(html, /data-identity-line/);
+  assert.match(html, /data-sync-devices/);
+  assert.match(html, /punchlist sync \(\$\{trigger\}/, "commit messages template still present");
+  assert.match(html, /deviceDisplayName\(deviceIdentity\.id\)/, "commit messages name the device");
+});
+
+test("import trust verdict decision core", async () => {
+  const api = await loadBoardApi();
+  assert.equal(api.importTrustVerdict({ signed: false }), "unsigned");
+  assert.equal(api.importTrustVerdict({ signed: true, valid: false }), "invalid");
+  assert.equal(api.importTrustVerdict({ signed: true, valid: true, fingerprint: "a", ownFingerprint: "a" }), "self");
+  assert.equal(api.importTrustVerdict({ signed: true, valid: true, fingerprint: "a", ownFingerprint: "b", knownContact: true }), "known");
+  assert.equal(api.importTrustVerdict({ signed: true, valid: true, fingerprint: "a", ownFingerprint: null, knownContact: false }), "first-contact");
+});
+
+test("exports carry a signature but never the private key or contact book", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob, crypto: globalThis.crypto });
+  const identity = await api.ensureSigningIdentity();
+  assert.ok(identity?.fingerprint, "signing identity generated");
+  api.state.contacts = { abcd1234: { name: "trusted-friend", firstSeenAt: "2026-07-16T08:00:00.000Z", lastSeenAt: "2026-07-16T08:00:00.000Z" } };
+
+  const exported = await api.serializeBoardState();
+  assert.equal(exported.includes("privateKeyJwk"), false, "private key never lands in an export");
+  assert.doesNotMatch(exported, /"d"\s*:/, "JWK private member never lands in an export");
+  assert.equal(exported.includes("contacts"), false, "the local trust book never lands in an export");
+  assert.equal(exported.includes("trusted-friend"), false);
+
+  const payload = JSON.parse(exported);
+  assert.equal(payload.sender.fingerprint, identity.fingerprint);
+  assert.ok(payload.signature, "export is signed");
+
+  const sync = JSON.parse(api.getSyncPayload());
+  assert.ok(sync.state.identity.privateKeyJwk, "sync payload carries the full identity so the user's devices share one key");
+});
+
+test("signed exports verify on import and repeat senders are recognized", async () => {
+  const sender = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob, crypto: globalThis.crypto });
+  sender.updateSettings({ username: "Evren" });
+  await sender.ensureSigningIdentity();
+  const exportedText = await sender.serializeBoardState();
+
+  const recipient = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob, crypto: globalThis.crypto });
+  const first = await recipient.describeImportSender(JSON.parse(exportedText));
+  assert.equal(first.verdict, "first-contact");
+  assert.equal(first.name, "Evren");
+
+  assert.equal(await recipient.importBoardStateFromJson(exportedText), true);
+  assert.ok(recipient.state.contacts[first.fingerprint], "sender lands in the contact book");
+  assert.equal(recipient.state.contacts[first.fingerprint].name, "Evren");
+  const provenance = recipient.state.history[recipient.state.history.length - 1];
+  assert.match(provenance.text, /Imported a board from JSON, signed by Evren \(/, "the import survives in the new board's history");
+
+  const second = await recipient.describeImportSender(JSON.parse(exportedText));
+  assert.equal(second.verdict, "known", "the same key is recognized on the next import");
+
+  const tampered = JSON.parse(exportedText);
+  tampered.state.groups[0].title = "Tampered";
+  assert.equal((await recipient.describeImportSender(tampered)).verdict, "invalid", "any content change breaks the signature");
+
+  const self = await sender.describeImportSender(JSON.parse(exportedText));
+  assert.equal(self.verdict, "self", "a board recognizes its own key");
+});
+
+test("sync pull never wipes the local identity; older payloads keep the key", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob, crypto: globalThis.crypto });
+  const identity = await api.ensureSigningIdentity();
+
+  const remote = JSON.parse(api.getSyncPayload());
+  delete remote.state.identity;
+  remote.state.groups = [{ id: "group-remote", title: "From an older build", tasks: [], collapsed: false }];
+  api.applySyncedState(remote);
+
+  assert.equal(api.state.groups.some((group) => group.title === "From an older build"), true);
+  assert.equal(api.state.identity.fingerprint, identity.fingerprint, "pull from a pre-identity build keeps the local key");
+});
+
+test("demo mode signs nothing and keeps the roster empty", async () => {
+  const demo = await loadBoardApi({ location: { search: "?demo" }, TextEncoder, TextDecoder, btoa, atob, crypto: globalThis.crypto });
+  assert.equal(demo.signingAvailable(), false, "demo never signs");
+  assert.equal(await demo.ensureSigningIdentity(), null);
+  demo.updateSettings({ username: "demo-user" });
+  assert.equal(Object.keys(demo.state.devices || {}).length, 0, "demo saves never touch the roster");
+  const demoEntry = demo.state.history[demo.state.history.length - 1];
+  assert.equal(demoEntry?.deviceId, undefined, "demo history entries carry no device id");
 });

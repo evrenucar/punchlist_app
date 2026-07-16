@@ -6,7 +6,7 @@ Punchlist is a lightweight, local-first task organizer for capturing, structurin
 
 Open [`outputs/task-board.html`](outputs/task-board.html) in a browser.
 
-Board data is saved in that browser's local storage. Use JSON export for a lossless backup and Markdown copy/export for portable task outlines. Different browsers do not share local storage; cross-browser sync is deliberately deferred to a future optional JSON-file helper.
+Board data is saved in that browser's local storage. Use JSON export for a lossless backup and Markdown copy/export for portable task outlines. Different browsers do not share local storage; Settings → Sync can keep devices on one board through a private GitHub repository and a fine-grained token.
 
 ## Features
 
@@ -15,6 +15,8 @@ Board data is saved in that browser's local storage. Use JSON export for a lossl
 - Configurable lifecycle: completed tasks hide after a chosen duration into a Completed view, and deletes go to a restorable Trash by policy (`task > group > global` overrides available).
 - Optional planning tools (off by default): per-task date, start time, planned minutes, reminders, a day Timeline with drag rescheduling, and planned-versus-actual focus comparison.
 - Collapsible sidebar with Views/Groups navigation, phone drawer layout, light and dark themes, and a built-in Help panel.
+- Optional GitHub sync (one JSON file in a private repo, local-wins conflicts backed by commit history), with named devices in history entries and commit messages.
+- Signed board exports: each board signs exports with its own key, and importing one shows whether it came from a known sender, a first-time sender, or was modified after signing (design record in [`docs/IDENTITY.md`](docs/IDENTITY.md)).
 
 ## Development
 

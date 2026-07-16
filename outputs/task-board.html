@@ -2182,16 +2182,22 @@
                   Sync now
                 </button>
                 <p class="sync-status" data-sync-status></p>
+                <div data-sync-devices title="Devices that have saved to this board, per the synced roster"></div>
               </div>
             </details>
             <label class="settings-row" title="Reveal optional policy controls on groups and tasks">
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
             </label>
-            <label class="settings-row" title="Shown in settings files you export">
+            <label class="settings-row" title="Shown in settings files you export and named as the sender of signed board exports">
               Username
               <input type="text" data-username placeholder="your name" maxlength="40">
             </label>
+            <label class="settings-row" title="Names this browser in history entries and sync commits. Stays on this device.">
+              Device name
+              <input type="text" data-device-name placeholder="e.g. laptop" maxlength="40">
+            </label>
+            <p class="sync-status" data-identity-line hidden title="Board exports are signed with this board's own key; people who import them can tell your exports apart from anyone else's by this fingerprint"></p>
             <button class="control" type="button" data-export-settings title="Download just your settings as a small JSON file you can share">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
               Export settings
@@ -2300,7 +2306,7 @@
     const STORAGE_KEY = "scheduling-task-management-board-v1" + (IS_DEMO ? "-demo" : "");
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1" + (IS_DEMO ? "-demo" : "");
     const SCHEMA_VERSION = 2;
-    const APP_VERSION = "1.2.0";
+    const APP_VERSION = "1.3.0";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";
     const DEFAULT_SETTINGS = Object.freeze({
@@ -2394,6 +2400,9 @@
     const historyListEl = document.querySelector("[data-history-list]");
     const historyMenuEl = document.querySelector("[data-history-menu]");
     const usernameEl = document.querySelector("[data-username]");
+    const deviceNameEl = document.querySelector("[data-device-name]");
+    const identityLineEl = document.querySelector("[data-identity-line]");
+    const syncDevicesEl = document.querySelector("[data-sync-devices]");
     const exportSettingsEl = document.querySelector("[data-export-settings]");
     const feedbackEl = document.querySelector("[data-feedback]");
     const syncSectionEl = document.querySelector("[data-sync-section]");
@@ -2447,6 +2456,54 @@
     let syncBusy = false;
     let syncQueued = false;
     let syncTimer = null;
+
+    // Device identity is a per-device label in its own localStorage key: it
+    // never syncs, so each device keeps its own name, while the roster in
+    // state.devices carries every device's name to the others.
+    const DEVICE_STORAGE_KEY = STORAGE_KEY + "-device";
+    let deviceIdentity = loadDeviceIdentity();
+
+    function loadDeviceIdentity() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(DEVICE_STORAGE_KEY) || "null");
+        if (parsed && typeof parsed.id === "string" && parsed.id) {
+          return { id: parsed.id, name: typeof parsed.name === "string" ? parsed.name : "" };
+        }
+      } catch {}
+      const created = { id: createId("device"), name: "" };
+      if (!IS_DEMO) localStorage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(created));
+      return created;
+    }
+
+    function saveDeviceIdentity(patch) {
+      Object.assign(deviceIdentity, patch);
+      if (!IS_DEMO) localStorage.setItem(DEVICE_STORAGE_KEY, JSON.stringify(deviceIdentity));
+    }
+
+    function deviceDisplayName(id) {
+      if (!id) return "";
+      const name = String((id === deviceIdentity.id ? deviceIdentity.name : state.devices?.[id]?.name) || "").trim();
+      return name || `device ${id.slice(-4)}`;
+    }
+
+    // Each device records itself in the synced roster so the others can
+    // resolve its name in history entries and the sync overview.
+    function touchDeviceRoster() {
+      if (IS_DEMO) return;
+      if (!state.devices || typeof state.devices !== "object" || Array.isArray(state.devices)) state.devices = {};
+      state.devices[deviceIdentity.id] = { name: deviceIdentity.name, lastSeenAt: new Date().toISOString() };
+    }
+
+    function renderDeviceRoster() {
+      return Object.entries(state.devices || {})
+        .sort(([, a], [, b]) => String(b?.lastSeenAt || "").localeCompare(String(a?.lastSeenAt || "")))
+        .map(([id, info]) => {
+          const seen = describeRelativeDateTime(info?.lastSeenAt);
+          const self = id === deviceIdentity.id ? " (this device)" : "";
+          return `<p class="sync-status">${escapeHtml(deviceDisplayName(id))}${self}${seen ? escapeHtml(` · ${seen}`) : ""}</p>`;
+        })
+        .join("");
+    }
 
     function createId(prefix = "task") {
       return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -2584,6 +2641,7 @@
     }
 
     function saveState() {
+      touchDeviceRoster();
       saveStateToLocalStorage();
       if (syncIsActive() && !syncApplying) {
         saveSyncConfig({ dirty: true });
@@ -2620,12 +2678,25 @@
       return value;
     }
 
-    function getBoardExportPayload() {
-      return {
+    async function getBoardExportPayload() {
+      const payload = {
         version: SCHEMA_VERSION,
         exportedAt: new Date().toISOString(),
         state: getExportState(),
       };
+      // The signature covers the exact compact serialization of payload.state;
+      // verification re-stringifies the parsed object, which matches because
+      // JSON.parse/stringify preserve key order.
+      const signature = await signText(JSON.stringify(payload.state)).catch(() => null);
+      if (signature && state.identity) {
+        payload.sender = {
+          name: String(state.settings.username || "").trim() || null,
+          fingerprint: state.identity.fingerprint,
+          publicKeyJwk: state.identity.publicKeyJwk,
+        };
+        payload.signature = signature;
+      }
+      return payload;
     }
 
     function getExportState() {
@@ -2634,9 +2705,14 @@
         ...group,
         tasks: filterTasksForExport(group.tasks, includeCompleted),
       }));
+      // identity holds the private key and contacts is the local trust book;
+      // neither may ever land in a shared file. Device names stay: attribution
+      // is the point of the roster.
       return JSON.parse(JSON.stringify({
         ...state,
         settings: undefined,
+        identity: undefined,
+        contacts: undefined,
         groups,
         trash: state.settings.exportTrash ? state.trash : [],
       }));
@@ -2653,11 +2729,11 @@
       });
     }
 
-    function serializeBoardState() {
-      return JSON.stringify(getBoardExportPayload(), null, 2);
+    async function serializeBoardState() {
+      return JSON.stringify(await getBoardExportPayload(), null, 2);
     }
 
-    function importBoardStateFromJson(jsonText) {
+    async function importBoardStateFromJson(jsonText) {
       const payload = JSON.parse(jsonText);
       if (payload?.kind === "punchlist-settings" && payload.settings && typeof payload.settings === "object") {
         pushUndoState("board", `Imported settings${payload.exportedBy ? ` from ${payload.exportedBy}` : ""}`);
@@ -2673,17 +2749,52 @@
       if (!importedState || !Array.isArray(importedState.groups)) {
         throw new Error("Imported file must contain a state.groups array.");
       }
+      const sender = await describeImportSender(payload);
+      if (sender.verdict === "invalid") {
+        const proceed = window.confirm?.("This file's signature does not match its content — it was changed after being signed, or corrupted in transit. Import it anyway?");
+        if (!proceed) return false;
+      }
       if (focusModeTaskId) exitFocusMode();
-      pushUndoState("board", "Imported a board from JSON");
+      const senderLabel = sender.fingerprint ? `${sender.name || "unnamed"} (${sender.fingerprint})` : "";
+      pushUndoState("board", `Imported a board from JSON${senderLabel ? `, signed by ${senderLabel}` : ""}`);
       const currentSettings = state.settings;
+      const currentIdentity = state.identity || null;
+      const currentContacts = state.contacts && typeof state.contacts === "object" ? state.contacts : {};
       state = migrateState(importedState, new Date().toISOString(), { includeResearch: false });
       state.settings = { ...DEFAULT_SETTINGS, ...currentSettings };
+      // Never adopt an identity from a shared file while one exists here:
+      // exports carry no private key, and a raw dump's key belongs to its owner.
+      if (currentIdentity) state.identity = currentIdentity;
+      state.contacts = Object.keys(currentContacts).length ? currentContacts : (state.contacts || {});
+      if ((sender.verdict === "known" || sender.verdict === "first-contact") && sender.fingerprint) {
+        const existing = state.contacts[sender.fingerprint];
+        const now = new Date().toISOString();
+        state.contacts[sender.fingerprint] = {
+          name: sender.name || existing?.name || "",
+          firstSeenAt: existing?.firstSeenAt || now,
+          lastSeenAt: now,
+        };
+      }
+      // The imported board's history replaced the local one above, so the
+      // provenance entry has to land in the new state to survive the import.
+      logHistory(`Imported a board from JSON${senderLabel ? `, signed by ${senderLabel}` : ""}`);
       selectedNode = getVisibleNodes()[0] || null;
       multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
       selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
       saveState();
+      syncSettingsControls();
       render();
+      showToast(importVerdictToast(sender));
       return true;
+    }
+
+    function importVerdictToast(sender) {
+      const label = sender.name || (sender.fingerprint ? `sender ${sender.fingerprint}` : "");
+      if (sender.verdict === "self") return "Imported a board signed with this board's own key.";
+      if (sender.verdict === "known") return `Imported a board from ${label}, the same sender as before.`;
+      if (sender.verdict === "first-contact") return `Imported a board from ${label}, the first import from this sender.`;
+      if (sender.verdict === "invalid") return "Imported a board whose signature did not match its content.";
+      return "Imported an unsigned board.";
     }
 
     function downloadJsonFile(filename, text) {
@@ -2698,8 +2809,8 @@
       URL.revokeObjectURL(url);
     }
 
-    function downloadBoardState() {
-      downloadJsonFile(`punchlist-board-${new Date().toISOString().slice(0, 10)}.json`, serializeBoardState());
+    async function downloadBoardState() {
+      downloadJsonFile(`punchlist-board-${new Date().toISOString().slice(0, 10)}.json`, await serializeBoardState());
     }
 
     function downloadSettingsExport() {
@@ -2718,11 +2829,7 @@
       if (!file) return;
       const reader = new FileReader();
       reader.addEventListener("load", () => {
-        try {
-          importBoardStateFromJson(String(reader.result || ""));
-        } catch (error) {
-          window.alert(error.message);
-        }
+        importBoardStateFromJson(String(reader.result || "")).catch((error) => window.alert(error.message));
       });
       reader.readAsText(file);
     }
@@ -2753,8 +2860,7 @@
       return !IS_DEMO && Boolean(syncConfig.enabled && syncConfig.repo && syncConfig.token);
     }
 
-    function encodeBase64Utf8(text) {
-      const bytes = new TextEncoder().encode(text);
+    function bytesToBase64(bytes) {
       let binary = "";
       for (let index = 0; index < bytes.length; index += 0x8000) {
         binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
@@ -2762,9 +2868,16 @@
       return btoa(binary);
     }
 
+    function base64ToBytes(base64) {
+      return Uint8Array.from(atob(String(base64).replace(/\s+/g, "")), (ch) => ch.charCodeAt(0));
+    }
+
+    function encodeBase64Utf8(text) {
+      return bytesToBase64(new TextEncoder().encode(text));
+    }
+
     function decodeBase64Utf8(base64) {
-      const binary = atob(String(base64).replace(/\s+/g, ""));
-      return new TextDecoder().decode(Uint8Array.from(binary, (ch) => ch.charCodeAt(0)));
+      return new TextDecoder().decode(base64ToBytes(base64));
     }
 
     // Pure decision core: given where local and remote stand, one action.
@@ -2792,8 +2905,14 @@
       if (focusModeTaskId) exitFocusMode();
       pushUndoState("board", "Pulled board changes from GitHub");
       const currentSettings = state.settings;
+      const currentIdentity = state.identity || null;
+      const currentContacts = state.contacts && typeof state.contacts === "object" ? state.contacts : {};
       state = migrateState(imported, new Date().toISOString(), { includeResearch: false });
       state.settings = currentSettings;
+      // A payload from an older build must not wipe the shared key or the
+      // contact book; when the remote has them, the remote versions win.
+      if (!state.identity && currentIdentity) state.identity = currentIdentity;
+      if (!Object.keys(state.contacts || {}).length && Object.keys(currentContacts).length) state.contacts = currentContacts;
       selectedNode = getVisibleNodes()[0] || null;
       multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
       selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
@@ -2803,6 +2922,7 @@
       } finally {
         syncApplying = false;
       }
+      syncSettingsControls();
       render();
     }
 
@@ -2866,7 +2986,7 @@
             method: "PUT",
             headers: syncAuthHeaders(),
             body: JSON.stringify({
-              message: `punchlist sync (${trigger})`,
+              message: `punchlist sync (${trigger}, ${deviceDisplayName(deviceIdentity.id)})`,
               content: encodeBase64Utf8(getSyncPayload()),
               branch,
               ...(remote.exists ? { sha: remote.sha } : {}),
@@ -2890,6 +3010,104 @@
     }
     // ---- end GitHub sync ---------------------------------------------------
 
+    // ---- signing identity ----------------------------------------------------
+    // One ECDSA keypair per user, not per device: it lives in board state, so
+    // the user's own devices all receive it through sync (the private repo is
+    // the trusted channel) and sign exports as the same sender. Exports strip
+    // the private half; recipients verify with the embedded public half and
+    // recognize repeat senders by key fingerprint (trust on first use).
+    // ponytail: extractable JWK in state; non-extractable IndexedDB keys are
+    // the upgrade if device theft ever enters the threat model.
+    const SIGNING_KEY_PARAMS = { name: "ECDSA", namedCurve: "P-256" };
+    const SIGNING_ALGORITHM = { name: "ECDSA", hash: "SHA-256" };
+    let signingIdentityPromise = null;
+
+    function signingAvailable() {
+      return !IS_DEMO && typeof crypto !== "undefined" && Boolean(crypto.subtle);
+    }
+
+    function ensureSigningIdentity() {
+      if (!signingIdentityPromise) signingIdentityPromise = createSigningIdentity();
+      return signingIdentityPromise;
+    }
+
+    async function createSigningIdentity() {
+      if (!signingAvailable() || state.identity) return state.identity || null;
+      const pair = await crypto.subtle.generateKey(SIGNING_KEY_PARAMS, true, ["sign", "verify"]);
+      const [privateKeyJwk, publicKeyJwk] = await Promise.all([
+        crypto.subtle.exportKey("jwk", pair.privateKey),
+        crypto.subtle.exportKey("jwk", pair.publicKey),
+      ]);
+      const fingerprint = await publicKeyFingerprint(publicKeyJwk);
+      if (state.identity) return state.identity; // a sync pull won the race; keep the shared key
+      state.identity = { privateKeyJwk, publicKeyJwk, fingerprint, createdAt: new Date().toISOString() };
+      // Persist without marking the board dirty: the key rides along with the
+      // next natural push instead of racing the first pull on a new device.
+      saveStateToLocalStorage();
+      syncSettingsControls();
+      return state.identity;
+    }
+
+    async function publicKeyFingerprint(publicKeyJwk) {
+      const key = await crypto.subtle.importKey("jwk", publicKeyJwk, SIGNING_KEY_PARAMS, true, ["verify"]);
+      const spki = await crypto.subtle.exportKey("spki", key);
+      const digest = await crypto.subtle.digest("SHA-256", spki);
+      return [...new Uint8Array(digest).slice(0, 4)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    }
+
+    async function signText(text) {
+      await ensureSigningIdentity();
+      if (!state.identity || !signingAvailable()) return null;
+      const key = await crypto.subtle.importKey("jwk", state.identity.privateKeyJwk, SIGNING_KEY_PARAMS, false, ["sign"]);
+      const signature = await crypto.subtle.sign(SIGNING_ALGORITHM, key, new TextEncoder().encode(text));
+      return bytesToBase64(new Uint8Array(signature));
+    }
+
+    async function verifySignedText(publicKeyJwk, signatureBase64, text) {
+      try {
+        const key = await crypto.subtle.importKey("jwk", publicKeyJwk, SIGNING_KEY_PARAMS, false, ["verify"]);
+        return await crypto.subtle.verify(SIGNING_ALGORITHM, key, base64ToBytes(signatureBase64), new TextEncoder().encode(text));
+      } catch {
+        return false;
+      }
+    }
+
+    // Pure decision core, mirror of syncDecision: signature facts in, verdict out.
+    function importTrustVerdict({ signed, valid, fingerprint, ownFingerprint, knownContact }) {
+      if (!signed) return "unsigned";
+      if (!valid) return "invalid";
+      if (ownFingerprint && fingerprint === ownFingerprint) return "self";
+      return knownContact ? "known" : "first-contact";
+    }
+
+    async function describeImportSender(payload) {
+      const sender = payload?.sender;
+      const signed = Boolean(sender?.publicKeyJwk && payload?.signature);
+      if (!signed || typeof crypto === "undefined" || !crypto.subtle) {
+        return { verdict: "unsigned", name: String(sender?.name || ""), fingerprint: null };
+      }
+      let fingerprint = null;
+      let valid = false;
+      try {
+        // The fingerprint is recomputed from the embedded key; the sender's
+        // claimed fingerprint is display-only and never trusted.
+        fingerprint = await publicKeyFingerprint(sender.publicKeyJwk);
+        valid = await verifySignedText(sender.publicKeyJwk, payload.signature, JSON.stringify(payload.state));
+      } catch {}
+      return {
+        verdict: importTrustVerdict({
+          signed: true,
+          valid,
+          fingerprint,
+          ownFingerprint: state.identity?.fingerprint || null,
+          knownContact: Boolean(fingerprint && state.contacts?.[fingerprint]),
+        }),
+        name: String(sender?.name || ""),
+        fingerprint,
+      };
+    }
+    // ---- end signing identity ------------------------------------------------
+
     const HISTORY_LABELS = {
       board: "Changed the board",
       delete: "Deleted items",
@@ -2910,7 +3128,7 @@
 
     function logHistory(text, kind = "board") {
       if (!Array.isArray(state.history)) state.history = [];
-      state.history.push({ at: new Date().toISOString(), text: String(text), kind });
+      state.history.push({ at: new Date().toISOString(), text: String(text), kind, ...(IS_DEMO ? {} : { deviceId: deviceIdentity.id }) });
       if (state.history.length > 50) state.history.shift();
     }
 
@@ -4878,6 +5096,9 @@
       };
       boardState.trash = Array.isArray(boardState.trash) ? boardState.trash : [];
       boardState.history = Array.isArray(boardState.history) ? boardState.history.slice(-50) : [];
+      boardState.devices = boardState.devices && typeof boardState.devices === "object" && !Array.isArray(boardState.devices) ? boardState.devices : {};
+      boardState.contacts = boardState.contacts && typeof boardState.contacts === "object" && !Array.isArray(boardState.contacts) ? boardState.contacts : {};
+      boardState.identity = boardState.identity && typeof boardState.identity === "object" && boardState.identity.privateKeyJwk && boardState.identity.publicKeyJwk ? boardState.identity : null;
       boardState.groups = Array.isArray(boardState.groups) ? boardState.groups : [];
       boardState.groups.forEach((group, index) => {
         group.id = typeof group.id === "string" && group.id ? group.id : createId("group");
@@ -5085,6 +5306,7 @@
           ? `${at.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })} ${formatClockTime(at)}:${String(at.getSeconds()).padStart(2, "0")}`
           : "Unknown time";
         const kindLabel = entry.kind && entry.kind !== "board" ? ` · ${entry.kind}` : "";
+        const deviceLabel = entry.deviceId ? deviceDisplayName(entry.deviceId) : "";
         let restoreId = entry.trashId && state.trash.some((record) => record.id === entry.trashId) ? entry.trashId : null;
         if (!restoreId && /^Deleted /.test(entry.text)) {
           const quoted = entry.text.match(/"(.+)"$/)?.[1];
@@ -5101,7 +5323,7 @@
           <details class="history-row">
             <summary><span class="disclosure-arrow" aria-hidden="true"></span><span class="history-time">${label}</span><span class="history-text">${escapeHtml(entry.text)}</span></summary>
             <div class="history-detail">
-              ${escapeHtml(fullStamp)}${escapeHtml(kindLabel)}
+              ${escapeHtml(fullStamp)}${escapeHtml(kindLabel)}${deviceLabel ? escapeHtml(` · ${deviceLabel}`) : ""}
               ${restorable ? `<button class="control compact" type="button" data-action="restore-trash" data-trash-id="${restoreId}">Restore</button>` : ""}
             </div>
           </details>`;
@@ -5984,6 +6206,12 @@
       if (featureRemindersEl) featureRemindersEl.checked = Boolean(settings.reminders);
       if (featureNotificationsEl) featureNotificationsEl.checked = Boolean(settings.browserNotifications);
       if (usernameEl) usernameEl.value = String(settings.username || "");
+      if (deviceNameEl) deviceNameEl.value = String(deviceIdentity.name || "");
+      if (identityLineEl) {
+        identityLineEl.hidden = !state.identity;
+        if (state.identity) identityLineEl.textContent = `Signing identity: ${String(settings.username || "").trim() || "unnamed"} · ${state.identity.fingerprint}`;
+      }
+      if (syncDevicesEl) syncDevicesEl.innerHTML = renderDeviceRoster();
       if (syncSectionEl) syncSectionEl.hidden = IS_DEMO;
       if (syncEnabledEl) syncEnabledEl.checked = Boolean(syncConfig.enabled);
       if (syncFieldsEl) syncFieldsEl.hidden = !syncConfig.enabled;
@@ -6028,6 +6256,11 @@
     exportTrashEl?.addEventListener("change", () => updateSettings({ exportTrash: exportTrashEl.checked }));
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
     usernameEl?.addEventListener("change", () => updateSettings({ username: usernameEl.value.trim() }));
+    deviceNameEl?.addEventListener("change", () => {
+      saveDeviceIdentity({ name: deviceNameEl.value.trim() });
+      saveState();
+      syncSettingsControls();
+    });
     exportSettingsEl?.addEventListener("click", downloadSettingsExport);
 
     syncEnabledEl?.addEventListener("change", () => {
@@ -6400,7 +6633,9 @@
     });
 
     darkModeEl?.addEventListener("change", () => toggleDarkMode(darkModeEl.checked));
-    exportBoardEl?.addEventListener("click", downloadBoardState);
+    exportBoardEl?.addEventListener("click", () => {
+      downloadBoardState().catch(() => showToast("Export failed."));
+    });
     importBoardEl?.addEventListener("click", () => importFileEl?.click());
     importFileEl?.addEventListener("change", (event) => {
       handleImportFile(event.target.files?.[0]);
@@ -6811,6 +7046,10 @@
     selectedNode = IS_DEMO ? null : (getVisibleNodes()[0] || null);
     if (selectedNode) selectNode(selectedNode);
 
+    // Create the user's signing identity once per board; a pulled identity
+    // always wins over a freshly generated one (see createSigningIdentity).
+    ensureSigningIdentity().catch(() => {});
+
     // Sync on load, when the tab regains focus (that's the moment a second
     // device's edits matter), and after edits via the debounce in saveState.
     if (syncIsActive()) syncNow("load");
@@ -7014,6 +7253,19 @@
       applySyncedState,
       syncIsActive,
       saveSyncConfig,
+      getDeviceIdentity: () => deviceIdentity,
+      saveDeviceIdentity,
+      deviceDisplayName,
+      touchDeviceRoster,
+      renderDeviceRoster,
+      signingAvailable,
+      ensureSigningIdentity,
+      signText,
+      verifySignedText,
+      publicKeyFingerprint,
+      importTrustVerdict,
+      describeImportSender,
+      importVerdictToast,
       setTaskSchedule,
       getTimelineEntries,
       timelineTimeFromOffset,

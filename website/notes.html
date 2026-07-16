@@ -271,6 +271,48 @@
 
     <article>
       <header>
+        <h2>v1.3.0: named devices in history & signed exports</h2>
+        <span class="entry-date">July 16, 2026</span>
+      </header>
+
+      <h3>What changed</h3>
+      <ul>
+        <li><strong>Every change now says which device made it.</strong> Settings has a new <em>Device name</em> field. Name each device once ("laptop", "phone") & from then on, expanding a history entry shows the device next to the timestamp, & every sync commit reads like <code>punchlist sync (edit, laptop)</code>. Your repository's commit list becomes a per-device audit trail for free.</li>
+        <li><strong>Settings → Sync lists your devices.</strong> Every device that saves to the board appears with its name & when it last saved, most recent first.</li>
+        <li><strong>Board exports are now signed.</strong> The board holds one signing key per user (created silently, synced to your other devices through your private repository). Export JSON attaches your username, a short key fingerprint, & a cryptographic signature over the whole board.</li>
+        <li><strong>Imports check the signature.</strong> Importing a signed file tells you, in one toast, whether it verified & whether you've imported from that sender before. A file changed after it was signed gets a blocking warning before anything is touched.</li>
+        <li><strong>Imports leave a trace.</strong> The history now records "Imported a board from JSON, signed by Evren (f63a1e17)" so you can see later where a board came from.</li>
+      </ul>
+      <p>83 automated tests pass on this build, 6 of them new. The signing round trip also ran in a real browser: two fully separate browser profiles exchanged an export, & the second one recognized the first by key on the second import & refused a tampered copy.</p>
+
+      <h3>How to name your devices</h3>
+      <ol>
+        <li>Open <em>Settings</em> on each device.</li>
+        <li>Fill <em>Username</em> once (it syncs; it names you, not the machine).</li>
+        <li>Fill <em>Device name</em> on each device separately (it never syncs; that's the point).</li>
+      </ol>
+      <div class="mock-settings" role="img" aria-label="The Settings rows for Username and Device name, with the signing identity line underneath">
+        <div class="mock-title">Settings</div>
+        <div class="mock-row"><span>Username</span><code>Evren</code></div>
+        <div class="mock-row"><span>Device name</span><code>laptop</code></div>
+        <div class="mock-status">Signing identity: Evren · f63a1e17</div>
+      </div>
+      <p>Skipping the device name costs nothing but readability: unnamed devices show as <code>device</code> plus the last 4 characters of their id.</p>
+
+      <h3>What an import tells you now</h3>
+      <ul>
+        <li><em>"Imported a board from Evren, the first import from this sender."</em> New key. The board remembers its fingerprint from here on.</li>
+        <li><em>"Imported a board from Evren, the same sender as before."</em> Same key as last time. This is the guarantee that matters when boards travel by email or chat.</li>
+        <li><em>"This file's signature does not match its content."</em> The file was edited after signing, or corrupted. You choose whether to import anyway; declining leaves the board untouched.</li>
+        <li>Old, unsigned exports still import exactly as before; the toast just says so.</li>
+      </ul>
+
+      <h3>What the signature proves, & what it doesn't</h3>
+      <p>It proves the file was produced by the holder of a specific key & untouched since, which is what "same sender as their last export" needs. It does not prove a legal identity, & the sender name is self-chosen; only the fingerprint is checked. The private key never leaves your own storage: exports carry only the public half, & the automated suite has a test whose whole job is to fail if a private key ever lands in an export. The full design record, including diagrams of every flow, is in <code>docs/IDENTITY.md</code> in the repository.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>v1.2.0: sync between your devices, the demo un-cropped, & an iOS storage warning</h2>
         <span class="entry-date">July 15, 2026</span>
       </header>
