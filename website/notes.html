@@ -309,6 +309,9 @@
 
       <h3>What the signature proves, & what it doesn't</h3>
       <p>It proves the file was produced by the holder of a specific key & untouched since, which is what "same sender as their last export" needs. It does not prove a legal identity, & the sender name is self-chosen; only the fingerprint is checked. The private key never leaves your own storage: exports carry only the public half, & the automated suite has a test whose whole job is to fail if a private key ever lands in an export. The full design record, including diagrams of every flow, is in <code>docs/IDENTITY.md</code> in the repository.</p>
+
+      <h3>What's next</h3>
+      <p>The funnel is declared done-for-now, & the next direction is written up in <code>docs/DIRECTIONS.md</code>: mobile & touch refinement driven by your own friction list, with the phone-capture loop running alongside as the test bed. The same file holds a ponytail audit of the codebase (verdict: lean; about 107 removable lines across 4 findings, zero dependencies to cut) & the skills matched to the mobile work.</p>
     </article>
 
     <article>
