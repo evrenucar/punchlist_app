@@ -87,6 +87,11 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
   @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
   .stamp { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .workline {
+    font-size: 12px; font-weight: 600; color: #7c3aed;
+    max-width: 44%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .workline[hidden] { display: none; }
   .hint { font-size: 12px; color: var(--muted); }
   .chat-toggle {
     margin-left: auto; font: inherit; font-size: 12.5px; font-weight: 600;
@@ -292,6 +297,7 @@
       <span class="title">Punchlist · status board</span>
       <span class="live" data-local-only>live</span>
       <span class="stamp" id="synced" data-local-only></span>
+      <span class="workline" id="workline" data-local-only hidden></span>
       <span class="hint" id="hint">↑↓ browse · Tab indents · Ctrl+Enter completes. Braindump is private until you press “Intake”. “Agent_Active” = in progress.</span>
       <button class="chat-toggle" id="menu-toggle" type="button" data-local-only title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button>
       <button class="chat-toggle" id="graph-toggle" type="button" data-local-only aria-pressed="false">Graph</button>
@@ -859,7 +865,8 @@
   function updateWorkingIndicator() {
     const wrap = document.getElementById("chat-working");
     const text = document.getElementById("chat-working-text");
-    if (!agentsLive.length) { wrap.hidden = true; return; }
+    const workline = document.getElementById("workline");
+    if (!agentsLive.length) { wrap.hidden = true; workline.hidden = true; return; }
     const state = readBoardState();
     const names = {};
     if (state) walkTasks(state.groups, (t) => { names[t.id] = t.text; });
@@ -872,6 +879,9 @@
     ].filter(Boolean);
     text.textContent = parts.join(" · ");
     wrap.hidden = false;
+    workline.textContent = "⚡ " + parts.join(" · ");
+    workline.title = parts.join(" · ");
+    workline.hidden = false;
   }
 
   async function pollAgents() {

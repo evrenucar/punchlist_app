@@ -275,7 +275,8 @@
         <span class="entry-date">July 17, 2026</span>
       </header>
       <p>Every way of creating a task — the + button, Enter on a task, Enter on a group — used to insert the text "New task", & if focus slipped before you typed, that placeholder stuck around as a real task name. All three paths now create an empty task with the caret ready. Focus mode already worked this way; the main board just caught up.</p>
-      <p>Second fix, same day: Ctrl+Z stopped throwing you to the top of the board. Every undo was silently resetting the selection to the first node on the page & scrolling to it; the selection now stays where you were. Testing that surfaced a third bug for free — tasks added with the + button were never undoable at all (Enter-added ones were). 86 automated tests pass on this build, 2 of them new for exactly these.</p>
+      <p>Second fix, same day: Ctrl+Z stopped throwing you to the top of the board. Every undo was silently resetting the selection to the first node on the page & scrolling to it; the selection now stays where you were. Testing that surfaced a third bug for free — tasks added with the + button were never undoable at all (Enter-added ones were).</p>
+      <p>Third fix: Enter on a parent finally behaves predictably. A real group opens & adds a task at its top, same as before. A parent item that is expanded gets the new item as its first child; a collapsed one gets a sibling right below at the same depth & stays closed. Works from both the selection path & the caret-at-the-end editing path; splitting text mid-sentence is untouched. 87 automated tests pass on this build, 3 of them new for these three fixes.</p>
     </article>
 
     <article>
