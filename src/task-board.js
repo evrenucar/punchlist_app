@@ -2140,6 +2140,20 @@
       return true;
     }
 
+    // focus-outline moves stay inside the sibling list, unlike the board's
+    // visual move which crosses parents and groups
+    function moveTaskAmongSiblings(id, direction) {
+      const found = findTask(id);
+      if (!found || !found.list) return false;
+      const to = found.index + direction;
+      if (to < 0 || to >= found.list.length) return false;
+      pushUndoState("move", `Moved "${shortText(resolveTaskItem(found.item)?.text)}"`);
+      found.list.splice(to, 0, found.list.splice(found.index, 1)[0]);
+      saveState();
+      render();
+      return true;
+    }
+
     function moveTaskVisually(id, direction) {
       const found = findTask(id);
       if (!found) return false;
@@ -3848,6 +3862,49 @@
     });
 
     focusTaskEl?.addEventListener("keydown", (event) => {
+      const overlayEditable = event.target.closest?.("[contenteditable='true']");
+      if (overlayEditable && event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        event.stopPropagation();
+        const id = overlayEditable.dataset.focusTaskText;
+        const found = id ? findTask(id) : null;
+        const item = found ? resolveTaskItem(found.item) : null;
+        if (item) {
+          setTaskCompleted(item.id, !item.done, new Date().toISOString(), { render: false });
+          render();
+          renderFocusMode();
+          focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${item.id}"]`), false);
+        }
+        return;
+      }
+      if (overlayEditable && (event.key === "ArrowUp" || event.key === "ArrowDown") && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        // arrows inside the overlay browse the outline; the board handler
+        // underneath must never see them (it was re-selecting hidden rows)
+        event.stopPropagation();
+        if (event.altKey) {
+          event.preventDefault();
+          const id = overlayEditable.dataset.focusTaskText;
+          if (id && moveTaskAmongSiblings(id, direction)) {
+            renderFocusMode();
+            focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${id}"]`), false);
+          }
+          return;
+        }
+        if (!caretOnBoundaryLine(overlayEditable, direction)) return;
+        event.preventDefault();
+        const fields = [...focusTaskEl.querySelectorAll("[contenteditable='true']")];
+        const next = fields[fields.indexOf(overlayEditable) + direction];
+        if (!next) return;
+        next.focus();
+        const range = document.createRange();
+        range.selectNodeContents(next);
+        range.collapse(direction > 0);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
       const groupTitleEl = event.target.closest?.("[data-focus-group-title]");
       if (groupTitleEl && event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
@@ -4588,6 +4645,19 @@
       if (event.target.closest?.(".sidebar")) return;
       if (!boardEl.contains(event.target) && event.target.closest?.("button, summary, a")) return;
 
+      // Focus mode owns the screen: keys landing here must never drive the
+      // board rows underneath (arrows were re-selecting hidden rows; Backspace
+      // with an overlay button focused would delete the board's selection).
+      if (focusModeTaskId || focusModeGroupId) {
+        if ((event.key === "ArrowUp" || event.key === "ArrowDown") && !event.shiftKey && !event.altKey
+          && !event.ctrlKey && !focusTaskEl?.contains(document.activeElement)) {
+          event.preventDefault();
+          const fields = focusTaskEl ? [...focusTaskEl.querySelectorAll("[contenteditable='true']")] : [];
+          focusEditableText(event.key === "ArrowDown" ? fields[0] : fields.at(-1), false);
+        }
+        return;
+      }
+
       const visible = getVisibleNodes();
       if (!visible.length) return;
       const currentIndex = visible.findIndex((node) => node.kind === selectedNode?.kind && node.id === selectedNode?.id);
@@ -4993,6 +5063,7 @@
       },
       getTaskSplitPlan,
       splitTaskAtOffset,
+      moveTaskAmongSiblings,
       applyUrlPasteToText,
       renderInlineMarkdown,
       getMarkdownTextFromEditable,

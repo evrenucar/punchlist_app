@@ -628,6 +628,26 @@ test("focus mode accepts groups and hides retention-hidden children", async () =
   assert.equal(filtered.includes(`data-focus-task-text="${group.tasks[0].id}"`), false);
 });
 
+test("focus mode owns its keys: outline browsing, sibling moves, guarded board", async () => {
+  const api = await loadBoardApi();
+  const html = await readBoard();
+
+  // Alt+arrows in the focus outline reorder within the sibling list and clamp at the edges
+  const today = api.state.groups.find((group) => group.id === "group-today");
+  const [first, second] = today.tasks;
+  assert.equal(api.moveTaskAmongSiblings(first.id, 1), true);
+  assert.equal(today.tasks[0].id, second.id);
+  assert.equal(today.tasks[1].id, first.id);
+  assert.equal(api.moveTaskAmongSiblings(first.id, -1), true);
+  assert.equal(today.tasks[0].id, first.id);
+  assert.equal(api.moveTaskAmongSiblings(first.id, -1), false, "top of the list clamps");
+
+  // overlay arrows browse between editables, caret-aware, and never reach the board handler
+  assert.match(html, /caretOnBoundaryLine\(overlayEditable, direction\)/);
+  // while focus mode is open, the document handler must bail before driving board rows
+  assert.match(html, /if \(focusModeTaskId \|\| focusModeGroupId\) \{[\s\S]{0,600}?\}\s*\n\s*const visible = getVisibleNodes\(\);/);
+});
+
 test("history records completions and deletions with task names", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-today");
