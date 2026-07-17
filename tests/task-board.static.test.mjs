@@ -784,6 +784,34 @@ test("left arrow climbs task -> parent -> group header instead of jumping to the
   assert.equal(api.selectHierarchicalParent(), false);
 });
 
+test("swipe distance maps to hierarchy levels and applies indents in one undo step", async () => {
+  const api = await loadBoardApi();
+  const html = await readBoard();
+
+  // distance -> levels: one level per 32px, clamped at 3, truncated not rounded
+  assert.equal(api.getSwipeLevels(10), 0);
+  assert.equal(api.getSwipeLevels(35), 1);
+  assert.equal(api.getSwipeLevels(70), 2);
+  assert.equal(api.getSwipeLevels(500), 3);
+  assert.equal(api.getSwipeLevels(-35), -1);
+  assert.equal(api.getSwipeLevels(-500), -3);
+
+  // a two-level outdent surfaces a grandchild to the top level in one gesture
+  const group = api.state.groups[0];
+  const a = { id: "sw-a", text: "a", done: false, collapsed: false,
+    children: [{ id: "sw-b", text: "b", done: false, collapsed: false,
+      children: [{ id: "sw-c", text: "c", done: false, children: [] }] }] };
+  group.tasks.push(a);
+  assert.equal(api.applySwipeIndent("sw-c", -2), 2);
+  assert.equal(group.tasks.some((t) => t.id === "sw-c"), true);
+
+  // indent clamps at what the tree allows and reports what it applied
+  assert.equal(api.applySwipeIndent("sw-c", 3) >= 1, true);
+
+  // rows opt into pan-y so vertical scroll stays native while swipes feed the gesture
+  assert.match(html, /\.task-row \{\s*touch-action: pan-y;/);
+});
+
 test("history records completions and deletions with task names", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-today");

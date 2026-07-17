@@ -2039,6 +2039,30 @@
       return Math.hypot(clientX - startX, clientY - startY) > threshold;
     }
 
+    // Evren's pick (2026-07-17, via card): horizontal swipe on a task row
+    // indents/outdents, swipe distance steps through hierarchy levels.
+    const SWIPE_LEVEL_PX = 32;
+    const SWIPE_MAX_LEVELS = 3;
+
+    function getSwipeLevels(dx, step = SWIPE_LEVEL_PX, max = SWIPE_MAX_LEVELS) {
+      const levels = Math.trunc(dx / step);
+      return Math.max(-max, Math.min(max, levels));
+    }
+
+    function applySwipeIndent(id, levels) {
+      const step = levels > 0 ? indentTask : outdentTask;
+      let applied = 0;
+      for (let i = 0; i < Math.abs(levels); i += 1) {
+        if (!step(id, { pushUndo: applied === 0, save: false, render: false })) break;
+        applied += 1;
+      }
+      if (applied) {
+        saveState();
+        render();
+      }
+      return applied;
+    }
+
     function clearTouchDrag() {
       if (!touchDrag) return;
       if (touchDrag.timer) window.clearTimeout?.(touchDrag.timer);
@@ -4014,6 +4038,56 @@
     boardEl.addEventListener("pointerup", (event) => finishTouchDrag(event));
     boardEl.addEventListener("pointercancel", (event) => finishTouchDrag(event, true));
 
+    let touchSwipe = null;
+
+    function finishTouchSwipe(cancelled = false) {
+      if (!touchSwipe) return 0;
+      const { row, taskId, dx = 0, locked } = touchSwipe;
+      row.classList.remove("swiping");
+      row.style.transform = "";
+      touchSwipe = null;
+      if (!locked || cancelled) return 0;
+      return applySwipeIndent(taskId, getSwipeLevels(dx));
+    }
+
+    boardEl.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse") return;
+      const row = event.target.closest("[data-task-row]");
+      if (!row) return;
+      touchSwipe = { pointerId: event.pointerId, row, taskId: row.dataset.taskRow, startX: event.clientX, startY: event.clientY, locked: false };
+    });
+
+    boardEl.addEventListener("pointermove", (event) => {
+      if (!touchSwipe || event.pointerId !== touchSwipe.pointerId) return;
+      const dx = event.clientX - touchSwipe.startX;
+      const dy = event.clientY - touchSwipe.startY;
+      if (!touchSwipe.locked) {
+        // whoever wins first owns the gesture: an armed long-press drag or a
+        // clearly vertical move kills the swipe candidate
+        if (touchDrag?.armed || (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx))) {
+          touchSwipe = null;
+          return;
+        }
+        if (!(Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.2)) return;
+        touchSwipe.locked = true;
+        clearTouchDrag();
+        touchSwipe.row.classList.add("swiping");
+        try {
+          touchSwipe.row.setPointerCapture?.(event.pointerId);
+        } catch {
+          /* pointer already released */
+        }
+      }
+      event.preventDefault();
+      const limit = SWIPE_MAX_LEVELS * SWIPE_LEVEL_PX;
+      touchSwipe.dx = Math.max(-limit, Math.min(limit, dx));
+      // snap the preview to level detents so the row clicks between levels
+      touchSwipe.row.style.transform = `translateX(${getSwipeLevels(touchSwipe.dx) * SWIPE_LEVEL_PX}px)`;
+    });
+
+    boardEl.addEventListener("pointerup", () => finishTouchSwipe());
+    boardEl.addEventListener("pointercancel", () => finishTouchSwipe(true));
+
     focusTaskEl?.addEventListener("click", (event) => {
       const toggle = event.target.closest("[data-focus-toggle]");
       if (!toggle) return;
@@ -5255,6 +5329,8 @@
       moveTaskAmongSiblings,
       mergeTaskIntoPrevious,
       selectHierarchicalParent,
+      getSwipeLevels,
+      applySwipeIndent,
       applyUrlPasteToText,
       renderInlineMarkdown,
       getMarkdownTextFromEditable,

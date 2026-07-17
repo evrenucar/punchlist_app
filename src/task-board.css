@@ -981,6 +981,16 @@
         height: 40px;
         touch-action: pan-y;
       }
+
+      /* rows keep vertical scroll native; horizontal touch moves feed the
+         swipe-to-indent gesture */
+      .task-row {
+        touch-action: pan-y;
+      }
+    }
+
+    .task-row.swiping {
+      transition: transform 120ms ease; /* the detent "click" between levels */
     }
 
     .task-text:focus {
