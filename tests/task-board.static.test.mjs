@@ -736,6 +736,54 @@ test("task images decode lazily so scrolling a screenshot-heavy board stays smoo
   assert.match(html, /alt="Pasted image" draggable="false" loading="lazy" decoding="async"/);
 });
 
+test("backspace at the start merges a task into the item above, children follow", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((g) => g.tasks.some((t) => (t.children || []).length > 0));
+  const parent = group.tasks.find((t) => (t.children || []).length > 0);
+  parent.collapsed = false;
+
+  // first child merges into its parent; grandchildren keep their slot
+  const firstChild = parent.children[0];
+  firstChild.children = [{ id: "merge-grand", text: "grand", done: false, children: [] }];
+  const parentText = parent.text;
+  const childText = firstChild.text;
+  assert.equal(api.mergeTaskIntoPrevious(firstChild.id), true);
+  assert.equal(parent.text, parentText + childText);
+  assert.equal(parent.children.some((t) => t.id === firstChild.id), false);
+  assert.equal(parent.children[0].id, "merge-grand", "children take the merged item's place");
+
+  // adjacent sibling merges into the previous one, which adopts the children
+  const a = { id: "merge-a", text: "alpha", done: false, children: [], collapsed: false };
+  const b = { id: "merge-b", text: "beta", done: false, collapsed: false,
+    children: [{ id: "merge-adopted", text: "adopted", done: false, children: [] }] };
+  group.tasks.push(a, b);
+  assert.equal(api.mergeTaskIntoPrevious(b.id), true);
+  assert.equal(a.text, "alphabeta");
+  assert.equal(a.children.some((t) => t.id === "merge-adopted"), true);
+
+  // undo restores the merged item
+  api.restoreUndoState();
+  const restored = api.state.groups.find((g) => g.id === group.id);
+  assert.equal(JSON.stringify(restored).includes("beta"), true);
+});
+
+test("left arrow climbs task -> parent -> group header instead of jumping to the sidebar", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((g) => g.tasks.some((t) => (t.children || []).length > 0));
+  const parent = group.tasks.find((t) => (t.children || []).length > 0);
+  const child = parent.children[0];
+
+  api.selectNode("task", child.id);
+  assert.equal(api.selectHierarchicalParent(), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes()[0])), { kind: "task", id: parent.id });
+
+  assert.equal(api.selectHierarchicalParent(), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes()[0])), { kind: "group", id: group.id });
+
+  // from a group header there is no hierarchical parent; the sidebar takes over
+  assert.equal(api.selectHierarchicalParent(), false);
+});
+
 test("history records completions and deletions with task names", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-today");

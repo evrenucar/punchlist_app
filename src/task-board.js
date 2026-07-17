@@ -2538,6 +2538,28 @@
       selectNode("task", id);
     }
 
+    function selectHierarchicalParent() {
+      if (selectedNode?.kind === "image") {
+        const info = findImageNode(selectedNode.id);
+        if (info) {
+          selectNode("task", info.taskId);
+          return true;
+        }
+        return false;
+      }
+      if (selectedNode?.kind !== "task") return false;
+      const found = findTask(selectedNode.id);
+      if (found?.parent) {
+        selectNode("task", found.parent.id);
+        return true;
+      }
+      if (found?.group) {
+        selectNode("group", found.group.id);
+        return true;
+      }
+      return false;
+    }
+
     function isSelected(kind, id) {
       return getSelectedNodes().some((node) => node.kind === kind && node.id === id);
     }
@@ -2624,12 +2646,81 @@
       return `${source.slice(0, safeStart)}[${label}](${url})${source.slice(safeEnd)}`;
     }
 
+    // Evren's pick (2026-07-17, via card): Backspace at the very start of a
+    // task's text merges it into the item above, like outliners. The merged
+    // item's children follow it: into the parent at the same spot, or adopted
+    // by the previous item.
+    function mergeTaskIntoPrevious(id) {
+      const found = findTask(id);
+      if (!found || found.item.linkType) return false;
+      const visible = getVisibleNodes();
+      const index = visible.findIndex((node) => node.kind === "task" && node.id === id);
+      if (index <= 0) return false;
+      const prev = visible[index - 1];
+      const prevId = prev.kind === "task" ? prev.id : prev.kind === "image" ? prev.taskId : null;
+      if (!prevId) return false;
+      const prevFound = findTask(prevId);
+      if (!prevFound || prevFound.item.linkType) return false;
+      const target = resolveTaskItem(prevFound.item);
+      const item = resolveTaskItem(found.item);
+      pushUndoState("board", `Merged "${shortText(item.text)}" into "${shortText(target.text)}"`);
+      target.text = (target.text || "") + (item.text || "");
+      found.list.splice(found.index, 1);
+      const children = item.children || [];
+      if (children.length) {
+        if (prevFound.item === found.parent) found.list.splice(found.index, 0, ...children);
+        else target.children = [...(target.children || []), ...children];
+      }
+      setSingleSelection({ kind: "task", id: target.id });
+      saveState();
+      render();
+      return true;
+    }
+
     function handleEditingBackspaceDelete(event) {
       const textEl = event.target.closest("[data-task-text]");
-      if (!textEl || !isEditableTextEmpty(textEl)) return false;
-      event.preventDefault();
-      deleteTaskAndSelectNeighbor(textEl.dataset.taskText, { forcePermanent: true });
-      return true;
+      if (!textEl) return false;
+      if (isEditableTextEmpty(textEl)) {
+        event.preventDefault();
+        deleteTaskAndSelectNeighbor(textEl.dataset.taskText, { forcePermanent: true });
+        return true;
+      }
+      if (event.key === "Backspace" && window.getSelection?.()?.isCollapsed && getCaretOffset(textEl) === 0) {
+        const id = textEl.dataset.taskText;
+        event.preventDefault();
+        const targetId = (() => {
+          const visible = getVisibleNodes();
+          const index = visible.findIndex((node) => node.kind === "task" && node.id === id);
+          const prev = index > 0 ? visible[index - 1] : null;
+          return prev?.kind === "task" ? prev.id : prev?.kind === "image" ? prev.taskId : null;
+        })();
+        const caretBase = targetId ? (document.querySelector(`[data-task-text="${targetId}"]`)?.textContent || "").length : 0;
+        if (!mergeTaskIntoPrevious(id)) return true;
+        const targetEl = document.querySelector(`[data-task-text="${targetId}"]`);
+        if (targetEl) placeCaretAtTextOffset(targetEl, caretBase);
+        return true;
+      }
+      return false;
+    }
+
+    function placeCaretAtTextOffset(element, offset) {
+      element.focus();
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let remaining = Math.max(0, offset);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (remaining <= node.textContent.length) {
+          const range = document.createRange();
+          range.setStart(node, remaining);
+          range.collapse(true);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return;
+        }
+        remaining -= node.textContent.length;
+      }
+      focusEditableText(element, false);
     }
 
     function getEditableForNode(node) {
@@ -4803,6 +4894,10 @@
 
       if (event.key === "ArrowLeft" && !event.ctrlKey && !event.altKey && !event.shiftKey && !isEditingText) {
         event.preventDefault();
+        // Evren's spec (2026-07-17, via card): left arrow climbs the hierarchy
+        // instead of jumping straight to the sidebar. Task -> parent task ->
+        // group header -> sidebar, so the menu stays reachable but never by surprise.
+        if (selectHierarchicalParent()) return;
         const sidebarTarget = [...document.querySelectorAll(".sidebar button, .sidebar summary")].find((el) => el.offsetParent !== null);
         (sidebarTarget || sidebarToggleEl)?.focus();
         return;
@@ -5163,6 +5258,8 @@
       getTaskSplitPlan,
       splitTaskAtOffset,
       moveTaskAmongSiblings,
+      mergeTaskIntoPrevious,
+      selectHierarchicalParent,
       applyUrlPasteToText,
       renderInlineMarkdown,
       getMarkdownTextFromEditable,
