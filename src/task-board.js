@@ -4774,10 +4774,11 @@
 
     document.querySelector(".sidebar")?.addEventListener("keydown", (event) => {
       const tag = event.target.tagName;
-      if (tag === "SELECT" || tag === "INPUT") return;
+      // selects and text inputs own their arrow keys; checkboxes don't
+      if (tag === "SELECT" || (tag === "INPUT" && event.target.type !== "checkbox")) return;
       const sidebar = event.currentTarget;
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        const focusables = [...sidebar.querySelectorAll("button, summary")].filter((el) => el.offsetParent !== null);
+        const focusables = [...sidebar.querySelectorAll("a, button, summary, input[type='checkbox']")].filter((el) => el.offsetParent !== null);
         const focusIndex = focusables.indexOf(document.activeElement);
         if (focusIndex < 0) return;
         event.preventDefault();

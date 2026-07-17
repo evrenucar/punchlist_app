@@ -516,8 +516,9 @@
 
     .views-nav {
       display: grid;
-      gap: 4px;
+      gap: 6px;
       padding: 4px 2px 0;
+      margin-bottom: 22px; /* same section break as the toolbar; History no longer sits flush under Trash */
     }
     .views-nav h3 {
       margin: 0 0 4px;
