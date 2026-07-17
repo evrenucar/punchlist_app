@@ -2643,6 +2643,35 @@
       return prefix.toString().length;
     }
 
+    function caretOnBoundaryLine(editable, direction) {
+      const selection = window.getSelection?.();
+      if (!selection || !selection.rangeCount) return true;
+      const caret = selection.getRangeAt(0);
+      // ranges from the text edges to the caret; their edge rects give the
+      // caret's visual line without touching the live selection
+      const pre = document.createRange();
+      pre.selectNodeContents(editable);
+      const post = pre.cloneRange();
+      try {
+        pre.setEnd(caret.startContainer, caret.startOffset);
+        post.setStart(caret.endContainer, caret.endOffset);
+      } catch {
+        return true;
+      }
+      if (direction < 0 && pre.toString().length === 0) return true;
+      if (direction > 0 && post.toString().length === 0) return true;
+      const box = editable.getBoundingClientRect();
+      const lineHeight = parseFloat(getComputedStyle(editable).lineHeight) || 20;
+      if (direction < 0) {
+        const rects = pre.getClientRects();
+        const caretLineTop = rects.length ? rects[rects.length - 1].top : box.top;
+        return caretLineTop - box.top < lineHeight * 0.6;
+      }
+      const rects = post.getClientRects();
+      const caretLineBottom = rects.length ? rects[0].bottom : box.bottom;
+      return box.bottom - caretLineBottom < lineHeight * 0.6;
+    }
+
     function splitTaskAtOffset(id, offset) {
       const found = findTask(id);
       if (!found) return null;
@@ -4531,7 +4560,11 @@
         return;
       }
 
-      if (event.key.toLowerCase() === "f" && event.ctrlKey && event.altKey) {
+      // AltGr on Turkish/European layouts reports as Ctrl+Alt, so typing
+      // AltGr-composed characters was toggling focus mode mid-sentence.
+      if (event.key.toLowerCase() === "f" && event.ctrlKey && event.altKey
+        && !event.getModifierState?.("AltGraph")
+        && !(event.target.matches?.("[contenteditable='true'], input, textarea") ?? false)) {
         event.preventDefault();
         toggleFocusMode();
         return;
@@ -4662,6 +4695,13 @@
         event.preventDefault();
         selectNode(visible[Math.min(visible.length - 1, index + 1)], null, { extend: true });
         return;
+      }
+
+      // In a multi-line task, plain Up/Down first moves the caret WITHIN the
+      // text; only a caret already on the first/last visual line switches rows.
+      if (isEditingText && (event.key === "ArrowUp" || event.key === "ArrowDown") && !event.shiftKey) {
+        const editable = event.target.closest?.("[contenteditable='true']");
+        if (editable && !caretOnBoundaryLine(editable, event.key === "ArrowUp" ? -1 : 1)) return;
       }
 
       if (event.key === "ArrowUp") {
