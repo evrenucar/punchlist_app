@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node status/ensure-server.mjs",
+            "timeout": 15,
+            "statusMessage": "Launching the live status board"
+          }
+        ]
+      }
+    ]
+  }
+}

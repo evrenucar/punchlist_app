@@ -271,6 +271,33 @@
 
     <article>
       <header>
+        <h2>The project now runs its own status board</h2>
+        <span class="entry-date">July 17, 2026</span>
+      </header>
+
+      <h3>What changed</h3>
+      <ul>
+        <li><strong>Not one line of app code.</strong> The app, the 83 tests, & the build are untouched. Everything below lives in a new <code>status/</code> folder.</li>
+        <li><strong>A live status board at <code>http://localhost:4173/</code>.</strong> Stages, blockers, to-dos, known issues, & feature ideas — as an actual Punchlist board, because the page embeds the real app. Arrow keys, Tab to indent, drag, search, focus mode: all of it works, & every improvement to the app improves the status board on the next rebuild.</li>
+        <li><strong>A flow diagram on top.</strong> Foundation → Sync & funnel → <em>Mobile & touch</em> (collect → audit → fix) → Research → Sharing, with the active stage highlighted.</li>
+        <li><strong>It's two-way.</strong> The board & the file <code>status/status-board.json</code> mirror each other every 2 seconds, in both directions. Edits made on the board reach Claude; edits Claude makes appear on the board. A "To Claude" group at the top is the instruction inbox.</li>
+        <li><strong>It starts itself.</strong> A session-start hook launches the server whenever this project opens in Claude Code. The server is 45 lines of Node with zero dependencies, same as everything else here.</li>
+        <li><strong>One safeguard worth naming:</strong> the app generates a signing keypair on boot, & on the first sync it landed in the shared file. Both the page & the server now strip <code>identity</code> before anything is written, & the file is checked clean.</li>
+      </ul>
+
+      <h3>How to use it</h3>
+      <ol>
+        <li>Open <code>http://localhost:4173/</code> during any Claude Code session on this project.</li>
+        <li>Edit it like any board — check things off, reorder, add notes.</li>
+        <li>Dump anything into <em>Braindump</em> at the top. Claude does not read that group until you press the <em>Intake braindump</em> button next to its name; then everything gets triaged into the right groups with priorities, & duplicates get checked against what's already tracked (open issue? unbuilt idea? already shipped?) & merged instead of doubled.</li>
+        <li><em>Agent_Active</em> shows what's being worked on right now. Add to it when you want; your rows get a blue stripe, freshly agent-added rows get a green stripe, so you can tell at a glance who wrote what.</li>
+        <li>Press <em>Chat</em> in the top bar to talk to the agent without a terminal. Messages travel through a local file; nothing leaves the machine.</li>
+      </ol>
+      <p>A hosted snapshot of the same board lives at the project's private artifact link; it's rebaked when the status changes. The snapshot is view-only in spirit: edits there don't reach Claude & reset on reload.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>v1.3.0: named devices in history & signed exports</h2>
         <span class="entry-date">July 16, 2026</span>
       </header>

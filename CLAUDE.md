@@ -14,6 +14,19 @@ node scripts/build-task-board.mjs          # src/ -> outputs/task-board.html (+ 
 node --test tests/task-board.static.test.mjs   # 83 tests; must pass before any commit
 ```
 
+## Live status board (hard rule)
+
+A SessionStart hook (`.claude/settings.json`) runs `node status/ensure-server.mjs` so the board at **http://localhost:4173/** is up every session. It embeds the real app (`website/task-board.html`, so it improves with every rebuild) under a flow-diagram header (`status/index.html`), seeded from `status/status-board.json`.
+
+- That JSON file is **two-way**: Evren's edits in the browser land in it within ~2 s, and your edits to it appear in his browser within ~2 s. Always re-read it before writing — his changes may have landed since your last read.
+- **Braindump is private until intake.** Never read, triage, or act on `group-braindump` contents until `status/chat.jsonl` shows a `"Braindump intake requested"` system message you haven't processed yet. On intake: triage every item into the right group at the right priority position, dedup against the whole board first — classify each duplicate as already-tracked-issue, already-tracked-idea, or already-shipped, and merge into the existing item instead of adding — then delete the processed items from Braindump and post a placement summary to chat.
+- **`group-inbox` is titled "Agent_Active"**: what is being worked on right now. Add an item when you start something, mark it done when you finish. Evren adds items there too — treat his as direct instructions.
+- **Authorship tags color the rows.** Every task you create gets `"by": "agent"` (green stripe). Browser-created tasks are auto-tagged `"by": "user"` (blue stripe) by the wrapper. Original content is `"by": "seed"` (no stripe). Never strip these fields.
+- **Chat**: the page has a chat panel backed by `status/chat.jsonl` (gitignored). Read it for `from:"user"` messages; reply with `node status/say.mjs "<message>"`. When ending a turn during active collaboration, arm a Monitor on `status/chat.jsonl` so browser chat and intake presses wake you.
+- The wrapper and server both strip `state.identity` (signing keypair) before the file is written — keep it that way; the file is tracked in git.
+- The file is single-line JSON after browser edits; edit it with `node -e` JSON parse/stringify, not by hand.
+- Keep the flow diagram in `status/index.html` current when stages move, and keep the hosted snapshot fresh: `node status/build-status-artifact.mjs <out.html>`, then republish to artifact `841c27ed-6bd3-43a7-b63d-20e3f79ae3fe`.
+
 ## Rules that override convenience
 
 - Never hand-edit `outputs/task-board.html` or `website/task-board.html`; edit `src/` and rebuild.

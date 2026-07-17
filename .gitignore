@@ -19,3 +19,6 @@ Desktop.ini
 # Browser tooling debris
 .playwright-mcp/
 *.stackdump
+
+# Status-board chat log (conversation data, not project state)
+status/chat.jsonl
