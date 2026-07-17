@@ -731,6 +731,11 @@ test("favicon renders single color, opposite of the browser scheme, checkmark cu
   assert.match(html, /<mask id='m'>/);
 });
 
+test("task images decode lazily so scrolling a screenshot-heavy board stays smooth", async () => {
+  const html = await readBoard();
+  assert.match(html, /alt="Pasted image" draggable="false" loading="lazy" decoding="async"/);
+});
+
 test("history records completions and deletions with task names", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-today");
