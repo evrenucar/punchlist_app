@@ -7,13 +7,27 @@ import { fileURLToPath } from "node:url";
 const serveScript = fileURLToPath(new URL("./serve.mjs", import.meta.url));
 let finished = false;
 
-function done(message) {
+async function announceSession() {
+  // the server may have spawned milliseconds ago — retry briefly
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const ok = await fetch("http://localhost:4173/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ from: "system", text: "New agent session started — the agent introduces itself here shortly" }),
+    }).then((r) => r.ok).catch(() => false);
+    if (ok) return;
+    await new Promise((r) => setTimeout(r, 500));
+  }
+}
+
+async function done(message) {
   if (finished) return;
   finished = true;
   console.log(message);
+  await announceSession();
   console.log(
-    'Live status board: http://localhost:4173/ — state file status/status-board.json is two-way. ' +
-    'Read it before writing (Evren edits it from the browser); tasks in the "To Claude" group are direct instructions.'
+    "Live development interface: http://localhost:4173/ — read docs/AGENT_INTERFACE.md before operating it. " +
+    "Introduce yourself by name in its chat (node status/say.mjs), then check Agent_Active and the chat for instructions."
   );
   process.exit(0);
 }
