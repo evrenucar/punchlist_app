@@ -45,7 +45,7 @@ node --test tests/task-board.static.test.mjs   # full suite; must pass before an
 - `scripts/build-task-board.mjs` — zero-dependency bundler
 - `outputs/task-board.html` — the distributable (generated)
 - `website/` — static landing page + fresh app copy (generated on build)
-- `tests/` — static vm-based suite + optional Playwright smoke (skips without a runtime)
+- `tests/` — static vm-based suite (real-browser acceptance runs through the Chrome DevTools MCP)
 - `status/` — the development interface (wrapper, server, scripts) — never contains app code
 - `docs/` — handoff, roadmap, agent interface, original spec and plan under `docs/superpowers/`
 

@@ -930,11 +930,6 @@
       return target ? resolveTaskItem(target, visited) : item;
     }
 
-    function getTaskItem(id) {
-      const found = findTask(id);
-      return found ? resolveTaskItem(found.item) : null;
-    }
-
     function walkPlacements(tasks, callback) {
       (tasks || []).forEach((item) => {
         callback(item);
@@ -1169,7 +1164,7 @@
     }
 
     function hasOwn(object, key) {
-      return Boolean(object && Object.prototype.hasOwnProperty.call(object, key));
+      return Boolean(object && Object.hasOwn(object, key));
     }
 
     function durationToSeconds(value, unit) {
