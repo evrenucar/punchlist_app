@@ -32,6 +32,10 @@ A wrapper page (`status/index.html`) embedding the real built app (`website/task
 
 Private until the Intake button posts `"Braindump intake requested"` into chat. Top of the braindump = highest priority. On intake: view any embedded images FIRST, fetch links when context matters, classify each item's lane (card when unsure), check whether it was mentioned before and NAME the duplicate in the summary, triage in STAGED quiet-writes a few seconds apart (the button glows "Intaking braindump…" until the group empties), preserve his task objects (move, never retype), never silently delete non-empty leftovers, and post a placement summary in chat.
 
+## Preferences and auto mode
+
+`status/prefs.json` (gitignored; `GET/POST /prefs`) holds Evren's toggles from the chat's gear menu. `notifications` is page-side (desktop notifications when input is needed, an agent message lands, or a run completes — only while the tab is hidden). **`fullAuto` changes YOUR behavior**: when true, keep working through the queue without waiting for "continue" — finish an item, pick up the next, announce transitions in chat. Still stop for the things that always need him: grill-worthy design decisions (card + wait), destructive or outward-facing actions, and anything ponytail says is a big call. Check the file at every natural pause point; when false, pause after each item as usual. Restarting the server yourself: use `node status/ensure-server.mjs --quiet` so it does not false-announce a new session.
+
 ## Chat conduct
 
 Style: humanizer rules — no em-dashes, short sentences, concrete facts, a few lines per message (see the chat-style memory). Name the layer of every change: the app (`src/`) or the development interface (`status/`); ambiguous mentions get "(for the development interface)". During long tasks, update the heartbeat status at every phase change and drop one-line phase notes in chat — silence reads as nothing happening. Grill design decisions before building; tentative phrasing ("maybe", "?") is a grill trigger, not a spec. Token counts are not visible to local scripts — never fake a number.

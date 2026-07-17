@@ -26,7 +26,7 @@ node --test tests/task-board.static.test.mjs   # full suite; must pass before an
 1. **Board first.** Every piece of work gets a board item with truthful `by`/`lane`/`active`/`inserted` fields; nothing happens off-graph, whatever channel the request came through.
 2. **`status/status-board.json` is two-way and Evren edits it live.** Re-read before writing; only write in quiet windows (mtime >8 s) and verify the write survived. `state.identity` must never land in it.
 3. **Braindump is private until the Intake signal**, top of it is highest priority, and intake is staged, visible, image-aware, and dedup-explicit.
-4. **Decisions are made together.** Grill design choices before building (chat question cards); his tentative phrasing is a question, not a spec. His chat messages and Agent_Active additions are direct instructions.
+4. **Decisions are made together.** Grill design choices before building (chat question cards); his tentative phrasing is a question, not a spec. His chat messages and Agent_Active additions are direct instructions. When `status/prefs.json` has `fullAuto: true`, keep working through the queue without waiting for "continue" — but big decisions still get a card.
 5. **Stay visible while working.** Heartbeat with name + task + per-phase status; one-line phase notes in chat on long tasks; never fake numbers the page can't know (tokens).
 6. **LOCAL ONLY — never publish or link claude.ai artifacts** ("VERY IMPORTANT", 2026-07-17). The localhost page is the artifact.
 

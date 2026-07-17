@@ -242,10 +242,22 @@
     font-weight: 700; font-size: 13.5px; display: flex; align-items: center;
   }
   .chat-close {
-    margin-left: auto; border: 0; background: none; color: var(--muted);
+    border: 0; background: none; color: var(--muted);
     font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 6px;
   }
   .chat-close:hover { color: var(--text); }
+  .chat-gear {
+    margin-left: auto; border: 0; background: none; color: var(--muted);
+    font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 6px;
+  }
+  .chat-gear:hover, .chat-gear[aria-expanded="true"] { color: var(--text); }
+  .chat-settings {
+    flex: none; padding: 8px 14px 10px; border-bottom: 1px solid var(--line);
+    background: var(--bg); display: flex; flex-direction: column; gap: 8px;
+  }
+  .chat-settings[hidden] { display: none; }
+  .pref-row { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: var(--text); cursor: pointer; }
+  .pref-row input { margin-top: 1px; accent-color: var(--accent); }
   .chat-log { flex: 1; overflow-y: auto; padding: 8px 4px; }
   .msg {
     max-width: 86%; margin: 6px 10px; padding: 7px 11px;
@@ -346,7 +358,11 @@
     </div>
     <aside class="chatpane" id="chat" hidden aria-label="Chat with the agent">
       <div class="chat-vdivider" id="chat-vdivider" title="Drag to resize the chat pane"></div>
-      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
+      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><button class="chat-gear" id="chat-gear" type="button" aria-label="Chat settings" aria-expanded="false">⚙</button><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
+      <div class="chat-settings" id="chat-settings" hidden>
+        <label class="pref-row"><input type="checkbox" id="pref-notifications"> Desktop notifications (attention needed, run complete)</label>
+        <label class="pref-row"><input type="checkbox" id="pref-fullauto"> Full auto mode — the agent keeps going through the queue on its own, asking only for big decisions</label>
+      </div>
       <div class="chat-log" id="chat-log"></div>
       <div class="chat-hdivider" id="chat-hdivider" title="Drag to resize the input area"></div>
       <form class="chat-form" id="chat-form">
@@ -917,8 +933,10 @@
       if (!response.ok) return;
       const fresh = await response.json();
       if (JSON.stringify(fresh) !== JSON.stringify(agentsLive)) {
+        const hadAgents = agentsLive.length > 0;
         agentsLive = fresh;
         renderGraph(true);
+        if (hadAgents && fresh.length === 0) notify("Run complete", "The agent finished its current work");
       }
       updateWorkingIndicator();
     } catch {}
@@ -1127,8 +1145,15 @@
       if (!response.ok) return;
       const lines = (await response.text()).split("\n").filter(Boolean);
       if (lines.length !== chatCount) {
+        const initialLoad = chatCount === 0;
+        const fresh = lines.slice(chatCount).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
         chatCount = lines.length;
         renderChat(lines);
+        if (!initialLoad) fresh.forEach((entry) => {
+          if (entry.from === "agent" && entry.question) notify("Input needed", entry.text);
+          else if (entry.from === "agent") notify("Agent update", entry.text);
+          else if (entry.from === "system") notify("Status board", entry.text);
+        });
       }
       if (chatPane.hidden) {
         const unread = Math.max(0, chatCount - chatSeen);
@@ -1171,6 +1196,47 @@
   chatInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendChat(); }
   });
+
+  // Settings (gear), desktop notifications, and full-auto mode (intake #5).
+  let prefs = {};
+  const gear = document.getElementById("chat-gear");
+  const settingsPanel = document.getElementById("chat-settings");
+  const prefNotifications = document.getElementById("pref-notifications");
+  const prefFullAuto = document.getElementById("pref-fullauto");
+
+  gear.addEventListener("click", () => {
+    settingsPanel.hidden = !settingsPanel.hidden;
+    gear.setAttribute("aria-expanded", settingsPanel.hidden ? "false" : "true");
+  });
+
+  async function loadPrefs() {
+    try {
+      prefs = await (await fetch("/prefs", { cache: "no-store" })).json();
+    } catch { prefs = {}; }
+    prefNotifications.checked = Boolean(prefs.notifications);
+    prefFullAuto.checked = Boolean(prefs.fullAuto);
+  }
+  async function savePrefs(patch) {
+    Object.assign(prefs, patch);
+    try {
+      await fetch("/prefs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
+    } catch {}
+  }
+  prefNotifications.addEventListener("change", async () => {
+    if (prefNotifications.checked && "Notification" in window && Notification.permission === "default") {
+      const granted = await Notification.requestPermission();
+      if (granted !== "granted") { prefNotifications.checked = false; return; }
+    }
+    savePrefs({ notifications: prefNotifications.checked });
+  });
+  prefFullAuto.addEventListener("change", () => savePrefs({ fullAuto: prefFullAuto.checked }));
+  loadPrefs();
+
+  function notify(title, body) {
+    if (!prefs.notifications || !("Notification" in window) || Notification.permission !== "granted") return;
+    if (!document.hidden) return; // he is looking at the page; the page itself is the notification
+    try { new Notification(title, { body: (body || "").slice(0, 120) }); } catch {}
+  }
 
   // Pane width, input auto-grow, and the log/input divider (intake #3/#4 asks).
   const CHAT_W_KEY = "punchlist-status-chat-width";

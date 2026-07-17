@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const serveScript = fileURLToPath(new URL("./serve.mjs", import.meta.url));
+const quiet = process.argv.includes("--quiet"); // agent-driven restarts: no session announcement
 let finished = false;
 
 async function announceSession() {
@@ -24,7 +25,7 @@ async function done(message) {
   if (finished) return;
   finished = true;
   console.log(message);
-  await announceSession();
+  if (!quiet) await announceSession();
   console.log(
     "Live development interface: http://localhost:4173/ — read docs/AGENT_INTERFACE.md before operating it. " +
     "Introduce yourself by name in its chat (node status/say.mjs), then check Agent_Active and the chat for instructions."

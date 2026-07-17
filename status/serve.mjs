@@ -9,6 +9,7 @@ import { join } from "node:path";
 const statusDir = fileURLToPath(new URL(".", import.meta.url));
 const stateFile = join(statusDir, "status-board.json");
 const chatFile = join(statusDir, "chat.jsonl");
+const prefsFile = join(statusDir, "prefs.json");
 const port = 4173;
 // Live agent registry for the execution graph. In-memory on purpose: entries
 // expire after 90 s without a heartbeat, so restarts self-heal within a beat.
@@ -89,6 +90,22 @@ createServer(async (req, res) => {
       const fresh = [...agents.values()].filter((a) => Date.now() - a.at < 90_000);
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
       res.end(JSON.stringify(fresh));
+      return;
+    }
+    if (req.method === "GET" && pathname === "/prefs") {
+      const data = await readFile(prefsFile, "utf8").catch(() => "{}");
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(data);
+      return;
+    }
+    if (req.method === "POST" && pathname === "/prefs") {
+      const incoming = JSON.parse(await readBody(req, 10_000));
+      const current = JSON.parse(await readFile(prefsFile, "utf8").catch(() => "{}"));
+      for (const key of ["notifications", "fullAuto"]) {
+        if (typeof incoming[key] === "boolean") current[key] = incoming[key];
+      }
+      await writeFile(prefsFile, JSON.stringify(current, null, 2));
+      res.writeHead(204).end();
       return;
     }
     if (req.method === "POST" && pathname === "/intake") {
