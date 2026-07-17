@@ -85,6 +85,7 @@
       padding: 22px 18px;
       scrollbar-width: thin;
       scrollbar-color: transparent transparent;
+      scrollbar-gutter: stable; /* opening Settings/Help must not narrow the rows */
     }
 
     .sidebar:hover {
@@ -274,15 +275,12 @@
     .sidebar .nav-row {
       justify-content: flex-start;
       min-height: 44px;
-      background: transparent;
-      border-color: transparent;
       padding: 0 10px;
       font-size: 14px;
     }
 
     .sidebar .nav-row:hover {
       background: var(--surface-2);
-      border-color: transparent;
     }
 
     .sidebar .nav-row svg {
@@ -305,6 +303,12 @@
 
     .sidebar details[open] > summary.nav-row::after {
       transform: rotate(-45deg); /* ^ */
+    }
+
+    /* Export/Import are actions, not toggles (Evren 2026-07-17) */
+    .sidebar .nav-row[data-export-board]::after,
+    .sidebar .nav-row[data-import-board]::after {
+      display: none;
     }
 
     .sidebar .nav-row .disclosure-arrow {
