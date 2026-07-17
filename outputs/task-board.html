@@ -2704,6 +2704,26 @@
       return applyTheme(enabled ? "dark" : "light") === "dark";
     }
 
+    // Evren's spec (2026-07-17): favicon is a single color, the OPPOSITE of
+    // the browser's mode, checkmark as negative space. Follows the browser
+    // scheme (the tab bar it sits in), not the app's own theme toggle.
+    function faviconSvg(color) {
+      return "data:image/svg+xml," + encodeURIComponent(
+        `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><mask id='m'><rect width='24' height='24' fill='white'/><path d='M7 13l3.4 3.4L17.5 8' stroke='black' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/></mask><g transform='rotate(-4 12 12)'><rect x='2' y='2' width='20' height='20' rx='5' fill='${color}' mask='url(#m)'/></g></svg>`,
+      );
+    }
+
+    const faviconEl = document.querySelector("link[rel='icon']");
+    const darkSchemeQuery = window.matchMedia?.("(prefers-color-scheme: dark)");
+
+    function updateFavicon() {
+      if (!faviconEl) return;
+      faviconEl.href = faviconSvg(darkSchemeQuery?.matches ? "#ffffff" : "#191b1a");
+    }
+
+    updateFavicon();
+    darkSchemeQuery?.addEventListener?.("change", updateFavicon);
+
     const CLOCK_FORMAT_OPTIONS = { hour: "2-digit", minute: "2-digit", hour12: false };
 
     function formatClockTime(date = new Date()) {
@@ -4069,11 +4089,26 @@
       render();
     }
 
+    function countTaskDescendants(id) {
+      const walk = (children) => (children || []).reduce((total, child) => total + 1 + walk(resolveTaskItem(child)?.children), 0);
+      return walk(resolveTaskItem(findTask(id)?.item)?.children);
+    }
+
     function deleteSelectedNodes(nodes = getSelectedNodes(), options = {}) {
       if (!nodes.length) return;
       const groupsToDelete = nodes.filter((node) => node.kind === "group");
-      if (groupsToDelete.length && !options.confirmed) {
-        pendingGroupDelete = { nodes: nodes.map((node) => ({ ...node })), groupId: groupsToDelete[0].id };
+      // Evren's spec (2026-07-17): deleting more than a single item — a group,
+      // a multi-selection, or a task with sub-items — asks first
+      const taskNodes = nodes.filter((node) => node.kind === "task");
+      const subtreeCount = !groupsToDelete.length && taskNodes.length === 1 ? countTaskDescendants(taskNodes[0].id) : 0;
+      if ((groupsToDelete.length || taskNodes.length > 1 || subtreeCount > 0) && !options.confirmed) {
+        pendingGroupDelete = {
+          nodes: nodes.map((node) => ({ ...node })),
+          groupId: groupsToDelete[0]?.id || findTask(taskNodes[0]?.id)?.group?.id || null,
+          label: nodes.length > 1 ? `${nodes.length} selected items`
+            : groupsToDelete.length ? "this group"
+            : `this task and its ${subtreeCount} sub-item${subtreeCount === 1 ? "" : "s"}`,
+        };
         render();
         document.querySelector('[data-action="confirm-delete"]')?.focus();
         return;
@@ -5424,7 +5459,7 @@
             <div class="group-tools">
               ${pendingGroupDelete?.groupId === group.id ? `
                 <span class="delete-confirm" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
-                  <span class="delete-confirm-text">Delete ${pendingGroupDelete.nodes.length > 1 ? `${pendingGroupDelete.nodes.length} selected items` : "this group"}?</span>
+                  <span class="delete-confirm-text">Delete ${pendingGroupDelete.label || "this group"}?</span>
                   <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
                   <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
                 </span>` : ""}
@@ -5991,7 +6026,11 @@
         selectNode("task", id);
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      if (action === "delete-task") deleteTask(button.dataset.taskId);
+      if (action === "delete-task") {
+        // a parent's trash button asks like any other subtree delete
+        if (countTaskDescendants(button.dataset.taskId) > 0) deleteSelectedNodes([{ kind: "task", id: button.dataset.taskId }]);
+        else deleteTask(button.dataset.taskId);
+      }
       if (button.dataset.imageRemove) {
         removeTaskImage(button.dataset.imageTask, button.dataset.imageRemove);
         return;

@@ -691,6 +691,46 @@ test("completed and trash rows indent one level under their section header", asy
   assert.match(html, /\.lifecycle-list \{[^}]*padding-left/s);
 });
 
+test("deleting a subtree or multi-selection asks for confirmation first", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((g) => g.tasks.some((t) => (t.children || []).length > 0) && g.tasks.some((t) => !(t.children || []).length));
+  const parent = group.tasks.find((t) => (t.children || []).length > 0);
+  const leaf = group.tasks.find((t) => !(t.children || []).length);
+
+  // a single childless task still deletes without any prompt
+  const trashBefore = api.state.trash.length;
+  api.selectNode("task", leaf.id);
+  api.deleteSelectedNodes();
+  assert.equal(api.pendingGroupDelete, null);
+  assert.equal(api.state.trash.length, trashBefore + 1);
+
+  // a task with sub-items asks, naming the subtree size
+  api.selectNode("task", parent.id);
+  api.deleteSelectedNodes();
+  assert.ok(api.pendingGroupDelete, "subtree delete waits for confirmation");
+  assert.match(api.pendingGroupDelete.label, /this task and its \d+ sub-item/);
+  assert.equal(group.tasks.some((t) => t.id === parent.id), true, "nothing deleted before confirming");
+
+  // confirming completes the delete
+  api.deleteSelectedNodes(api.pendingGroupDelete.nodes, { confirmed: true });
+  assert.equal(group.tasks.some((t) => t.id === parent.id), false);
+
+  // a multi-selection asks too
+  const [a, b] = api.state.groups.find((g) => g.tasks.length >= 2).tasks;
+  api.selectNode("task", a.id);
+  api.selectNode({ kind: "task", id: b.id }, null, { extend: true });
+  api.deleteSelectedNodes();
+  assert.ok(api.pendingGroupDelete);
+  assert.match(api.pendingGroupDelete.label, /2 selected items/);
+});
+
+test("favicon renders single color, opposite of the browser scheme, checkmark cut out", async () => {
+  const html = await readBoard();
+  assert.match(html, /matchMedia\?\.\("\(prefers-color-scheme: dark\)"\)/);
+  assert.match(html, /faviconSvg\(darkSchemeQuery\?\.matches \? "#ffffff" : "#191b1a"\)/);
+  assert.match(html, /<mask id='m'>/);
+});
+
 test("history records completions and deletions with task names", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-today");
@@ -1077,6 +1117,8 @@ test("selected ranges can be moved deleted and toggled", async () => {
   api.selectNode({ kind: "task", id: deleteFirst.id });
   api.selectNode({ kind: "task", id: deleteSecond.id }, null, { extend: true });
   api.deleteSelectedNodes();
+  assert.ok(api.pendingGroupDelete, "multi-delete waits for confirmation since 2026-07-17");
+  api.deleteSelectedNodes(api.pendingGroupDelete.nodes, { confirmed: true });
   assert.equal(restoredToday.tasks.some((task) => task.id === deleteFirst.id), false);
   assert.equal(restoredToday.tasks.some((task) => task.id === deleteSecond.id), false);
 });
