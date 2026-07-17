@@ -4340,11 +4340,20 @@
         discardUndoState();
         return null;
       }
+      // Evren's spec (2026-07-17): Enter on an EXPANDED parent item creates the
+      // new item as its first child; on a collapsed parent (or a childless
+      // item) it creates a sibling right below at the same depth.
+      const resolved = resolveTaskItem(found.item) || found.item;
+      const intoChildren = !resolved.collapsed && (resolved.children || []).length > 0;
       const item = task("", [], {
         createdInGroupId: found.group?.id || null,
-        createdUnderTaskId: found.parent?.id || null,
+        createdUnderTaskId: intoChildren ? resolved.id : (found.parent?.id || null),
       });
-      found.list.splice(found.index + 1, 0, item);
+      if (intoChildren) {
+        resolved.children.unshift(item);
+      } else {
+        found.list.splice(found.index + 1, 0, item);
+      }
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
       render();
@@ -4942,12 +4951,20 @@
       const plan = getTaskSplitPlan(found.item.text, offset);
       pushUndoState("split");
 
+      // Evren's spec (2026-07-17): Enter at the END of an EXPANDED parent's
+      // text creates the new item as its first child; collapsed parents and
+      // childless items get a sibling below. Mid-text splits stay siblings.
+      const resolvedSplit = resolveTaskItem(found.item) || found.item;
+      const intoChildren = plan.position === "after" && plan.afterText === ""
+        && !resolvedSplit.collapsed && (resolvedSplit.children || []).length > 0;
       const newItem = task(plan.position === "before" ? "" : plan.afterText, [], {
         createdInGroupId: found.group?.id || found.item.createdInGroupId,
-        createdUnderTaskId: found.parent?.id || null,
+        createdUnderTaskId: intoChildren ? resolvedSplit.id : (found.parent?.id || null),
       });
       if (plan.position === "before") {
         found.list.splice(found.index, 0, newItem);
+      } else if (intoChildren) {
+        resolvedSplit.children.unshift(newItem);
       } else {
         found.item.text = plan.beforeText;
         found.list.splice(found.index + 1, 0, newItem);

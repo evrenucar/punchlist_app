@@ -1040,6 +1040,30 @@ test("top-level task operations mutate real group lists and undo", async () => {
   assert.equal(undoToday.tasks.some((task) => task.id === first.id), true);
 });
 
+test("enter on a parent item: expanded gets a first child, collapsed gets a sibling below", async () => {
+  const api = await loadBoardApi();
+  const projects = api.state.groups.find((group) => group.title === "Projects");
+  const expandedParent = projects.tasks.find((item) => item.text === "Redesign the personal website");
+  expandedParent.collapsed = false;
+  const child = api.insertSiblingBelowNode({ kind: "task", id: expandedParent.id });
+  assert.equal(expandedParent.children[0].id, child.id, "expanded parent: new item becomes its first child (Evren spec 2026-07-17)");
+  assert.equal(child.createdUnderTaskId, expandedParent.id);
+
+  const collapsedParent = projects.tasks.find((item) => item.text === "Plan a weekend trip");
+  collapsedParent.collapsed = true;
+  const sibling = api.insertSiblingBelowNode({ kind: "task", id: collapsedParent.id });
+  const index = projects.tasks.findIndex((item) => item.id === collapsedParent.id);
+  assert.equal(projects.tasks[index + 1].id, sibling.id, "collapsed parent: sibling right below at the same depth");
+  assert.equal(sibling.createdUnderTaskId, null);
+
+  // same rule through the editing path: Enter with the caret at the END
+  const split = api.splitTaskAtOffset(expandedParent.id, expandedParent.text.length);
+  assert.equal(expandedParent.children[0].id, split.item.id, "caret-at-end split on an expanded parent: first child");
+  const collapsedSplit = api.splitTaskAtOffset(collapsedParent.id, collapsedParent.text.length);
+  const collapsedIndex = projects.tasks.findIndex((item) => item.id === collapsedParent.id);
+  assert.equal(projects.tasks[collapsedIndex + 1].id, collapsedSplit.item.id, "caret-at-end split on a collapsed parent: sibling below");
+});
+
 test("undo keeps the selection where the user was instead of jumping to the top", async () => {
   const api = await loadBoardApi();
   const later = api.state.groups.find((group) => group.title === "Later");
