@@ -208,6 +208,8 @@
     50% { box-shadow: 0 0 16px 2px rgba(124, 58, 237, 0.5); }
   }
   .gstub { color: var(--muted); font-size: 11px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gstub.done { text-decoration: line-through; opacity: 0.65; }
+  .gstub.done { color: var(--done); }
   .gtag { font-size: 9.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; margin-top: 5px; }
   .gtag.app { color: #d4a017; }
   .gtag.dev { color: #246bfe; }
@@ -258,6 +260,24 @@
     color: var(--muted); font-size: 11.5px; text-align: center;
   }
   .msg time { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
+  .msg a { color: var(--accent); word-break: break-all; }
+  .msg-img {
+    display: block; max-width: 100%; border-radius: 8px; margin-top: 6px;
+    border: 1px solid var(--line); cursor: zoom-in;
+    -webkit-user-drag: none; user-select: none;
+  }
+  .lightbox {
+    position: fixed; inset: 0; z-index: 50; background: rgba(10, 12, 11, 0.88);
+    display: flex; align-items: center; justify-content: center; cursor: grab; overflow: hidden;
+  }
+  .lightbox[hidden] { display: none; }
+  .lightbox.dragging { cursor: grabbing; }
+  .lightbox img { max-width: none; user-select: none; will-change: transform; }
+  .lightbox-close {
+    position: absolute; top: 14px; right: 18px; z-index: 51;
+    font: inherit; font-size: 22px; color: #fff; background: none; border: 0; cursor: pointer; opacity: 0.8;
+  }
+  .lightbox-close:hover { opacity: 1; }
   .q-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .q-btn {
     font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 8px;
@@ -576,12 +596,12 @@
   let graphZoom = Math.min(2, Math.max(0.6, Number(localStorage.getItem(GRAPH_Z_KEY)) || 1));
 
   function nodeOf(task, kind) {
-    const openKids = (task.children || []).filter((c) => !c.done);
+    const kids = task.children || [];
     return {
       id: task.id, text: task.text || "(untitled)", kind, by: task.by || "",
       lane: task.lane === "dev" ? "dev" : "app",
-      stubs: openKids.slice(0, 6).map((c) => c.text),
-      more: Math.max(0, openKids.length - 6),
+      stubs: kids.slice(0, 6).map((c) => ({ text: c.text, done: Boolean(c.done) })),
+      more: Math.max(0, kids.length - 6),
     };
   }
 
@@ -591,9 +611,14 @@
     const inbox = state.groups.find((g) => g.id === "group-inbox");
     if (!inbox) return { cols, branch };
     const holder = inbox.tasks.find((t) => t.id === "task-agent-completed");
-    (holder ? holder.children : []).filter((t) => t.completedAt)
+    (holder ? holder.children : []).filter((t) => t.completedAt && !t.inserted)
       .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-5)
       .forEach((t) => cols.push([nodeOf(t, "done")]));
+    // Finished branch items stay ON the branch, grayed like other done nodes
+    // (Evren 2026-07-17); last four, then the still-open insertions.
+    (holder ? holder.children : []).filter((t) => t.completedAt && t.inserted)
+      .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-4)
+      .forEach((t) => branch.push(nodeOf(t, "done")));
     const actives = [];
     walkTasks(state.groups, (t) => { if (t.active && !t.done) actives.push(t); });
     cols.push(actives.length ? actives.map((t) => nodeOf(t, "active"))
@@ -644,8 +669,8 @@
       const visible = Math.min(node.stubs.length, stubBudget);
       node.stubs.slice(0, visible).forEach((stub) => {
         const s = document.createElement("div");
-        s.className = "gstub";
-        s.textContent = "↳ " + stub;
+        s.className = "gstub" + (stub.done ? " done" : "");
+        s.textContent = (stub.done ? "✓ " : "↳ ") + stub.text;
         el.appendChild(s);
       });
       const hiddenCount = node.stubs.length - visible + node.more;
@@ -713,7 +738,9 @@
     // ponytail: one branch row today; when multiple branches can collide, the
     // left-most one moves a row down (his stacking rule) — implement then.
     const branchPlaced = [];
-    const activePlaced = placed.flat().find((p) => p.node.kind === "active");
+    // the branch hangs off the active node, or the idle node when nothing runs
+    const activePlaced = placed.flat().find((p) => p.node.kind === "active")
+      || placed.flat().find((p) => p.node.kind === "idle");
     if (branch.length && activePlaced) {
       const startX = activePlaced.cx + NODE_W + Math.round(44 * Z);
       const branchTop = activePlaced.cy + activePlaced.h / 2 + Math.round(56 * Z);
@@ -922,6 +949,78 @@
   const questionPicks = new Map();
   const questionNotes = new Map();
 
+  // Lightbox for chat images: wheel zooms around the cursor, drag pans,
+  // Esc or clicking the backdrop closes — same manners as the app's own.
+  let lightbox = null;
+  function openLightbox(src) {
+    if (lightbox) lightbox.remove();
+    lightbox = document.createElement("div");
+    lightbox.className = "lightbox";
+    const image = document.createElement("img");
+    image.src = src;
+    image.draggable = false;
+    let scale = 1, tx = 0, ty = 0;
+    const apply = () => { image.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`; };
+    image.addEventListener("load", () => {
+      scale = Math.min(1, (innerWidth * 0.9) / image.naturalWidth, (innerHeight * 0.9) / image.naturalHeight);
+      apply();
+    });
+    const close = document.createElement("button");
+    close.className = "lightbox-close";
+    close.textContent = "×";
+    close.setAttribute("aria-label", "Close image");
+    const dismiss = () => { lightbox.remove(); lightbox = null; document.removeEventListener("keydown", onKey); };
+    const onKey = (event) => { if (event.key === "Escape") dismiss(); };
+    close.addEventListener("click", dismiss);
+    lightbox.addEventListener("click", (event) => { if (event.target === lightbox) dismiss(); });
+    document.addEventListener("keydown", onKey);
+    lightbox.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const factor = event.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const next = Math.min(8, Math.max(0.1, scale * factor));
+      const cx = event.clientX - innerWidth / 2, cy = event.clientY - innerHeight / 2;
+      tx = cx - (cx - tx) * (next / scale);
+      ty = cy - (cy - ty) * (next / scale);
+      scale = next;
+      apply();
+    }, { passive: false });
+    let drag = null;
+    lightbox.addEventListener("pointerdown", (event) => {
+      drag = { x: event.clientX, y: event.clientY, tx, ty };
+      lightbox.setPointerCapture(event.pointerId);
+      lightbox.classList.add("dragging");
+    });
+    lightbox.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      if (event.buttons === 0) { drag = null; lightbox.classList.remove("dragging"); return; } // button released off-window: never stick to the cursor
+      tx = drag.tx + event.clientX - drag.x;
+      ty = drag.ty + event.clientY - drag.y;
+      apply();
+    });
+    lightbox.addEventListener("pointerup", () => { drag = null; lightbox.classList.remove("dragging"); });
+    lightbox.addEventListener("pointercancel", () => { drag = null; lightbox.classList.remove("dragging"); });
+    lightbox.appendChild(image);
+    lightbox.appendChild(close);
+    document.body.appendChild(lightbox);
+  }
+
+  function renderMessageText(container, text) {
+    const urlPattern = /https?:\/\/[^\s]+/g;
+    let last = 0;
+    let match;
+    while ((match = urlPattern.exec(text))) {
+      if (match.index > last) container.appendChild(document.createTextNode(text.slice(last, match.index)));
+      const link = document.createElement("a");
+      link.href = match[0];
+      link.textContent = match[0];
+      link.target = "_blank";
+      link.rel = "noopener";
+      container.appendChild(link);
+      last = match.index + match[0].length;
+    }
+    container.appendChild(document.createTextNode(text.slice(last)));
+  }
+
   async function sendAnswer(answerTo, text) {
     try {
       await fetch("/chat", {
@@ -946,7 +1045,17 @@
     entries.forEach((entry) => {
       const div = document.createElement("div");
       div.className = "msg " + (entry.from === "user" ? "user" : entry.from === "agent" ? "agent" : "system");
-      div.textContent = entry.text;
+      renderMessageText(div, entry.text);
+      if (entry.img) {
+        const image = document.createElement("img");
+        image.className = "msg-img";
+        image.src = entry.img;
+        image.loading = "lazy";
+        image.draggable = false;
+        image.title = "Double click to enlarge";
+        image.addEventListener("dblclick", () => openLightbox(entry.img));
+        div.appendChild(image);
+      }
       if (entry.question && entry.from === "agent") {
         const isAnswered = answered.has(entry.at);
         const picks = questionPicks.get(entry.at) || new Set();

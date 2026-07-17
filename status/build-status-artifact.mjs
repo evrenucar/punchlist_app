@@ -45,14 +45,17 @@ function bakeGraphSvg(boardState) {
   const walkAll = (tasks, fn) => (tasks || []).forEach((t) => { fn(t); walkAll(t.children, fn); });
   const laneOf = (t) => (t.lane === "dev" ? "dev" : "app");
   const holder = inbox.tasks.find((t) => t.id === "task-agent-completed");
-  (holder ? holder.children : []).filter((t) => t.completedAt)
+  (holder ? holder.children : []).filter((t) => t.completedAt && !t.inserted)
     .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-3)
     .forEach((t) => cols.push([{ text: t.text, kind: "done", lane: laneOf(t) }]));
+  const doneBranch = (holder ? holder.children : []).filter((t) => t.completedAt && t.inserted)
+    .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-4)
+    .map((t) => ({ text: t.text, kind: "done", lane: laneOf(t) }));
   const actives = [];
   boardState.groups.forEach((g) => walkAll(g.tasks, (t) => { if (t.active && !t.done) actives.push(t); }));
   cols.push(actives.length ? actives.map((t) => ({ text: t.text, kind: "active", lane: laneOf(t) }))
     : [{ text: "idle — nothing active", kind: "idle" }]);
-  const branchNodes = [];
+  const branchNodes = [...doneBranch];
   inbox.tasks.filter((t) => !t.done && t.id !== "task-agent-completed" && !t.active)
     .forEach((t) => {
       const node = { text: t.text, kind: "queue", lane: laneOf(t) };
@@ -76,7 +79,8 @@ function bakeGraphSvg(boardState) {
   })));
   // Open branch below the main line: inserted items hang off the active node's
   // right side and just end (Evren's spec, 2026-07-17).
-  const activePos = pos.flat().find((p) => p.node.kind === "active");
+  const activePos = pos.flat().find((p) => p.node.kind === "active")
+    || pos.flat().find((p) => p.node.kind === "idle");
   const branchPos = [];
   if (branchNodes.length && activePos) {
     const startX = activePos.x + W + 44;
