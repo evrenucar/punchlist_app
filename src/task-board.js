@@ -858,9 +858,14 @@
       if (!snapshot) return;
       undoActions.pop();
       lastUndoAction = undoActions[undoActions.length - 1] || null;
+      const previousSelection = selectedNode;
       state = normalizeState(JSON.parse(snapshot));
+      // Keep the user's place: only drop the selection when the restored state
+      // no longer shows that node — never yank it to the top of the board.
       const visible = getVisibleNodes();
-      selectedNode = visible[0] || null;
+      selectedNode = (previousSelection
+        && visible.find((node) => node.kind === previousSelection.kind && node.id === previousSelection.id))
+        || null;
       multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
       selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
       saveState();
@@ -2019,7 +2024,7 @@
           discardUndoState();
           return null;
         }
-        const item = task("New task", [], { createdInGroupId: group.id });
+        const item = task("", [], { createdInGroupId: group.id });
         group.tasks.unshift(item);
         group.collapsed = false;
         setSingleSelection({ kind: "task", id: item.id });
@@ -2033,7 +2038,7 @@
         discardUndoState();
         return null;
       }
-      const item = task("New task", [], {
+      const item = task("", [], {
         createdInGroupId: found.group?.id || null,
         createdUnderTaskId: found.parent?.id || null,
       });
@@ -2205,13 +2210,17 @@
     }
 
     function addTask(groupId, parentId = null) {
-      const item = task("New task", [], {
+      pushUndoState("board", "Added a task");
+      const item = task("", [], {
         createdInGroupId: groupId,
         createdUnderTaskId: parentId,
       });
       if (parentId) {
         const parent = findTask(parentId);
-        if (!parent) return null;
+        if (!parent) {
+          discardUndoState();
+          return null;
+        }
         const resolvedParent = resolveTaskItem(parent.item);
         resolvedParent.children = resolvedParent.children || [];
         resolvedParent.children.push(item);
@@ -2222,7 +2231,10 @@
         parent.item.collapsed = false;
       } else {
         const group = findGroup(groupId);
-        if (!group) return null;
+        if (!group) {
+          discardUndoState();
+          return null;
+        }
         group.tasks.push(item);
       }
       setSingleSelection({ kind: "task", id: item.id });

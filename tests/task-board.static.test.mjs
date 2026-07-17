@@ -524,10 +524,23 @@ test("enter on a group creates a task at the top of that group instead of a new 
 
   const inserted = api.insertSiblingBelowNode({ kind: "group", id: group.id });
   assert.ok(inserted);
-  assert.equal(inserted.text, "New task");
+  assert.equal(inserted.text, "");
   assert.equal(group.tasks[0].id, inserted.id);
   assert.equal(group.collapsed, false);
   assert.equal(api.state.groups.length, groupCount);
+});
+
+test("every task-creation path starts empty, ready to type", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const viaGroupEnter = api.insertSiblingBelowNode({ kind: "group", id: group.id });
+  const viaTaskEnter = api.insertSiblingBelowNode({ kind: "task", id: viaGroupEnter.id });
+  const viaAddButton = api.addTask(group.id);
+  const viaAddChild = api.addTask(group.id, viaTaskEnter.id);
+  for (const created of [viaGroupEnter, viaTaskEnter, viaAddButton, viaAddChild]) {
+    assert.ok(created);
+    assert.equal(created.text, "", "new tasks never carry placeholder text (braindump 2026-07-17)");
+  }
 });
 
 test("copying selected groups includes their full contents even when collapsed", async () => {
@@ -1025,6 +1038,22 @@ test("top-level task operations mutate real group lists and undo", async () => {
   api.restoreUndoState();
   const undoToday = api.state.groups.find((group) => group.title === "Today");
   assert.equal(undoToday.tasks.some((task) => task.id === first.id), true);
+});
+
+test("undo keeps the selection where the user was instead of jumping to the top", async () => {
+  const api = await loadBoardApi();
+  const later = api.state.groups.find((group) => group.title === "Later");
+  const moved = later.tasks[0];
+  api.moveTask(moved.id, later.tasks[1].id, "after");
+  api.restoreUndoState();
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes())), [{ kind: "task", id: moved.id }],
+    "selection survives undo when the node still exists (braindump 2026-07-17, Ctrl+Z jump)");
+
+  const created = api.addTask(later.id);
+  api.selectNode({ kind: "task", id: created.id });
+  api.restoreUndoState();
+  assert.equal(JSON.parse(JSON.stringify(api.getSelectedNodes())).length, 0,
+    "when the selected node vanishes with the undo, selection clears instead of grabbing the top node");
 });
 
 test("groups have stable editable colors across reordering", async () => {
@@ -1605,6 +1634,13 @@ test("sync pull never wipes the local identity; older payloads keep the key", as
 
   assert.equal(api.state.groups.some((group) => group.title === "From an older build"), true);
   assert.equal(api.state.identity.fingerprint, identity.fingerprint, "pull from a pre-identity build keeps the local key");
+});
+
+test("built board keeps the DOM hooks the status-board wrapper depends on", async () => {
+  const built = await readFile(boardPath, "utf8");
+  for (const hook of ["data-task-row", "data-group-title", "data-sidebar-toggle"]) {
+    assert.equal(built.includes(hook), true, `${hook} is part of the status/ layer contract (CLAUDE.md)`);
+  }
 });
 
 test("demo mode signs nothing and keeps the roster empty", async () => {
