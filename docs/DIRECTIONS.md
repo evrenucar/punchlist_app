@@ -16,7 +16,7 @@ Direction B (live with the phone loop) runs concurrently for free: using the boa
 
 The work splits into collect, audit, fix.
 
-- [ ] **Collect Evren's list.** He dictates the small UI/UX issues as a voice batch; the agent triages each into: bug, friction, or preference. Transcription noise is expected; anything ambiguous gets confirmed before it becomes a work item, per the standing rule in `CLAUDE.md`.
+- [x] **Collect Evren's list.** Done 2026-07-17 — arrived through the status board's Braindump (not voice) and was triaged on intake into `status/status-board.json` under "Friction list — triaged from braindump", P1 flow-breaking bugs first. Three ambiguities went back to Evren for confirmation (enter-on-group spec conflict, dark-mode icon second variant, an empty "software and data structure" item).
 - [ ] **Run a structured mobile audit before fixing.** One pass through every control, panel, and flow at 390x844 (and one narrower width, 360x780) in both themes, using the `design-review` skill's phase list plus real-device checks on Evren's actual iPhone. Output: a findings list in this file, ranked by daily-use frequency.
 - [ ] **Fix in small batches.** Each batch: regression test, full suite, rebuild, real-browser check at phone width (the repo rules already require this). Touch behavior gets tested with DevTools touch emulation AND at least once on the physical phone per batch, because long-press, scroll interference, and keyboard-overlap bugs do not reproduce reliably in emulation.
 - [ ] Known rough edges from `AGENT_HANDOFF.md` that belong to this direction: task action buttons only appear on the selected row on phones (deliberate, revisit), long-press drag vs. page scroll tension, group top-edge drop targeting.

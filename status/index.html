@@ -96,6 +96,24 @@
   }
   .chat-toggle:hover { border-color: var(--accent); }
   .chat-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chat-toggle[aria-pressed="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+  .chat-working {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-left: 10px; font-size: 11px; font-weight: 400; color: var(--muted);
+    max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .chat-working .dots { display: inline-flex; gap: 3px; flex: none; }
+  .chat-working .dots i {
+    width: 4px; height: 4px; border-radius: 50%; background: #7c3aed;
+    animation: dotPulse 1.2s ease-in-out infinite;
+  }
+  .chat-working .dots i:nth-child(2) { animation-delay: 0.2s; }
+  .chat-working .dots i:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dotPulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
   .chat-badge {
     display: none; position: absolute; top: -7px; right: -7px;
     min-width: 16px; height: 16px; border-radius: 8px; padding: 0 4px;
@@ -103,20 +121,98 @@
   }
   .chat-badge.on { display: block; }
 
-  .flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-  .node {
-    display: inline-flex; align-items: center; gap: 8px;
-    border: 1px solid var(--line-strong); border-radius: 8px;
-    background: var(--bg); padding: 5px 11px; font-size: 13px;
+  .activebar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-top: 10px; padding: 8px 12px; border-radius: 8px;
+    border: 1px solid #7c3aed;
+    background: color-mix(in srgb, #7c3aed 9%, transparent);
   }
-  .node.done { border-color: var(--done); }
-  .node.done::before { content: "✓"; color: var(--done); font-weight: 700; }
-  .node.active { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
-  .node.parked { border-style: dashed; opacity: 0.55; }
-  .arrow { color: var(--muted); font-size: 13px; }
-  .subflow { display: inline-flex; align-items: center; gap: 4px; font-weight: 400; color: var(--muted); font-size: 12px; }
-  .chip { border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; background: var(--surface); }
-  .chip.now { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .activebar.idle { border-color: var(--line); background: var(--bg); }
+  .activebar[hidden] { display: none; }
+  .active-label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #7c3aed; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .activebar.idle .active-label { color: var(--muted); }
+  .active-label::before {
+    content: ""; width: 8px; height: 8px; border-radius: 50%; background: #7c3aed;
+    animation: activePulse 2.6s ease-in-out infinite;
+  }
+  .activebar.idle .active-label::before { background: var(--line-strong); animation: none; }
+  @keyframes activePulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .active-label::before { animation: none; } }
+  .active-item {
+    font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+    border: 0; background: none; color: var(--text); padding: 0;
+    text-decoration: underline; text-decoration-color: color-mix(in srgb, #7c3aed 45%, transparent);
+    text-underline-offset: 3px;
+  }
+  .active-item:hover { color: #7c3aed; }
+  .active-item:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; border-radius: 3px; }
+  .active-idle-text { font-size: 13px; color: var(--muted); }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
+  .key { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 24px; height: 13px; border-radius: 3px; border-left: 3px solid; flex: none; }
+  .swatch-active {
+    border-color: #7c3aed; background: color-mix(in srgb, #7c3aed 18%, transparent);
+    animation: swatchGlow 2.6s ease-in-out infinite;
+  }
+  @keyframes swatchGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+    50% { box-shadow: 0 0 8px 1px rgba(124, 58, 237, 0.5); }
+  }
+  .swatch-agent { border-color: #246bfe; background: color-mix(in srgb, #246bfe 16%, transparent); }
+  .swatch-user { border-color: #2d7d46; background: color-mix(in srgb, #2d7d46 16%, transparent); }
+
+  #menu-toggle { margin-left: auto; }
+  #graph-toggle { margin-left: 0; }
+  #chat-toggle { margin-left: 0; }
+
+  .graphpane {
+    position: relative; flex: none; height: 280px; min-height: 160px;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+  }
+  .graphpane[hidden] { display: none; }
+  .graph-viewport { position: absolute; inset: 0 0 6px 0; overflow: hidden; cursor: grab; touch-action: none; }
+  .graph-viewport.dragging { cursor: grabbing; }
+  .graph-world { position: absolute; left: 0; top: 0; will-change: transform; }
+  .graph-world.gliding { transition: transform 700ms ease; }
+  .graph-links { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .gnode {
+    position: absolute; width: 200px; box-sizing: border-box;
+    border: 1px solid var(--line-strong); border-left-width: 3px; border-radius: 8px;
+    background: var(--surface); padding: 7px 10px 8px;
+    font-size: 12px; line-height: 1.35; cursor: pointer; user-select: none;
+  }
+  .gnode:hover { border-color: #7c3aed; }
+  .gnode .gtext { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .gnode.by-user { border-left-color: #2d7d46; }
+  .gnode.by-agent { border-left-color: #246bfe; }
+  .gnode.done { opacity: 0.62; border-left-color: var(--done); }
+  .gnode.done .gtext::before { content: "✓ "; color: var(--done); font-weight: 700; }
+  .gnode.bucket { border-style: dashed; color: var(--muted); background: var(--bg); }
+  .gnode.idle { border-style: dashed; color: var(--muted); background: var(--bg); cursor: default; }
+  .gnode.active {
+    border-color: #7c3aed; border-left-color: #7c3aed;
+    background: color-mix(in srgb, #7c3aed 12%, var(--surface));
+    animation: nodeGlow 2.6s ease-in-out infinite;
+  }
+  @keyframes nodeGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(124, 58, 237, 0); }
+    50% { box-shadow: 0 0 16px 2px rgba(124, 58, 237, 0.5); }
+  }
+  .gstub { color: var(--muted); font-size: 11px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gtag { font-size: 9.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; margin-top: 5px; }
+  .gtag.app { color: #d4a017; }
+  .gtag.dev { color: #246bfe; }
+  .agent-chip {
+    position: absolute; z-index: 2; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    background: #7c3aed; color: #fff; border-radius: 10px; padding: 2px 9px;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4); pointer-events: none;
+  }
+  .graph-divider { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
+  .graph-divider:hover, .graph-divider.dragging { background: color-mix(in srgb, #7c3aed 30%, transparent); }
 
   #board { flex: 1; border: 0; width: 100%; background: var(--bg); }
   .artifact-frame {
@@ -125,10 +221,14 @@
   }
 
   .chatpane {
-    width: 340px; flex: none;
+    width: 340px; flex: none; position: relative;
     border-left: 1px solid var(--line); background: var(--surface);
     display: flex; flex-direction: column; min-height: 0;
   }
+  .chat-vdivider { position: absolute; left: -3px; top: 0; bottom: 0; width: 6px; cursor: ew-resize; z-index: 3; }
+  .chat-vdivider:hover, .chat-vdivider.dragging { background: color-mix(in srgb, #7c3aed 30%, transparent); }
+  .chat-hdivider { flex: none; height: 6px; cursor: ns-resize; }
+  .chat-hdivider:hover, .chat-hdivider.dragging { background: color-mix(in srgb, #7c3aed 30%, transparent); }
   .chatpane[hidden] { display: none; }
   .chat-head {
     padding: 10px 14px; border-bottom: 1px solid var(--line);
@@ -145,18 +245,34 @@
     border-radius: 10px; font-size: 13.5px;
     white-space: pre-wrap; overflow-wrap: break-word;
   }
-  .msg.user { margin-left: auto; background: var(--accent-soft); }
-  .msg.agent { background: var(--surface-2); }
+  .msg.user { margin-left: 16%; margin-right: 10px; background: color-mix(in srgb, #2d7d46 26%, var(--surface)); }
+  .msg.agent { margin-right: 16%; background: color-mix(in srgb, #246bfe 24%, var(--surface)); }
+  .msg + .msg { margin-top: 10px; }
   .msg.system {
     max-width: 100%; margin: 8px 14px; padding: 0; background: none;
     color: var(--muted); font-size: 11.5px; text-align: center;
   }
   .msg time { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
+  .q-options { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .q-btn {
+    font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 8px;
+    border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); cursor: pointer;
+  }
+  .q-btn:hover:not(:disabled) { border-color: #7c3aed; }
+  .q-btn:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
+  .q-btn[aria-pressed="true"] { border-color: #7c3aed; background: color-mix(in srgb, #7c3aed 18%, var(--surface)); font-weight: 600; }
+  .q-btn:disabled { opacity: 0.55; cursor: default; }
+  .q-send { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .q-note {
+    width: 100%; box-sizing: border-box; margin-top: 6px; font: inherit; font-size: 12px;
+    padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+  .q-done { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
   .chat-input {
-    flex: 1; font: inherit; font-size: 13.5px; color: var(--text);
+    flex: 1; box-sizing: border-box; font: inherit; font-size: 13.5px; color: var(--text);
     background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px;
-    padding: 7px 10px; resize: none;
+    padding: 7px 10px; resize: none; min-height: 36px; height: 36px; overflow-y: auto;
   }
   .chat-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .chat-send {
@@ -177,30 +293,36 @@
       <span class="live" data-local-only>live</span>
       <span class="stamp" id="synced" data-local-only></span>
       <span class="hint" id="hint">↑↓ browse · Tab indents · Ctrl+Enter completes. Braindump is private until you press “Intake”. “Agent_Active” = in progress.</span>
-      <button class="chat-toggle" id="chat-toggle" type="button" data-local-only>Chat<span class="chat-badge" id="chat-badge"></span></button>
+      <button class="chat-toggle" id="menu-toggle" type="button" data-local-only title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button>
+      <button class="chat-toggle" id="graph-toggle" type="button" data-local-only aria-pressed="false">Graph</button>
+      <button class="chat-toggle" id="chat-toggle" type="button" data-local-only aria-pressed="false">Chat<span class="chat-badge" id="chat-badge"></span></button>
     </div>
-    <div class="flow" role="img" aria-label="Project flow: Foundation done, Sync and funnel done, Mobile and touch active (collect, then audit, then fix), Research parked, Sharing parked">
-      <span class="node done">Foundation</span>
-      <span class="arrow">→</span>
-      <span class="node done">Sync &amp; funnel</span>
-      <span class="arrow">→</span>
-      <span class="node active">Mobile &amp; touch
-        <span class="subflow"><span class="chip now">collect</span>→<span class="chip">audit</span>→<span class="chip">fix</span></span>
-      </span>
-      <span class="arrow">→</span>
-      <span class="node parked">Research</span>
-      <span class="arrow">→</span>
-      <span class="node parked">Sharing</span>
+    <div class="activebar idle" id="activebar">
+      <span class="active-label">Active</span>
+      <span id="active-items"><span class="active-idle-text">idle — nothing in progress</span></span>
+    </div>
+    <div class="legend" aria-label="What the row backdrop colors mean">
+      <span class="key"><span class="swatch swatch-active"></span>Active — being worked on right now</span>
+      <span class="key"><span class="swatch swatch-agent"></span>Added by the agent</span>
+      <span class="key"><span class="swatch swatch-user"></span>Added by you</span>
     </div>
   </header>
 <!-- header:end -->
+  <div class="graphpane" id="graphpane" hidden>
+    <div class="graph-viewport" id="graph-viewport">
+      <div class="graph-world" id="graph-world"></div>
+    </div>
+    <div class="graph-divider" id="graph-divider" title="Drag to resize"></div>
+  </div>
   <div class="main">
     <div class="boardcol">
       <iframe id="board" title="Punchlist status board"></iframe>
     </div>
     <aside class="chatpane" id="chat" hidden aria-label="Chat with the agent">
-      <div class="chat-head">Agent chat<button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
+      <div class="chat-vdivider" id="chat-vdivider" title="Drag to resize the chat pane"></div>
+      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
       <div class="chat-log" id="chat-log"></div>
+      <div class="chat-hdivider" id="chat-hdivider" title="Drag to resize the input area"></div>
       <form class="chat-form" id="chat-form">
         <textarea class="chat-input" id="chat-input" rows="2" placeholder="Message Claude… (Enter sends)"></textarea>
         <button class="chat-send" type="submit">Send</button>
@@ -217,6 +339,7 @@
   const frame = document.getElementById("board");
   const stamp = document.getElementById("synced");
   let lastCanon = null;
+  let pullDeferredSince = null;
 
   function walkTasks(groups, fn) {
     (groups || []).forEach(function visitGroup(group) {
@@ -273,8 +396,18 @@
   // ---- In-frame decoration -------------------------------------------------
 
   const FRAME_CSS = `
-    .task-row.by-user { box-shadow: inset 3px 0 0 #246bfe; background-color: color-mix(in srgb, #246bfe 8%, transparent); }
-    .task-row.by-agent { box-shadow: inset 3px 0 0 #2d7d46; background-color: color-mix(in srgb, #2d7d46 10%, transparent); }
+    .task-row.by-user { box-shadow: inset 3px 0 0 #2d7d46; background-color: color-mix(in srgb, #2d7d46 12%, transparent); }
+    .task-row.by-agent { box-shadow: inset 3px 0 0 #246bfe; background-color: color-mix(in srgb, #246bfe 12%, transparent); }
+    .task-row.working {
+      box-shadow: inset 3px 0 0 #7c3aed;
+      background-color: color-mix(in srgb, #7c3aed 12%, transparent) !important;
+      animation: statusGlow 2.6s ease-in-out infinite;
+    }
+    @keyframes statusGlow {
+      0%, 100% { box-shadow: inset 3px 0 0 #7c3aed, 0 0 0 0 rgba(124, 58, 237, 0); }
+      50% { box-shadow: inset 3px 0 0 #7c3aed, 0 0 14px 2px rgba(124, 58, 237, 0.45); }
+    }
+    .jump-flash { outline: 2px solid #7c3aed; outline-offset: 2px; }
     .intake-btn {
       margin-left: 10px; font: inherit; font-size: 11px; font-weight: 600;
       padding: 2px 9px; border-radius: 6px; border: 1px solid currentColor;
@@ -282,7 +415,63 @@
       flex: none; vertical-align: middle;
     }
     .intake-btn:hover { opacity: 1; }
+    .intake-btn.glowing {
+      opacity: 1; color: #7c3aed; border-color: #7c3aed; cursor: default;
+      animation: statusGlow 1.6s ease-in-out infinite;
+    }
+    /* No reduced-motion override here on purpose: Evren runs Windows with
+       reduced motion on, and he explicitly asked for these two glows. */
   `;
+
+  let intakeRunning = false;
+
+  function readBoardState() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "null"); } catch { return null; }
+  }
+
+  function activeTasks(state) {
+    const found = [];
+    if (state) walkTasks(state.groups, (task) => { if (task.active && !task.done) found.push(task); });
+    return found;
+  }
+
+  function jumpToTask(id) {
+    const doc = frame.contentDocument;
+    const row = doc && doc.querySelector('[data-task-row="' + id + '"]');
+    if (!row) return;
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    row.classList.add("jump-flash");
+    setTimeout(() => row.classList.remove("jump-flash"), 2000);
+  }
+
+  function renderActiveBar(state) {
+    const bar = document.getElementById("activebar");
+    const slot = document.getElementById("active-items");
+    const tasks = activeTasks(state);
+    bar.classList.toggle("idle", tasks.length === 0);
+    slot.innerHTML = "";
+    if (tasks.length === 0) {
+      const idle = document.createElement("span");
+      idle.className = "active-idle-text";
+      idle.textContent = "idle — nothing in progress";
+      slot.appendChild(idle);
+      return;
+    }
+    tasks.forEach((task, index) => {
+      if (index) slot.appendChild(document.createTextNode(" · "));
+      const link = document.createElement("button");
+      link.type = "button";
+      link.className = "active-item";
+      link.textContent = task.text.length > 110 ? task.text.slice(0, 110) + "…" : task.text;
+      link.addEventListener("click", () => jumpToTask(task.id));
+      slot.appendChild(link);
+    });
+  }
+
+  function braindumpCount(state) {
+    const group = state && state.groups.find((g) => g.id === "group-braindump");
+    return group ? group.tasks.length : 0;
+  }
 
   function decorateFrame() {
     const doc = frame.contentDocument;
@@ -293,39 +482,65 @@
       style.textContent = FRAME_CSS;
       doc.head.appendChild(style);
     }
-    let byId = {};
-    try {
-      const state = JSON.parse(localStorage.getItem(KEY) || "null");
-      if (state) walkTasks(state.groups, (task) => { byId[task.id] = task.by || ""; });
-    } catch {}
-    doc.querySelectorAll("[data-task-row]").forEach((row) => {
-      const by = byId[row.getAttribute("data-task-row")];
-      row.classList.toggle("by-user", by === "user");
-      row.classList.toggle("by-agent", by === "agent");
+    // Tag before reading: the app's saves strip authorship from tasks created
+    // this session, and reading the untagged snapshot was the green flash.
+    tagUserTasks();
+    const state = readBoardState();
+    renderActiveBar(state);
+    const byId = {};
+    const workingIds = new Set();
+    if (state) walkTasks(state.groups, (task) => {
+      byId[task.id] = task.by || "";
+      if (task.active && !task.done) workingIds.add(task.id);
     });
+    doc.querySelectorAll("[data-task-row]").forEach((row) => {
+      const id = row.getAttribute("data-task-row");
+      if (!(id in byId) || !byId[id]) return; // unknown or untagged snapshot: never strip, only add
+      row.classList.toggle("by-user", byId[id] === "user");
+      row.classList.toggle("by-agent", byId[id] === "agent");
+      row.classList.toggle("working", workingIds.has(id));
+    });
+    // The app re-renders its DOM wholesale, so the intake button is re-created
+    // every pass and its in-progress state re-applied from the wrapper's flag.
+    if (intakeRunning && braindumpCount(state) === 0) intakeRunning = false;
     const title = doc.querySelector('[data-group-title="group-braindump"]');
-    if (title && !title.parentElement.querySelector(".intake-btn")) {
-      const button = doc.createElement("button");
-      button.type = "button";
-      button.className = "intake-btn";
-      button.textContent = "Intake braindump";
-      button.addEventListener("click", async (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        button.disabled = true;
-        button.textContent = "Sent — Claude will triage";
-        try { await fetch("/intake", { method: "POST" }); } catch {}
-        setTimeout(() => { button.disabled = false; button.textContent = "Intake braindump"; }, 5000);
-      }, true);
-      title.insertAdjacentElement("afterend", button);
+    if (title) {
+      let button = title.parentElement.querySelector(".intake-btn");
+      if (!button) {
+        button = doc.createElement("button");
+        button.type = "button";
+        button.className = "intake-btn";
+        button.addEventListener("click", async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (intakeRunning) return;
+          if (braindumpCount(readBoardState()) === 0) {
+            button.textContent = "Braindump is empty";
+            setTimeout(() => { button.textContent = "Intake braindump"; }, 3000);
+            return;
+          }
+          intakeRunning = true;
+          decorateFrame();
+          try { await fetch("/intake", { method: "POST" }); } catch {}
+        }, true);
+        title.insertAdjacentElement("afterend", button);
+      }
+      button.classList.toggle("glowing", intakeRunning);
+      // Only write when changed: assigning identical textContent still emits a
+      // mutation record, and with the synchronous observer that was a hang.
+      const label = intakeRunning ? "Intaking braindump…" : (button.textContent === "Braindump is empty" ? "Braindump is empty" : "Intake braindump");
+      if (button.textContent !== label) button.textContent = label;
     }
   }
 
-  let decorateQueued = false;
+  let decorating = false;
   function queueDecorate() {
-    if (decorateQueued) return;
-    decorateQueued = true;
-    setTimeout(() => { decorateQueued = false; decorateFrame(); }, 80);
+    // Synchronous, not rAF: the observer's microtask runs before the browser
+    // paints the app's fresh render, so classes land with zero flashed frames.
+    // The guard stops recursion from decorate's own class mutations.
+    if (decorating) return;
+    decorating = true;
+    try { decorateFrame(); } finally { decorating = false; }
   }
 
   frame.addEventListener("load", () => {
@@ -334,23 +549,449 @@
     if (doc && doc.body) new MutationObserver(queueDecorate).observe(doc.body, { childList: true, subtree: true });
   });
 
+  // ---- Execution graph -------------------------------------------------------
+  // Grill Q14–Q20: live-state thread (completed → active → queue), forks at
+  // equal priority, agent chips from the heartbeat registry, pan + click-jump,
+  // auto-recenter after 15 s idle, resizable via the bottom divider.
+
+  const graphPane = document.getElementById("graphpane");
+  const graphWorld = document.getElementById("graph-world");
+  const graphViewport = document.getElementById("graph-viewport");
+  const GRAPH_OPEN_KEY = "punchlist-status-graph-open";
+  const GRAPH_H_KEY = "punchlist-status-graph-height";
+  const GRAPH_Z_KEY = "punchlist-status-graph-zoom";
+  let agentsLive = [];
+  let graphKey = "";
+  let graphPan = { x: 30, y: 10 };
+  let lastGraphInteract = 0;
+  let activeNodeCenter = null;
+  // Semantic zoom (Evren's spec): geometry scales, text size stays constant,
+  // so zooming in shows MORE text per block rather than bigger letters.
+  let graphZoom = Math.min(2, Math.max(0.6, Number(localStorage.getItem(GRAPH_Z_KEY)) || 1));
+
+  function nodeOf(task, kind) {
+    const openKids = (task.children || []).filter((c) => !c.done);
+    return {
+      id: task.id, text: task.text || "(untitled)", kind, by: task.by || "",
+      lane: task.lane === "dev" ? "dev" : "app",
+      stubs: openKids.slice(0, 6).map((c) => c.text),
+      more: Math.max(0, openKids.length - 6),
+    };
+  }
+
+  function buildGraphModel(state) {
+    const cols = [];
+    const branch = [];
+    const inbox = state.groups.find((g) => g.id === "group-inbox");
+    if (!inbox) return { cols, branch };
+    const holder = inbox.tasks.find((t) => t.id === "task-agent-completed");
+    (holder ? holder.children : []).filter((t) => t.completedAt)
+      .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-5)
+      .forEach((t) => cols.push([nodeOf(t, "done")]));
+    const actives = [];
+    walkTasks(state.groups, (t) => { if (t.active && !t.done) actives.push(t); });
+    cols.push(actives.length ? actives.map((t) => nodeOf(t, "active"))
+      : [{ id: null, text: "idle — nothing active", kind: "idle", by: "", stubs: [], more: 0 }]);
+    inbox.tasks.filter((t) => !t.done && t.id !== "task-agent-completed" && !t.active)
+      .forEach((t) => { if (t.inserted) branch.push(nodeOf(t, "queue")); else cols.push([nodeOf(t, "queue")]); });
+    const dirA = state.groups.find((g) => g.id === "group-dir-a");
+    const friction = dirA && dirA.tasks.find((t) => (t.text || "").startsWith("Friction list"));
+    let expandedFork = false;
+    (friction ? friction.children : []).filter((p) => /^P\d/.test(p.text || "")).forEach((level) => {
+      const open = (level.children || []).filter((c) => !c.done);
+      if (!open.length) return;
+      if (!expandedFork) { cols.push(open.map((c) => nodeOf(c, "queue"))); expandedFork = true; }
+      else cols.push([{ id: level.id, text: level.text + " — " + open.length + " open", kind: "bucket", by: level.by || "", lane: "app", stubs: open.slice(0, 2).map((c) => c.text), more: Math.max(0, open.length - 2) }]);
+    });
+    return { cols, branch };
+  }
+
+  function renderGraph(force) {
+    if (graphPane.hidden) return;
+    const state = readBoardState();
+    if (!state) return;
+    const model = buildGraphModel(state);
+    const cols = model.cols;
+    const branch = model.branch;
+    const key = JSON.stringify(model) + "|" + JSON.stringify(agentsLive);
+    if (!force && key === graphKey) return;
+    graphKey = key;
+    graphWorld.innerHTML = "";
+    activeNodeCenter = null;
+    const Z = graphZoom;
+    const NODE_W = Math.round(200 * Z), COL_STEP = Math.round(270 * Z), GAP = Math.round(18 * Z);
+    const MID = Math.max(120, (graphPane.clientHeight - 6) / 2);
+    const stubBudget = Z < 0.75 ? 0 : Math.max(1, Math.round(3 * Z));
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.classList.add("graph-links");
+    graphWorld.appendChild(svg);
+    function buildNodeEl(node) {
+      const el = document.createElement("div");
+      el.className = "gnode " + node.kind + (node.by === "user" ? " by-user" : node.by === "agent" ? " by-agent" : "");
+      el.style.width = NODE_W + "px";
+      if (node.id) el.dataset.taskId = node.id;
+      const text = document.createElement("div");
+      text.className = "gtext";
+      text.style.webkitLineClamp = String(Math.max(1, Math.round(3 * Z)));
+      text.textContent = node.text;
+      el.appendChild(text);
+      const visible = Math.min(node.stubs.length, stubBudget);
+      node.stubs.slice(0, visible).forEach((stub) => {
+        const s = document.createElement("div");
+        s.className = "gstub";
+        s.textContent = "↳ " + stub;
+        el.appendChild(s);
+      });
+      const hiddenCount = node.stubs.length - visible + node.more;
+      if (hiddenCount > 0 && stubBudget > 0) {
+        const s = document.createElement("div");
+        s.className = "gstub";
+        s.textContent = "↳ +" + hiddenCount + " more";
+        el.appendChild(s);
+      }
+      if (node.kind !== "idle") {
+        const tag = document.createElement("div");
+        tag.className = "gtag " + node.lane;
+        tag.textContent = node.lane === "dev" ? "development interface" : "app";
+        el.appendChild(tag);
+      }
+      graphWorld.appendChild(el);
+      return el;
+    }
+    const placed = [];
+    cols.forEach((col, i) => {
+      const x = 30 + i * COL_STEP;
+      const els = col.map((node) => {
+        const el = buildNodeEl(node);
+        el.style.left = x + "px";
+        return { node, el };
+      });
+      let total = els.reduce((sum, p) => sum + p.el.offsetHeight, 0) + (els.length - 1) * GAP;
+      let y = Math.max(12, MID - total / 2);
+      els.forEach((p) => {
+        p.el.style.top = y + "px";
+        p.cx = x; p.cy = y + p.el.offsetHeight / 2; p.h = p.el.offsetHeight;
+        if (p.node.kind === "active" && !activeNodeCenter) activeNodeCenter = { x: x + NODE_W / 2, y: p.cy };
+        y += p.el.offsetHeight + GAP;
+      });
+      placed.push(els);
+    });
+    let maxY = 0;
+    placed.flat().forEach((p) => { maxY = Math.max(maxY, p.cy + p.h / 2); });
+    const worldW = 30 + cols.length * COL_STEP + 60;
+    const worldH = maxY + 40;
+    graphWorld.style.width = worldW + "px";
+    graphWorld.style.height = worldH + "px";
+    svg.setAttribute("width", worldW);
+    svg.setAttribute("height", worldH);
+    for (let i = 0; i < placed.length - 1; i++) {
+      const from = placed[i], to = placed[i + 1];
+      const pairs = from.length === 1 ? to.map((t) => [from[0], t])
+        : to.length === 1 ? from.map((f) => [f, to[0]])
+        : from.map((f, k) => [f, to[Math.min(k, to.length - 1)]]);
+      pairs.forEach(([f, t]) => {
+        const hot = f.node.kind === "active" || t.node.kind === "active";
+        const x1 = f.cx + NODE_W, y1 = f.cy, x2 = t.cx, y2 = t.cy;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M ${x1} ${y1} C ${x1 + 34} ${y1}, ${x2 - 34} ${y2}, ${x2} ${y2}`);
+        path.setAttribute("fill", "none");
+        // style, not attribute: SVG presentation attributes can't resolve var()
+        path.style.stroke = hot ? "#7c3aed" : "var(--line-strong)";
+        path.setAttribute("stroke-width", hot ? "2.5" : "1.5");
+        svg.appendChild(path);
+      });
+    }
+    // Open branch below the main line (Evren's spec, 2026-07-17): inserted
+    // items hang off the active node's right SIDE, run as their own row, and
+    // just end — no merge back.
+    // ponytail: one branch row today; when multiple branches can collide, the
+    // left-most one moves a row down (his stacking rule) — implement then.
+    const branchPlaced = [];
+    const activePlaced = placed.flat().find((p) => p.node.kind === "active");
+    if (branch.length && activePlaced) {
+      const startX = activePlaced.cx + NODE_W + Math.round(44 * Z);
+      const branchTop = activePlaced.cy + activePlaced.h / 2 + Math.round(56 * Z);
+      let prev = null;
+      branch.forEach((node, index) => {
+        const el = buildNodeEl(node);
+        const bx = startX + index * COL_STEP;
+        el.style.left = bx + "px";
+        el.style.top = branchTop + "px";
+        const cy = branchTop + el.offsetHeight / 2;
+        const x1 = index === 0 ? activePlaced.cx + NODE_W : prev.bx + NODE_W;
+        const y1 = index === 0 ? activePlaced.cy + activePlaced.h / 4 : prev.cy;
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", `M ${x1} ${y1} C ${x1 + 30} ${y1}, ${bx - 30} ${cy}, ${bx} ${cy}`);
+        path.setAttribute("fill", "none");
+        path.style.stroke = "#7c3aed";
+        path.setAttribute("stroke-width", "2.5");
+        svg.appendChild(path);
+        prev = { bx, cy };
+        branchPlaced.push({ node, el, cx: bx, cy, h: el.offsetHeight });
+      });
+      const branchBottom = Math.max(...branchPlaced.map((p) => p.cy + p.h / 2)) + 40;
+      const branchRight = startX + branch.length * COL_STEP + 60;
+      const newW = Math.max(parseInt(graphWorld.style.width) || 0, branchRight);
+      const newH = Math.max(parseInt(graphWorld.style.height) || 0, branchBottom);
+      graphWorld.style.width = newW + "px";
+      graphWorld.style.height = newH + "px";
+      svg.setAttribute("width", newW);
+      svg.setAttribute("height", newH);
+    }
+    agentsLive.forEach((agent, index) => {
+      const chip = document.createElement("div");
+      chip.className = "agent-chip";
+      chip.textContent = agent.name;
+      const host = placed.flat().concat(branchPlaced).find((p) => p.node.id === agent.taskId);
+      if (host) {
+        chip.style.left = (host.cx + 8 + index * 4) + "px";
+        chip.style.top = (host.cy - host.h / 2 - 10) + "px";
+      } else {
+        chip.style.left = "8px";
+        chip.style.top = (6 + index * 20) + "px";
+        chip.textContent = agent.name + " · off-graph task";
+      }
+      graphWorld.appendChild(chip);
+    });
+    applyGraphPan(false);
+  }
+
+  function applyGraphPan(glide) {
+    graphWorld.classList.toggle("gliding", Boolean(glide));
+    graphWorld.style.transform = `translate(${graphPan.x}px, ${graphPan.y}px)`;
+    if (glide) setTimeout(() => graphWorld.classList.remove("gliding"), 750);
+  }
+
+  function centerGraphOnActive(glide) {
+    if (!activeNodeCenter) return;
+    const targetX = graphViewport.clientWidth / 2 - activeNodeCenter.x;
+    const targetY = (graphPane.clientHeight - 6) / 2 - activeNodeCenter.y;
+    if (Math.abs(targetX - graphPan.x) < 4 && Math.abs(targetY - graphPan.y) < 4) return;
+    graphPan = { x: targetX, y: targetY };
+    applyGraphPan(glide);
+  }
+
+  function setGraphOpen(open) {
+    graphPane.hidden = !open;
+    document.getElementById("activebar").hidden = open;
+    document.getElementById("graph-toggle").setAttribute("aria-pressed", open ? "true" : "false");
+    localStorage.setItem(GRAPH_OPEN_KEY, open ? "1" : "0");
+    if (open) { renderGraph(true); centerGraphOnActive(false); }
+  }
+  document.getElementById("graph-toggle").addEventListener("click", () => setGraphOpen(graphPane.hidden));
+
+  (() => {
+    const height = Number(localStorage.getItem(GRAPH_H_KEY));
+    if (height >= 160) graphPane.style.height = height + "px";
+    if (localStorage.getItem(GRAPH_OPEN_KEY) === "1") setGraphOpen(true);
+  })();
+
+  (() => {
+    let drag = null;
+    graphViewport.addEventListener("pointerdown", (event) => {
+      drag = { x: event.clientX, y: event.clientY, panX: graphPan.x, panY: graphPan.y, moved: false, target: event.target };
+      graphViewport.setPointerCapture(event.pointerId);
+      graphViewport.classList.add("dragging");
+      lastGraphInteract = Date.now();
+    });
+    graphViewport.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+      graphPan = { x: drag.panX + dx, y: drag.panY + dy };
+      applyGraphPan(false);
+      lastGraphInteract = Date.now();
+    });
+    graphViewport.addEventListener("pointerup", () => {
+      if (drag && !drag.moved) {
+        const node = drag.target.closest(".gnode");
+        if (node && node.dataset.taskId) jumpToTask(node.dataset.taskId);
+      }
+      drag = null;
+      graphViewport.classList.remove("dragging");
+      lastGraphInteract = Date.now();
+    });
+    let wheelQueued = false;
+    graphViewport.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const rect = graphViewport.getBoundingClientRect();
+      const cx = event.clientX - rect.left, cy = event.clientY - rect.top;
+      const previous = graphZoom;
+      graphZoom = Math.min(2, Math.max(0.6, graphZoom * (event.deltaY < 0 ? 1.12 : 1 / 1.12)));
+      if (graphZoom === previous) return;
+      const scale = graphZoom / previous;
+      graphPan = { x: cx - (cx - graphPan.x) * scale, y: cy - (cy - graphPan.y) * scale };
+      localStorage.setItem(GRAPH_Z_KEY, String(graphZoom));
+      lastGraphInteract = Date.now();
+      if (!wheelQueued) {
+        wheelQueued = true;
+        requestAnimationFrame(() => { wheelQueued = false; renderGraph(true); });
+      }
+    }, { passive: false });
+    const divider = document.getElementById("graph-divider");
+    let resize = null;
+    divider.addEventListener("pointerdown", (event) => {
+      resize = { y: event.clientY, h: graphPane.clientHeight };
+      divider.setPointerCapture(event.pointerId);
+      divider.classList.add("dragging");
+    });
+    divider.addEventListener("pointermove", (event) => {
+      if (!resize) return;
+      const h = Math.min(Math.round(window.innerHeight * 0.6), Math.max(160, resize.h + event.clientY - resize.y));
+      graphPane.style.height = h + "px";
+      lastGraphInteract = Date.now();
+    });
+    divider.addEventListener("pointerup", () => {
+      resize = null;
+      divider.classList.remove("dragging");
+      localStorage.setItem(GRAPH_H_KEY, String(graphPane.clientHeight));
+      renderGraph(true);
+    });
+  })();
+
+  function formatElapsed(ms) {
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + "s";
+    if (s < 3600) return Math.floor(s / 60) + "m " + String(s % 60).padStart(2, "0") + "s";
+    return Math.floor(s / 3600) + "h " + String(Math.floor((s % 3600) / 60)).padStart(2, "0") + "m";
+  }
+
+  function updateWorkingIndicator() {
+    const wrap = document.getElementById("chat-working");
+    const text = document.getElementById("chat-working-text");
+    if (!agentsLive.length) { wrap.hidden = true; return; }
+    const state = readBoardState();
+    const names = {};
+    if (state) walkTasks(state.groups, (t) => { names[t.id] = t.text; });
+    const agent = agentsLive[0];
+    const parts = [
+      agent.name,
+      names[agent.taskId] ? names[agent.taskId].slice(0, 44) : "working",
+      agent.since ? formatElapsed(Date.now() - agent.since) : null,
+      agent.status || null,
+    ].filter(Boolean);
+    text.textContent = parts.join(" · ");
+    wrap.hidden = false;
+  }
+
+  async function pollAgents() {
+    try {
+      const response = await fetch("/agents", { cache: "no-store" });
+      if (!response.ok) return;
+      const fresh = await response.json();
+      if (JSON.stringify(fresh) !== JSON.stringify(agentsLive)) {
+        agentsLive = fresh;
+        renderGraph(true);
+      }
+      updateWorkingIndicator();
+    } catch {}
+  }
+
+  function graphTick() {
+    if (graphPane.hidden) return;
+    renderGraph(false);
+    if (Date.now() - lastGraphInteract > 15000) centerGraphOnActive(true);
+  }
+
   // ---- Chat ------------------------------------------------------------------
 
   const chatPane = document.getElementById("chat");
   const chatLog = document.getElementById("chat-log");
   const chatBadge = document.getElementById("chat-badge");
   const chatInput = document.getElementById("chat-input");
+  const CHAT_SEEN_KEY = "punchlist-status-chat-seen";
   let chatCount = 0;
-  let chatSeen = 0;
+  let chatSeen = Number(localStorage.getItem(CHAT_SEEN_KEY)) || 0;
+
+  function markChatSeen() {
+    chatSeen = chatCount;
+    localStorage.setItem(CHAT_SEEN_KEY, String(chatSeen));
+    chatBadge.classList.remove("on");
+  }
+
+  const questionPicks = new Map();
+  const questionNotes = new Map();
+
+  async function sendAnswer(answerTo, text) {
+    try {
+      await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text, answerTo }),
+      });
+      await pollChat();
+    } catch {}
+  }
 
   function renderChat(lines) {
+    const entries = lines.map((line) => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+    const answered = new Set(entries.filter((e) => e.answerTo).map((e) => e.answerTo));
+    // keep the reader's place: only auto-scroll when they were already at the
+    // bottom, and never touch scroll while the pane is hidden (its metrics
+    // read 0 and restoring them later threw the view to the top).
+    const hidden = chatPane.hidden;
+    const nearBottom = chatLog.scrollTop + chatLog.clientHeight >= chatLog.scrollHeight - 48;
+    const keepScroll = chatLog.scrollTop;
     chatLog.innerHTML = "";
-    lines.forEach((line) => {
-      let entry;
-      try { entry = JSON.parse(line); } catch { return; }
+    entries.forEach((entry) => {
       const div = document.createElement("div");
       div.className = "msg " + (entry.from === "user" ? "user" : entry.from === "agent" ? "agent" : "system");
       div.textContent = entry.text;
+      if (entry.question && entry.from === "agent") {
+        const isAnswered = answered.has(entry.at);
+        const picks = questionPicks.get(entry.at) || new Set();
+        const wrap = document.createElement("div");
+        wrap.className = "q-options";
+        entry.question.options.forEach((option) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "q-btn";
+          button.textContent = option;
+          button.disabled = isAnswered;
+          if (!isAnswered) {
+            if (entry.question.multi) {
+              button.setAttribute("aria-pressed", picks.has(option) ? "true" : "false");
+              button.addEventListener("click", () => {
+                picks.has(option) ? picks.delete(option) : picks.add(option);
+                questionPicks.set(entry.at, picks);
+                button.setAttribute("aria-pressed", picks.has(option) ? "true" : "false");
+              });
+            } else {
+              button.addEventListener("click", () => sendAnswer(entry.at, option));
+            }
+          }
+          wrap.appendChild(button);
+        });
+        div.appendChild(wrap);
+        if (!isAnswered && entry.question.multi) {
+          const note = document.createElement("input");
+          note.className = "q-note";
+          note.placeholder = "Add a note (optional)";
+          note.value = questionNotes.get(entry.at) || "";
+          note.addEventListener("input", () => questionNotes.set(entry.at, note.value));
+          div.appendChild(note);
+          const sendWrap = document.createElement("div");
+          sendWrap.className = "q-options";
+          const send = document.createElement("button");
+          send.type = "button";
+          send.className = "q-btn q-send";
+          send.textContent = "Send answer";
+          send.addEventListener("click", () => {
+            const chosen = [...(questionPicks.get(entry.at) || [])];
+            if (!chosen.length) return;
+            const noteText = (questionNotes.get(entry.at) || "").trim();
+            sendAnswer(entry.at, chosen.join("; ") + (noteText ? ". Note: " + noteText : ""));
+          });
+          sendWrap.appendChild(send);
+          div.appendChild(sendWrap);
+        }
+        if (isAnswered) {
+          const done = document.createElement("div");
+          done.className = "q-done";
+          done.textContent = "answered";
+          div.appendChild(done);
+        }
+      }
       if (entry.from !== "system" && entry.at) {
         const time = document.createElement("time");
         time.textContent = new Date(entry.at).toLocaleTimeString();
@@ -358,7 +999,7 @@
       }
       chatLog.appendChild(div);
     });
-    chatLog.scrollTop = chatLog.scrollHeight;
+    if (!hidden) chatLog.scrollTop = nearBottom ? chatLog.scrollHeight : keepScroll;
   }
 
   async function pollChat() {
@@ -371,26 +1012,33 @@
         renderChat(lines);
       }
       if (chatPane.hidden) {
-        const unread = chatCount - chatSeen;
+        const unread = Math.max(0, chatCount - chatSeen);
         chatBadge.textContent = unread > 99 ? "99+" : String(unread);
         chatBadge.classList.toggle("on", unread > 0);
       } else {
-        chatSeen = chatCount;
-        chatBadge.classList.remove("on");
+        markChatSeen();
       }
     } catch {}
   }
 
   document.getElementById("chat-toggle").addEventListener("click", () => {
     chatPane.hidden = !chatPane.hidden;
-    if (!chatPane.hidden) { chatSeen = chatCount; chatBadge.classList.remove("on"); chatInput.focus(); }
+    document.getElementById("chat-toggle").setAttribute("aria-pressed", chatPane.hidden ? "false" : "true");
+    if (!chatPane.hidden) { markChatSeen(); chatLog.scrollTop = chatLog.scrollHeight; chatInput.focus(); }
   });
-  document.getElementById("chat-close").addEventListener("click", () => { chatPane.hidden = true; });
+  document.getElementById("menu-toggle").addEventListener("click", () => {
+    frame.contentDocument?.querySelector("[data-sidebar-toggle]")?.click();
+  });
+  document.getElementById("chat-close").addEventListener("click", () => {
+    chatPane.hidden = true;
+    document.getElementById("chat-toggle").setAttribute("aria-pressed", "false");
+  });
 
   async function sendChat() {
     const text = chatInput.value.trim();
     if (!text) return;
     chatInput.value = "";
+    chatInput.style.height = "36px";
     try {
       await fetch("/chat", {
         method: "POST",
@@ -405,6 +1053,57 @@
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendChat(); }
   });
 
+  // Pane width, input auto-grow, and the log/input divider (intake #3/#4 asks).
+  const CHAT_W_KEY = "punchlist-status-chat-width";
+  const INPUT_CAP_KEY = "punchlist-status-input-cap";
+  let inputCap = Number(localStorage.getItem(INPUT_CAP_KEY)) || 120;
+  const savedChatW = Number(localStorage.getItem(CHAT_W_KEY));
+  if (savedChatW >= 260) chatPane.style.width = savedChatW + "px";
+
+  function growInput() {
+    chatInput.style.height = "36px";
+    chatInput.style.height = Math.min(Math.max(36, chatInput.scrollHeight), inputCap) + "px";
+  }
+  chatInput.addEventListener("input", growInput);
+
+  (() => {
+    const vdiv = document.getElementById("chat-vdivider");
+    let drag = null;
+    vdiv.addEventListener("pointerdown", (event) => {
+      drag = { x: event.clientX, w: chatPane.clientWidth };
+      vdiv.setPointerCapture(event.pointerId);
+      vdiv.classList.add("dragging");
+    });
+    vdiv.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const w = Math.min(Math.round(window.innerWidth * 0.6), Math.max(260, drag.w + (drag.x - event.clientX)));
+      chatPane.style.width = w + "px";
+    });
+    vdiv.addEventListener("pointerup", () => {
+      drag = null;
+      vdiv.classList.remove("dragging");
+      localStorage.setItem(CHAT_W_KEY, String(chatPane.clientWidth));
+    });
+    const hdiv = document.getElementById("chat-hdivider");
+    let hdrag = null;
+    hdiv.addEventListener("pointerdown", (event) => {
+      hdrag = { y: event.clientY, cap: inputCap };
+      hdiv.setPointerCapture(event.pointerId);
+      hdiv.classList.add("dragging");
+    });
+    hdiv.addEventListener("pointermove", (event) => {
+      if (!hdrag) return;
+      inputCap = Math.min(320, Math.max(36, hdrag.cap + (hdrag.y - event.clientY)));
+      chatInput.style.height = inputCap + "px";
+    });
+    hdiv.addEventListener("pointerup", () => {
+      hdrag = null;
+      hdiv.classList.remove("dragging");
+      localStorage.setItem(INPUT_CAP_KEY, String(inputCap));
+      growInput();
+    });
+  })();
+
   // ---- Sync loop --------------------------------------------------------------
 
   // ponytail: full-state GET + canon compare every 2s; over localhost this is
@@ -413,6 +1112,8 @@
   async function tick() {
     applyTheme();
     pollChat();
+    pollAgents();
+    graphTick();
     try {
       const local = tagUserTasks();
       const localCanon = local === null ? null : canon(local);
@@ -426,11 +1127,21 @@
       if (!response.ok) return;
       const server = await response.text();
       if (canon(server) !== lastCanon) {
+        // Never yank the board out from under an active caret: defer the
+        // reload while Evren is focused in an editable, up to 60 s.
+        const focused = frame.contentDocument?.activeElement;
+        const editing = focused && (focused.isContentEditable || /^(INPUT|TEXTAREA)$/.test(focused.tagName));
+        if (editing && Date.now() - (pullDeferredSince ||= Date.now()) < 60000) {
+          mark("update waiting");
+          return;
+        }
+        pullDeferredSince = null;
         localStorage.setItem(KEY, server);
         lastCanon = canon(server);
         frame.contentWindow?.location.reload();
         mark("updated");
       } else {
+        pullDeferredSince = null;
         mark("synced");
       }
     } catch {

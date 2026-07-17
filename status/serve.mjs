@@ -10,6 +10,9 @@ const statusDir = fileURLToPath(new URL(".", import.meta.url));
 const stateFile = join(statusDir, "status-board.json");
 const chatFile = join(statusDir, "chat.jsonl");
 const port = 4173;
+// Live agent registry for the execution graph. In-memory on purpose: entries
+// expire after 90 s without a heartbeat, so restarts self-heal within a beat.
+const agents = new Map();
 
 async function readBody(req, limit) {
   const chunks = [];
@@ -48,8 +51,41 @@ createServer(async (req, res) => {
       if (!["user", "agent", "system"].includes(message.from) || typeof message.text !== "string" || !message.text.trim()) {
         throw new SyntaxError("bad message");
       }
-      await appendChat(message.from, message.text.trim());
+      const entry = { from: message.from, text: message.text.trim(), at: new Date().toISOString() };
+      if (message.question && Array.isArray(message.question.options)) {
+        const options = message.question.options.filter((o) => typeof o === "string" && o.trim()).slice(0, 8);
+        if (options.length >= 2) entry.question = { options, multi: Boolean(message.question.multi) };
+      }
+      if (typeof message.answerTo === "string") entry.answerTo = message.answerTo;
+      await appendFile(chatFile, JSON.stringify(entry) + "\n");
       res.writeHead(204).end();
+      return;
+    }
+    if (req.method === "POST" && pathname === "/agents") {
+      const beat = JSON.parse(await readBody(req, 10_000));
+      if (typeof beat.name !== "string" || !beat.name.trim()) throw new SyntaxError("bad agent");
+      const name = beat.name.trim();
+      if (beat.taskId === null) agents.delete(name);
+      else if (typeof beat.taskId === "string") {
+        const prev = agents.get(name);
+        agents.set(name, {
+          name,
+          taskId: beat.taskId,
+          at: Date.now(),
+          // runtime = now - since; survives beats, resets when the task changes
+          since: prev && prev.taskId === beat.taskId ? prev.since : Date.now(),
+          status: typeof beat.status === "string" && beat.status.trim()
+            ? beat.status.trim().slice(0, 120)
+            : (prev && prev.taskId === beat.taskId ? prev.status : undefined),
+        });
+      } else throw new SyntaxError("bad agent");
+      res.writeHead(204).end();
+      return;
+    }
+    if (req.method === "GET" && pathname === "/agents") {
+      const fresh = [...agents.values()].filter((a) => Date.now() - a.at < 90_000);
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      res.end(JSON.stringify(fresh));
       return;
     }
     if (req.method === "POST" && pathname === "/intake") {

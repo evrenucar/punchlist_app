@@ -271,6 +271,15 @@
 
     <article>
       <header>
+        <h2>New tasks start empty</h2>
+        <span class="entry-date">July 17, 2026</span>
+      </header>
+      <p>Every way of creating a task — the + button, Enter on a task, Enter on a group — used to insert the text "New task", & if focus slipped before you typed, that placeholder stuck around as a real task name. All three paths now create an empty task with the caret ready. Focus mode already worked this way; the main board just caught up.</p>
+      <p>Second fix, same day: Ctrl+Z stopped throwing you to the top of the board. Every undo was silently resetting the selection to the first node on the page & scrolling to it; the selection now stays where you were. Testing that surfaced a third bug for free — tasks added with the + button were never undoable at all (Enter-added ones were). 86 automated tests pass on this build, 2 of them new for exactly these.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>The project now runs its own status board</h2>
         <span class="entry-date">July 17, 2026</span>
       </header>
@@ -290,8 +299,10 @@
         <li>Open <code>http://localhost:4173/</code> during any Claude Code session on this project.</li>
         <li>Edit it like any board — check things off, reorder, add notes.</li>
         <li>Dump anything into <em>Braindump</em> at the top. Claude does not read that group until you press the <em>Intake braindump</em> button next to its name; then everything gets triaged into the right groups with priorities, & duplicates get checked against what's already tracked (open issue? unbuilt idea? already shipped?) & merged instead of doubled.</li>
-        <li><em>Agent_Active</em> shows what's being worked on right now. Add to it when you want; your rows get a blue stripe, freshly agent-added rows get a green stripe, so you can tell at a glance who wrote what.</li>
+        <li><em>Agent_Active</em> shows what's being worked on right now. Add to it when you want; a legend in the header names the three backdrop colors — purple glow for the item being worked this minute, blue for agent-added rows, green for yours. Finished items fold into a collapsed <em>Completed</em> row so only actionable things stay visible.</li>
+        <li>A purple <em>ACTIVE</em> bar at the very top names what the agent is working on this minute — click it & the page jumps to that item, which carries a slowly glowing purple backdrop. While a braindump is being processed, the Intake button itself glows & reads "Intaking braindump…" until the group is empty.</li>
         <li>Press <em>Chat</em> in the top bar to talk to the agent without a terminal. Messages travel through a local file; nothing leaves the machine.</li>
+        <li>Press <em>Graph</em> for the execution graph: one thread from recently-completed through the glowing active item into the queue ahead (forking where work parallelizes), with named agent chips riding the items being worked. Drag to browse — it glides back to the active item after 15 seconds. The bottom edge drags to resize.</li>
       </ol>
       <p>A hosted snapshot of the same board lives at the project's private artifact link; it's rebaked when the status changes. The snapshot is view-only in spirit: edits there don't reach Claude & reset on reload.</p>
     </article>
