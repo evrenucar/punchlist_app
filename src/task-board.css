@@ -1095,6 +1095,7 @@
     .lifecycle-list {
       display: grid;
       gap: 4px;
+      padding-left: 22px; /* rows sit one level under their section header, like any child */
     }
 
     .lifecycle-row > summary {
@@ -2032,11 +2033,25 @@
         min-height: 44px;
       }
 
+      /* narrow: context drops to its own line but both buttons stay on the
+         first row; fewer columns than children shoved Restore into the 10px
+         arrow column */
       .lifecycle-row > summary {
-        grid-template-columns: 10px minmax(0, 1fr) auto;
+        grid-template-columns: 10px minmax(0, 1fr) auto auto;
       }
 
       .lifecycle-context {
-        grid-column: 1 / -1;
+        grid-column: 2 / -1;
+      }
+
+      /* pin buttons to row one explicitly; definite-row items place before
+         the auto-flowing arrow and text, so column pinning must be explicit
+         too or Restore claims the 10px arrow column */
+      .lifecycle-row > summary .control:nth-last-of-type(2) {
+        grid-area: 1 / 3;
+      }
+
+      .lifecycle-row > summary .control:last-of-type {
+        grid-area: 1 / 4;
       }
     }

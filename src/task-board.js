@@ -1097,6 +1097,22 @@
         taskIds: tasks.map((item) => item.id),
         markdown,
       };
+      // Evren's spec (2026-07-17): cut removes items immediately like any
+      // editor; paste re-inserts the same objects, undo restores them in place
+      if (mode === "cut" && tasks.length) {
+        const cutIds = new Set(tasks.map((item) => item.id));
+        const visible = getVisibleNodes();
+        const firstIndex = visible.findIndex((node) => node.kind === "task" && cutIds.has(node.id));
+        const neighbor = visible.slice(0, Math.max(0, firstIndex)).reverse()
+          .find((node) => !(node.kind === "task" && cutIds.has(node.id)));
+        pushUndoState("cut", tasks.length === 1
+          ? `Cut "${shortText(resolveTaskItem(tasks[0])?.text)}"`
+          : `Cut ${tasks.length} tasks`);
+        internalClipboard.detached = tasks.map((item) => removeTask(item.id)).filter(Boolean);
+        if (neighbor) setSingleSelection(neighbor);
+        saveState();
+        render();
+      }
       return internalClipboard;
     }
 
@@ -1803,6 +1819,30 @@
           changed = true;
         }
       });
+
+      // Ctrl+Up with nothing left to collapse climbs to the enclosing toggle:
+      // collapse the nearest expanded ancestor (finally the group) and select it
+      if (!changed && collapsed === true && nodes.length === 1 && nodes[0].kind === "task") {
+        let parent = findTask(nodes[0].id)?.parent;
+        while (parent) {
+          const parentFound = findTask(parent.id);
+          if (parentFound && !parentFound.item.collapsed) {
+            parentFound.item.collapsed = true;
+            setSingleSelection({ kind: "task", id: parent.id });
+            changed = true;
+            break;
+          }
+          parent = parentFound?.parent;
+        }
+        if (!changed) {
+          const group = findTask(nodes[0].id)?.group;
+          if (group && !group.collapsed) {
+            group.collapsed = true;
+            setSingleSelection({ kind: "group", id: group.id });
+            changed = true;
+          }
+        }
+      }
 
       if (!changed) {
         discardUndoState();
@@ -4535,6 +4575,26 @@
       }
       if (internalClipboard?.taskIds?.length && text.trim() === internalClipboard.markdown.trim()) {
         event.preventDefault();
+        // cut detached the originals at cut time; re-insert those same objects
+        // (items undo brought back in place are left where they are)
+        const detached = internalClipboard.mode === "cut"
+          ? (internalClipboard.detached || []).filter((item) => !findTask(item.id))
+          : [];
+        if (detached.length) {
+          if (targetNode) {
+            pushUndoState("paste");
+            const inserted = insertPastedItems(detached, targetNode);
+            if (inserted.length) {
+              setSingleSelection({ kind: "task", id: inserted[0].id });
+              saveState();
+              render();
+              internalClipboard = null;
+            } else {
+              discardUndoState();
+            }
+          }
+          return;
+        }
         pasteTaskIds(internalClipboard.taskIds, targetNode, resolvePasteMode());
         if (internalClipboard.mode === "cut") internalClipboard = null;
         return;

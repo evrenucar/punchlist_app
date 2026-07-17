@@ -648,6 +648,49 @@ test("focus mode owns its keys: outline browsing, sibling moves, guarded board",
   assert.match(html, /if \(focusModeTaskId \|\| focusModeGroupId\) \{[\s\S]{0,600}?\}\s*\n\s*const visible = getVisibleNodes\(\);/);
 });
 
+test("cut removes items immediately and undo restores them in place", async () => {
+  const api = await loadBoardApi();
+  const html = await readBoard();
+  const today = api.state.groups.find((group) => group.id === "group-today");
+  const victim = today.tasks[1];
+  const countBefore = today.tasks.length;
+
+  api.selectNode("task", victim.id);
+  const clipboard = api.rememberInternalClipboard("cut");
+  assert.equal(clipboard.detached.length, 1);
+  assert.equal(clipboard.detached[0].id, victim.id);
+  assert.equal(today.tasks.length, countBefore - 1, "cut item leaves the board at cut time");
+  assert.equal(today.tasks.some((item) => item.id === victim.id), false);
+
+  api.restoreUndoState();
+  const restored = api.state.groups.find((group) => group.id === "group-today");
+  assert.equal(restored.tasks.length, countBefore);
+  assert.equal(restored.tasks[1].id, victim.id, "undo puts the cut item back where it was");
+
+  // paste re-inserts the detached originals, skipping any undo already restored
+  assert.match(html, /internalClipboard\.detached \|\| \[\]/);
+});
+
+test("ctrl+up on an element with nothing to collapse climbs to the enclosing toggle", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((g) => g.tasks.some((t) => (t.children || []).length > 0));
+  const parent = group.tasks.find((t) => (t.children || []).length > 0);
+  const leaf = parent.children[0];
+
+  api.selectNode("task", leaf.id);
+  api.toggleSelectedNodes(true);
+  assert.equal(parent.collapsed, true, "collapsing a leaf collapses its parent toggle");
+  assert.equal(JSON.stringify(api.getSelectedNodes()[0]), JSON.stringify({ kind: "task", id: parent.id }));
+
+  api.toggleSelectedNodes(true);
+  assert.equal(group.collapsed, true, "climbing past the last toggle collapses the group");
+});
+
+test("completed and trash rows indent one level under their section header", async () => {
+  const html = await readBoard();
+  assert.match(html, /\.lifecycle-list \{[^}]*padding-left/s);
+});
+
 test("history records completions and deletions with task names", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-today");
