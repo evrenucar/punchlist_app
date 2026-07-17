@@ -262,6 +262,96 @@
       stroke-width: 2;
     }
 
+    /* Sidebar redesign (Evren's mockup, 2026-07-17): flat icon rows with a
+       right chevron; Add group stays the filled primary, Expand/Collapse a
+       bordered pair. */
+    .toolbar-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .sidebar .nav-row {
+      justify-content: flex-start;
+      min-height: 44px;
+      background: transparent;
+      border-color: transparent;
+      padding: 0 10px;
+      font-size: 14px;
+    }
+
+    .sidebar .nav-row:hover {
+      background: var(--surface-2);
+      border-color: transparent;
+    }
+
+    .sidebar .nav-row svg {
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+    }
+
+    .sidebar .nav-row::after {
+      content: "";
+      flex: 0 0 auto;
+      margin-left: auto;
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--muted);
+      border-top: 2px solid var(--muted);
+      transform: rotate(45deg); /* > */
+      transition: transform 140ms ease;
+    }
+
+    .sidebar details[open] > summary.nav-row::after {
+      transform: rotate(-45deg); /* ^ */
+    }
+
+    .sidebar .nav-row .disclosure-arrow {
+      display: none;
+    }
+
+    .sidebar .views-label {
+      min-height: 32px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    input[data-dark-mode] {
+      appearance: none;
+      width: 40px;
+      height: 22px;
+      margin: 0;
+      border-radius: 11px;
+      background: var(--line-strong);
+      position: relative;
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+
+    input[data-dark-mode]::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      transition: transform 160ms ease;
+    }
+
+    input[data-dark-mode]:checked {
+      background: var(--accent);
+    }
+
+    input[data-dark-mode]:checked::after {
+      transform: translateX(18px);
+    }
+
     .settings-menu {
       display: grid;
       gap: 8px;
@@ -293,6 +383,15 @@
       color: var(--text);
       font-size: 13px;
       font-weight: 700;
+    }
+
+    .settings-row.stacked {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .settings-row.stacked input[type="text"] {
+      max-width: none;
     }
 
     .settings-row input[type="text"] {
@@ -527,9 +626,50 @@
 
     .views-nav {
       display: grid;
-      gap: 6px;
-      padding: 4px 2px 0;
+      gap: 4px;
+      padding: 6px;
       margin-bottom: 22px; /* same section break as the toolbar; History no longer sits flush under Trash */
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      position: relative;
+    }
+
+    /* the connecting rail between view icons, from the mockup */
+    .views-nav::before {
+      content: "";
+      position: absolute;
+      left: 25px;
+      top: 24px;
+      bottom: 24px;
+      width: 2px;
+      background: var(--line);
+    }
+
+    .views-nav .view-icon {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--surface);
+      flex: 0 0 auto;
+    }
+
+    .views-nav .view-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+    }
+
+    .views-nav button.active {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .views-nav button.active .view-icon {
+      color: var(--accent);
+      background: transparent;
     }
     .views-nav h3 {
       margin: 0 0 4px;
@@ -543,7 +683,8 @@
     .views-nav button {
       display: flex;
       align-items: center;
-      min-height: 34px;
+      gap: 10px;
+      min-height: 40px;
       border-radius: 8px;
       background: transparent;
       color: var(--muted);
@@ -2097,29 +2238,31 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           Add group
         </button>
-        <button class="control" type="button" data-action="expand-all" title="Expand every group and task (Ctrl+Shift+Down)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
-          Expand all
-        </button>
-        <button class="control" type="button" data-action="collapse-all" title="Collapse every group and task (Ctrl+Shift+Up)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m17 14-5-5-5 5"/></svg>
-          Collapse all
-        </button>
-        <button class="control" type="button" data-focus-button title="Open focus mode for the selected task (Ctrl+Alt+F)">
+        <div class="toolbar-pair">
+          <button class="control" type="button" data-action="expand-all" title="Expand every group and task (Ctrl+Shift+Down)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+            Expand all
+          </button>
+          <button class="control" type="button" data-action="collapse-all" title="Collapse every group and task (Ctrl+Shift+Up)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m17 14-5-5-5 5"/></svg>
+            Collapse all
+          </button>
+        </div>
+        <button class="control nav-row" type="button" data-focus-button title="Open focus mode for the selected task (Ctrl+Alt+F)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
           Focus
         </button>
-        <button class="control" type="button" data-export-board title="Download this board as a JSON backup">
+        <button class="control nav-row" type="button" data-export-board title="Download this board as a JSON backup">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           Export JSON
         </button>
-        <button class="control" type="button" data-import-board title="Load a board from a JSON backup">
+        <button class="control nav-row" type="button" data-import-board title="Load a board from a JSON backup">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
           Import JSON
         </button>
         <input type="file" accept="application/json,.json" data-import-file hidden>
         <details class="settings-menu" data-settings-menu>
-          <summary class="control" title="Open board settings">
+          <summary class="control nav-row" title="Open board settings">
             <span class="disclosure-arrow" aria-hidden="true"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.4 7A2 2 0 1 1 7.2 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 20 7.2l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.8.8Z"/></svg>
             Settings
@@ -2238,11 +2381,11 @@
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
             </label>
-            <label class="settings-row" title="Shown in settings files you export and named as the sender of signed board exports">
+            <label class="settings-row stacked" title="Shown in settings files you export and named as the sender of signed board exports">
               Username
               <input type="text" data-username placeholder="your name" maxlength="40">
             </label>
-            <label class="settings-row" title="Names this browser in history entries and sync commits. Stays on this device.">
+            <label class="settings-row stacked" title="Names this browser in history entries and sync commits. Stays on this device.">
               Device name
               <input type="text" data-device-name placeholder="e.g. laptop" maxlength="40">
             </label>
@@ -2262,7 +2405,7 @@
           </div>
         </details>
         <details class="settings-menu" data-help>
-          <summary class="control" title="How this board works">
+          <summary class="control nav-row" title="How this board works">
             <span class="disclosure-arrow" aria-hidden="true"></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.2 9a2.8 2.8 0 0 1 5.5.9c0 1.8-2.7 2.3-2.7 3.6M12 17h.01"/></svg>
             Help
@@ -2280,21 +2423,31 @@
       </div>
 
       <details class="history-menu views-menu" data-views-menu open>
-        <summary class="control" title="Jump between board views">
-          <span class="disclosure-arrow" aria-hidden="true"></span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/></svg>
+        <summary class="control nav-row views-label" title="Jump between board views">
           Views
         </summary>
         <nav class="views-nav" aria-label="Views" data-views-nav>
-          <button type="button" data-view-nav="board" title="Show the outline of all groups">Board</button>
-          <button type="button" data-view-nav="timeline" data-views-timeline hidden title="Show the day timeline">Timeline</button>
-          <button type="button" data-view-nav="completed" title="Show hidden completed tasks">Completed</button>
-          <button type="button" data-view-nav="trash" title="Show deleted tasks">Trash</button>
+          <button type="button" data-view-nav="board" title="Show the outline of all groups">
+            <span class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/></svg></span>
+            Board
+          </button>
+          <button type="button" data-view-nav="timeline" data-views-timeline hidden title="Show the day timeline">
+            <span class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg></span>
+            Timeline
+          </button>
+          <button type="button" data-view-nav="completed" title="Show hidden completed tasks">
+            <span class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.8-5"/></svg></span>
+            Completed
+          </button>
+          <button type="button" data-view-nav="trash" title="Show deleted tasks">
+            <span class="view-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></svg></span>
+            Trash
+          </button>
         </nav>
       </details>
 
       <details class="history-menu" data-history-menu>
-        <summary class="control" title="Recent changes on this board">
+        <summary class="control nav-row" title="Recent changes on this board">
           <span class="disclosure-arrow" aria-hidden="true"></span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>
           History

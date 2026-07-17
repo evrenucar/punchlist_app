@@ -251,6 +251,96 @@
       stroke-width: 2;
     }
 
+    /* Sidebar redesign (Evren's mockup, 2026-07-17): flat icon rows with a
+       right chevron; Add group stays the filled primary, Expand/Collapse a
+       bordered pair. */
+    .toolbar-pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .sidebar .nav-row {
+      justify-content: flex-start;
+      min-height: 44px;
+      background: transparent;
+      border-color: transparent;
+      padding: 0 10px;
+      font-size: 14px;
+    }
+
+    .sidebar .nav-row:hover {
+      background: var(--surface-2);
+      border-color: transparent;
+    }
+
+    .sidebar .nav-row svg {
+      width: 18px;
+      height: 18px;
+      color: var(--muted);
+    }
+
+    .sidebar .nav-row::after {
+      content: "";
+      flex: 0 0 auto;
+      margin-left: auto;
+      width: 7px;
+      height: 7px;
+      border-right: 2px solid var(--muted);
+      border-top: 2px solid var(--muted);
+      transform: rotate(45deg); /* > */
+      transition: transform 140ms ease;
+    }
+
+    .sidebar details[open] > summary.nav-row::after {
+      transform: rotate(-45deg); /* ^ */
+    }
+
+    .sidebar .nav-row .disclosure-arrow {
+      display: none;
+    }
+
+    .sidebar .views-label {
+      min-height: 32px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    input[data-dark-mode] {
+      appearance: none;
+      width: 40px;
+      height: 22px;
+      margin: 0;
+      border-radius: 11px;
+      background: var(--line-strong);
+      position: relative;
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+
+    input[data-dark-mode]::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      transition: transform 160ms ease;
+    }
+
+    input[data-dark-mode]:checked {
+      background: var(--accent);
+    }
+
+    input[data-dark-mode]:checked::after {
+      transform: translateX(18px);
+    }
+
     .settings-menu {
       display: grid;
       gap: 8px;
@@ -282,6 +372,15 @@
       color: var(--text);
       font-size: 13px;
       font-weight: 700;
+    }
+
+    .settings-row.stacked {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .settings-row.stacked input[type="text"] {
+      max-width: none;
     }
 
     .settings-row input[type="text"] {
@@ -516,9 +615,50 @@
 
     .views-nav {
       display: grid;
-      gap: 6px;
-      padding: 4px 2px 0;
+      gap: 4px;
+      padding: 6px;
       margin-bottom: 22px; /* same section break as the toolbar; History no longer sits flush under Trash */
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      position: relative;
+    }
+
+    /* the connecting rail between view icons, from the mockup */
+    .views-nav::before {
+      content: "";
+      position: absolute;
+      left: 25px;
+      top: 24px;
+      bottom: 24px;
+      width: 2px;
+      background: var(--line);
+    }
+
+    .views-nav .view-icon {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--surface);
+      flex: 0 0 auto;
+    }
+
+    .views-nav .view-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+    }
+
+    .views-nav button.active {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .views-nav button.active .view-icon {
+      color: var(--accent);
+      background: transparent;
     }
     .views-nav h3 {
       margin: 0 0 4px;
@@ -532,7 +672,8 @@
     .views-nav button {
       display: flex;
       align-items: center;
-      min-height: 34px;
+      gap: 10px;
+      min-height: 40px;
       border-radius: 8px;
       background: transparent;
       color: var(--muted);
