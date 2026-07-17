@@ -306,6 +306,9 @@
   }
   .q-done { font-size: 11px; color: var(--muted); margin-top: 6px; }
   .chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+  .chat-attach { position: relative; padding: 8px 10px 0; border-top: 1px solid var(--line); }
+  .chat-attach img { display: block; max-height: 80px; max-width: 60%; border: 1px solid var(--line); border-radius: 8px; }
+  .chat-attach button { position: absolute; top: 2px; left: calc(60% - 6px); width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--text); cursor: pointer; line-height: 1; }
   .chat-input {
     flex: 1; box-sizing: border-box; font: inherit; font-size: 13.5px; color: var(--text);
     background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px;
@@ -365,6 +368,10 @@
       </div>
       <div class="chat-log" id="chat-log"></div>
       <div class="chat-hdivider" id="chat-hdivider" title="Drag to resize the input area"></div>
+      <div class="chat-attach" id="chat-attach" hidden>
+        <img id="chat-attach-img" alt="Pasted image, sends with your next message">
+        <button type="button" id="chat-attach-remove" aria-label="Remove the pasted image">×</button>
+      </div>
       <form class="chat-form" id="chat-form">
         <textarea class="chat-input" id="chat-input" rows="2" placeholder="Message Claude… (Enter sends)"></textarea>
         <button class="chat-send" type="submit">Send</button>
@@ -1178,16 +1185,56 @@
     document.getElementById("chat-toggle").setAttribute("aria-pressed", "false");
   });
 
+  // Pasted images stage as a preview above the input and ride along with the
+  // next send (Evren 2026-07-17).
+  let pendingImg = null;
+  const attachWrap = document.getElementById("chat-attach");
+  const attachImg = document.getElementById("chat-attach-img");
+
+  function setPendingImg(src) {
+    pendingImg = src;
+    attachWrap.hidden = !src;
+    if (src) attachImg.src = src;
+    else attachImg.removeAttribute("src");
+  }
+
+  document.getElementById("chat-attach-remove").addEventListener("click", () => setPendingImg(null));
+
+  chatInput.addEventListener("paste", (event) => {
+    const file = [...(event.clipboardData?.files || [])].find((f) => f.type?.startsWith("image/"));
+    if (!file) return;
+    event.preventDefault();
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, 1000 / (image.naturalWidth || 1000));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round((image.naturalWidth || 1) * scale));
+        canvas.height = Math.max(1, Math.round((image.naturalHeight || 1) * scale));
+        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        let out = canvas.toDataURL("image/webp", 0.85);
+        if (!out.startsWith("data:image/webp")) out = canvas.toDataURL("image/jpeg", 0.85);
+        setPendingImg(out.length < String(reader.result).length ? out : String(reader.result));
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
   async function sendChat() {
     const text = chatInput.value.trim();
-    if (!text) return;
+    if (!text && !pendingImg) return;
+    const body = { from: "user", text };
+    if (pendingImg) body.img = pendingImg;
     chatInput.value = "";
     chatInput.style.height = "36px";
+    setPendingImg(null);
     try {
       await fetch("/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ from: "user", text }),
+        body: JSON.stringify(body),
       });
       await pollChat();
     } catch {}

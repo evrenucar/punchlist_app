@@ -49,13 +49,14 @@ createServer(async (req, res) => {
     }
     if (req.method === "POST" && pathname === "/chat") {
       const message = JSON.parse(await readBody(req, 4_000_000)); // images ride along as data URLs
-      if (!["user", "agent", "system"].includes(message.from) || typeof message.text !== "string" || !message.text.trim()) {
+      const img = typeof message.img === "string" && message.img.startsWith("data:image/") && message.img.length < 2_500_000
+        ? message.img
+        : null;
+      if (!["user", "agent", "system"].includes(message.from) || typeof message.text !== "string" || (!message.text.trim() && !img)) {
         throw new SyntaxError("bad message");
       }
       const entry = { from: message.from, text: message.text.trim(), at: new Date().toISOString() };
-      if (typeof message.img === "string" && message.img.startsWith("data:image/") && message.img.length < 2_500_000) {
-        entry.img = message.img;
-      }
+      if (img) entry.img = img;
       if (message.question && Array.isArray(message.question.options)) {
         const options = message.question.options.filter((o) => typeof o === "string" && o.trim()).slice(0, 8);
         if (options.length >= 2) entry.question = { options, multi: Boolean(message.question.multi) };
