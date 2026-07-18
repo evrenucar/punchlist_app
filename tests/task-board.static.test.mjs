@@ -1884,3 +1884,25 @@ test("hold-select accumulates without duplicates and sweep fills the visible ran
     { kind: "task", id: third.id },
   ], "a fast sweep takes the rows elementFromPoint skipped");
 });
+
+test("ctrl+shift+v pastes a real unlinked copy", async () => {
+  const api = await loadBoardApi();
+  const today = api.state.groups.find((group) => group.title === "Today");
+  const source = today.tasks[0];
+  const target = today.tasks[2];
+
+  api.pasteTaskIds([source.id], { kind: "task", id: target.id }, "duplicate");
+  const copies = today.tasks.filter((task) => task.text === source.text);
+  assert.equal(copies.length, 2, "duplicate paste creates a second, independent task");
+  const copy = copies.find((task) => task.id !== source.id);
+  assert.equal(Boolean(copy.linkType), false, "the duplicate is not a linked placement");
+
+  api.pasteTaskIds([source.id], { kind: "task", id: target.id }, "alias");
+  const linked = today.tasks.find((task) => task.linkType === "alias");
+  assert.ok(linked, "alias mode still links (the default is untouched)");
+
+  const html = await readBoard();
+  for (const hook of ["pasteLinkOverride = \"duplicate\"", "if (pasteLinkOverride) return pasteLinkOverride"]) {
+    assert.match(html, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "the ctrl+shift+v one-shot glue survives the build");
+  }
+});

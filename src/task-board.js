@@ -1133,8 +1133,11 @@
       return internalClipboard;
     }
 
+    let pasteLinkOverride = null; // Ctrl+Shift+V arms a one-shot unlinked paste
+
     function resolvePasteMode() {
       if (internalClipboard?.mode === "cut") return "move";
+      if (pasteLinkOverride) return pasteLinkOverride;
       if (state.settings.pasteMode !== "ask") return state.settings.pasteMode;
       const answer = window.prompt?.("Paste as: linked (stays in sync), shortcut (jumps to original), or duplicate?", "linked")?.toLowerCase();
       const modes = { linked: "alias", alias: "alias", shortcut: "reference", reference: "reference", duplicate: "duplicate" };
@@ -4914,6 +4917,7 @@
           return;
         }
         pasteTaskIds(internalClipboard.taskIds, targetNode, resolvePasteMode());
+        pasteLinkOverride = null;
         if (internalClipboard.mode === "cut") internalClipboard = null;
         return;
       }
@@ -4965,6 +4969,14 @@
           && !(event.target.matches?.("input, select, textarea") ?? false)) {
           shiftSelectedDepth(event.key === "ArrowLeft");
         }
+        return;
+      }
+
+      if (event.key.toLowerCase() === "v" && event.ctrlKey && event.shiftKey && !isEditingText) {
+        // paste special (Evren 2026-07-19): the browser's paste event follows
+        // this keydown; arm it to land as a real unlinked copy, one shot
+        pasteLinkOverride = "duplicate";
+        window.setTimeout?.(() => { pasteLinkOverride = null; }, 800);
         return;
       }
 
