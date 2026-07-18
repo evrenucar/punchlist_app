@@ -28,7 +28,10 @@ async function done(message) {
   if (!quiet) await announceSession();
   console.log(
     "Live development interface: http://localhost:4173/ — read docs/AGENT_INTERFACE.md before operating it. " +
-    "Introduce yourself by name in its chat (node status/say.mjs), then check Agent_Active and the chat for instructions."
+    "Introduce yourself by name in its chat (node status/say.mjs), then check Agent_Active and the chat for instructions. " +
+    "ARM THE CHAT WATCHER before settling into work (see 'Chat wake-up' in docs/AGENT_INTERFACE.md): watch status/chat.jsonl " +
+    "for new lines containing \"from\":\"user\" and wake on each. Without it, chat messages sit unread between turns. " +
+    "Also open http://localhost:4173/ in the agent-controlled browser (never the default browser)."
   );
   process.exit(0);
 }

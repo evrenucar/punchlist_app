@@ -8,6 +8,8 @@ Run `node status/ensure-server.mjs` (Claude Code automates this via a SessionSta
 
 Then open http://localhost:4173/ as a normal tab in the browser YOU control (Claude Code: the Chrome DevTools MCP window), never Evren's default browser — his request, 2026-07-18. He works in that window, so test links you want him to see open as new tabs right next to the board. App testing still happens in isolated contexts, not in his tab.
 
+Arm the chat watcher before settling into work — his chat messages must wake you between turns ("Chat wake-up" in `docs/AGENT_INTERFACE.md` has the exact command). Two missed-message complaints came from skipping this.
+
 Then read, in this order, before changing anything:
 
 1. `docs/AGENT_HANDOFF.md` — purpose, constraints, full current state, **Hard-won working notes** (real traps that already bit once), and known rough edges.
