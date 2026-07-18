@@ -40,7 +40,7 @@ Private until the Intake button posts `"Braindump intake requested"` into chat. 
 
 ## Chat wake-up (2026-07-18, after two missed-message complaints)
 
-Between turns nothing reads the chat, so his messages sit unseen until he types in the terminal. Arm a watcher at session start, BEFORE settling into work, and re-arm it whenever you end a turn while still on duty: watch `status/chat.jsonl` for appended lines containing `"from":"user"` and treat each hit as an instruction to handle. Claude Code: `Monitor` tool, persistent, with `tail -n 0 -f status/chat.jsonl | grep --line-buffered '"from":"user"'`. Other harnesses: whatever file-watch wakes you; if none exists, say so in chat so he knows typed chat will not reach you until the next terminal prompt.
+Between turns nothing reads the chat, so his messages sit unseen until he types in the terminal. Arm a watcher at session start, BEFORE settling into work, and re-arm it whenever you end a turn while still on duty: watch `status/chat.jsonl` for appended lines containing `"from":"user"` OR the Intake button's system line — the button posts `Braindump intake requested` as `"from":"system"`, and a user-only filter sleeps straight through it (this happened, 2026-07-18, 45 minutes lost). Claude Code: `Monitor` tool, persistent, with `tail -n 0 -f status/chat.jsonl | grep -E --line-buffered '"from":"user"|Braindump intake requested'`. Other harnesses: whatever file-watch wakes you; if none exists, say so in chat so he knows typed chat will not reach you until the next terminal prompt.
 
 ## Chat conduct
 
