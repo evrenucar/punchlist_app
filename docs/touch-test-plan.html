@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punchlist — touch test plan</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px 16px 60px;
+  }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+  .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 18px; }
+  h2 { font-size: 15px; margin: 26px 0 8px; }
+  label.step {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 12px; margin: 6px 0; cursor: pointer;
+  }
+  label.step input { margin: 3px 0 0; width: 18px; height: 18px; flex: none; accent-color: var(--done); }
+  label.step.checked { opacity: 0.55; }
+  .exp { display: block; color: var(--muted); font-size: 13px; }
+  .exp::before { content: "Expect: "; font-weight: 700; }
+  button.reset {
+    font: inherit; font-size: 12px; margin-top: 24px; padding: 6px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  .note { font-size: 13px; color: var(--warn); margin: 12px 0 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Touch test plan</h1>
+  <p class="sub">Built 2026-07-18 for the hold/swipe/select batch. Run on the iPhone (hosted board is fine) unless a step says desktop. Ticks survive reloads on this machine.</p>
+  <p class="progress" id="progress"></p>
+
+  <h2>1 · Tap and swipe</h2>
+  <label class="step"><input type="checkbox" data-id="tap-select"><span>Tap a task, then tap a different one.<span class="exp">Selection follows the taps, one row at a time, action buttons ride the selected row.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="swipe-in"><span>Swipe a row slowly to the right.<span class="exp">The row slides in steps (detents), release indents one level per step, three max.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="swipe-out"><span>Swipe a nested row to the left.<span class="exp">Outdents. On a top-level task nothing breaks.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="no-pan"><span>During any swipe, watch the whole page.<span class="exp">The viewport never shifts sideways. Vertical scrolling still feels native.</span></span></label>
+
+  <h2>2 · Hold to move (under 1.5&nbsp;s)</h2>
+  <label class="step"><input type="checkbox" data-id="move-lift"><span>Press a row anywhere (not just the grip), hold about half a second until it lifts, then drag up or down.<span class="exp">A drop indicator follows the finger; release moves the task there.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="move-scroll"><span>While dragging, pull the finger to the top or bottom screen edge.<span class="exp">The list auto-scrolls so long drags can cross groups.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="move-abort"><span>Hold half a second, release without dragging.<span class="exp">Nothing moves, nothing gets deleted, a following tap behaves normally.</span></span></label>
+
+  <h2>3 · Hold longer to select (past 1.5&nbsp;s)</h2>
+  <label class="step"><input type="checkbox" data-id="sel-flip"><span>Press and hold still: the row lifts around half a second, keep holding to 1.5&nbsp;s.<span class="exp">The lift drops and the row joins the selection instead (Android also vibrates briefly).</span></span></label>
+  <label class="step"><input type="checkbox" data-id="sel-sweep"><span>Without releasing, sweep the finger down across several rows, fast.<span class="exp">Every crossed row joins, no gaps even on a quick sweep. Sweeping to the screen edge auto-scrolls.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="sel-keep"><span>Release after a sweep.<span class="exp">The multi-selection stays highlighted.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="sel-add"><span>Now hold a different, unrelated row past 1.5&nbsp;s.<span class="exp">It joins the existing selection, nothing gets dropped.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="sel-reset"><span>Tap any row.<span class="exp">Selection collapses back to that single row.</span></span></label>
+
+  <h2>4 · Nothing else interferes</h2>
+  <label class="step"><input type="checkbox" data-id="no-callout"><span>Hold on a task's text without having tapped into it first.<span class="exp">No iOS text magnifier, no copy/paste callout, no context menu, the hold arms move/select instead.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="edit-ok"><span>Tap into a task's text and edit; hold inside the focused text.<span class="exp">Keyboard, caret, and normal word-selection all behave like any text field.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="chevron-ok"><span>Tap chevrons and checkboxes quickly a few times.<span class="exp">Collapse/complete toggles fire on tap, no accidental moves or selections.</span></span></label>
+
+  <h2>5 · Desktop spot-checks</h2>
+  <label class="step"><input type="checkbox" data-id="alt-left"><span>Select a nested task, press Alt+Left, then Alt+Right.<span class="exp">Outdent, then indent. The browser never navigates back.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="alt-edit"><span>While typing inside a task, press Alt+Left.<span class="exp">Nothing changes, the page stays put, typing continues.</span></span></label>
+  <label class="step"><input type="checkbox" data-id="mouse-drag"><span>Mouse drag a task and a group header.<span class="exp">Classic drag and drop, unchanged.</span></span></label>
+
+  <p class="note">Anything that fails: one line in the status chat is enough, the watcher picks it up.</p>
+  <button class="reset" id="reset">Reset all ticks</button>
+</main>
+<script>
+  const KEY = "punchlist-touch-testplan-v1";
+  const state = JSON.parse(localStorage.getItem(KEY) || "{}");
+  const boxes = [...document.querySelectorAll("input[data-id]")];
+  const progress = document.getElementById("progress");
+  function paint() {
+    let done = 0;
+    boxes.forEach((box) => {
+      box.checked = Boolean(state[box.dataset.id]);
+      box.closest("label").classList.toggle("checked", box.checked);
+      if (box.checked) done += 1;
+    });
+    progress.textContent = done + " of " + boxes.length + " checked";
+  }
+  boxes.forEach((box) => box.addEventListener("change", () => {
+    state[box.dataset.id] = box.checked;
+    localStorage.setItem(KEY, JSON.stringify(state));
+    paint();
+  }));
+  document.getElementById("reset").addEventListener("click", () => {
+    boxes.forEach((box) => delete state[box.dataset.id]);
+    localStorage.setItem(KEY, JSON.stringify(state));
+    paint();
+  });
+  paint();
+</script>
+</body>
+</html>
