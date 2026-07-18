@@ -4469,14 +4469,20 @@
 
       const groupCard = event.target.closest("[data-group-card]");
       if (groupCard) {
-        const position = draggedNode?.kind === "group"
-          ? getVerticalDropPosition(event, groupCard)
-          : "group";
-        return {
-          targetKind: "group",
-          targetId: groupCard.dataset.groupCard,
-          position,
-        };
+        if (draggedNode?.kind === "group") {
+          return {
+            targetKind: "group",
+            targetId: groupCard.dataset.groupCard,
+            position: getVerticalDropPosition(event, groupCard),
+          };
+        }
+        // Top edge = first slot. Dropping a task on the header used to append
+        // at the BOTTOM of the group, the opposite of where the finger points.
+        const firstRow = groupCard.querySelector("[data-task-row]");
+        if (firstRow && event.clientY < firstRow.getBoundingClientRect().top) {
+          return { targetKind: "task", targetId: firstRow.dataset.taskRow, position: "before" };
+        }
+        return { targetKind: "group", targetId: groupCard.dataset.groupCard, position: "group" };
       }
 
       return getBoardGroupDropInstruction(event);
