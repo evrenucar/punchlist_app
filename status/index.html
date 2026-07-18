@@ -1244,6 +1244,12 @@
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendChat(); }
   });
 
+  // Alt+Left is the browser's Back shortcut: a stray press was navigating the
+  // whole page away, killing a half-typed chat message. Swallow both directions.
+  document.addEventListener("keydown", (event) => {
+    if (event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) event.preventDefault();
+  });
+
   // Settings (gear), desktop notifications, and full-auto mode (intake #5).
   let prefs = {};
   const gear = document.getElementById("chat-gear");
