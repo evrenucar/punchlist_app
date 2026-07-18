@@ -1157,7 +1157,7 @@ test("programmatic focus does not collapse shift range selection", async () => {
 
   for (const hook of [
     "suppressFocusSelection",
-    "if (suppressFocusSelection) return",
+    "if (suppressFocusSelection || Date.now() < squelchTapUntil) return",
     "selectNode(visible[Math.min(visible.length - 1, index + 1)], null, { extend: true })",
   ]) {
     assert.match(html, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -1861,4 +1861,26 @@ test("demo mode signs nothing and keeps the roster empty", async () => {
   assert.equal(Object.keys(demo.state.devices || {}).length, 0, "demo saves never touch the roster");
   const demoEntry = demo.state.history[demo.state.history.length - 1];
   assert.equal(demoEntry?.deviceId, undefined, "demo history entries carry no device id");
+});
+
+test("hold-select accumulates without duplicates and sweep fills the visible range", async () => {
+  const api = await loadBoardApi();
+  const today = api.state.groups.find((group) => group.title === "Today");
+  const [first, second, third] = today.tasks;
+
+  api.selectNode({ kind: "task", id: first.id });
+  api.addNodeToSelection({ kind: "task", id: third.id });
+  api.addNodeToSelection({ kind: "task", id: third.id });
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes())), [
+    { kind: "task", id: first.id },
+    { kind: "task", id: third.id },
+  ], "a second hold adds once; holding the same row twice never duplicates");
+
+  api.selectNode({ kind: "task", id: first.id });
+  api.extendSelectionThrough({ kind: "task", id: third.id }, { kind: "task", id: first.id });
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes())), [
+    { kind: "task", id: first.id },
+    { kind: "task", id: second.id },
+    { kind: "task", id: third.id },
+  ], "a fast sweep takes the rows elementFromPoint skipped");
 });

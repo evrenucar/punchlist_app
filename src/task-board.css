@@ -750,6 +750,9 @@
       min-width: 0;
       height: 100vh;
       overflow-y: auto;
+      /* never a sideways pan: wide content clips instead of making the whole
+         viewport pannable (it was disorienting and ate the swipe gesture) */
+      overflow-x: hidden;
       padding: 24px;
       scrollbar-width: thin;
       scrollbar-color: transparent transparent;
@@ -1116,7 +1119,8 @@
       color: #79b8ff;
     }
 
-    .board.is-touch-dragging {
+    .board.is-touch-dragging,
+    .board.is-touch-selecting {
       user-select: none;
       -webkit-user-select: none;
     }
@@ -1132,6 +1136,16 @@
          swipe-to-indent gesture */
       .task-row {
         touch-action: pan-y;
+      }
+
+      /* the hold gestures need long presses on unfocused text to stay quiet:
+         no OS word-selection, no callout. Focused text edits normally. */
+      [data-task-text]:not(:focus),
+      [data-group-title]:not(:focus),
+      [data-image-caption]:not(:focus) {
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
       }
     }
 

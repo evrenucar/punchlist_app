@@ -761,6 +761,9 @@
       min-width: 0;
       height: 100vh;
       overflow-y: auto;
+      /* never a sideways pan: wide content clips instead of making the whole
+         viewport pannable (it was disorienting and ate the swipe gesture) */
+      overflow-x: hidden;
       padding: 24px;
       scrollbar-width: thin;
       scrollbar-color: transparent transparent;
@@ -1127,7 +1130,8 @@
       color: #79b8ff;
     }
 
-    .board.is-touch-dragging {
+    .board.is-touch-dragging,
+    .board.is-touch-selecting {
       user-select: none;
       -webkit-user-select: none;
     }
@@ -1143,6 +1147,16 @@
          swipe-to-indent gesture */
       .task-row {
         touch-action: pan-y;
+      }
+
+      /* the hold gestures need long presses on unfocused text to stay quiet:
+         no OS word-selection, no callout. Focused text edits normally. */
+      [data-task-text]:not(:focus),
+      [data-group-title]:not(:focus),
+      [data-image-caption]:not(:focus) {
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-touch-callout: none;
       }
     }
 
@@ -2538,6 +2552,7 @@
     const MAX_AUTO_SCROLL_SPEED = 18;
     const LONG_PRESS_MS = 420;
     const LONG_PRESS_MOVE_PX = 12;
+    const SELECT_HOLD_MS = 1500; // Evren's touch spec: holds past this flip into drag-select
     const DURATION_UNIT_SECONDS = Object.freeze({ seconds: 1, minutes: 60, hours: 3600, days: 86400 });
     const SCHEDULE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
     const SCHEDULE_TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -2642,6 +2657,7 @@
     let undoActions = [];
     let lastUndoAction = null;
     let suppressFocusSelection = false;
+    let squelchTapUntil = 0;
     let internalClipboard = null;
     let lifecycleSignature = "";
     let announcedReminders = new Set();
@@ -4598,7 +4614,8 @@
       source.classList.add("touch-dragging");
       boardEl.classList.add("is-touch-dragging");
       if (kind === "group") boardEl.classList.add("is-dragging-group");
-      selectNode(kind, id);
+      // selection waits for actual movement: a still hold may yet flip into
+      // drag select at 1.5s, and that must not collapse an accumulated selection
       return true;
     }
 
@@ -4615,6 +4632,29 @@
       selectedNode = { ...node };
       multiSelectedNodes = [{ ...node }];
       selectionAnchorNode = { ...node };
+    }
+
+    function addNodeToSelection(node) {
+      if (!getSelectedNodes().some((existing) => sameNode(existing, node))) {
+        multiSelectedNodes = [...getSelectedNodes(), { ...node }];
+      }
+      selectedNode = { ...node };
+      selectionAnchorNode = { ...node };
+      renderSelection();
+    }
+
+    // Sweep fill: fast finger moves skip rows between two elementFromPoint
+    // samples, so take every visible node from the last swept row through here.
+    function extendSelectionThrough(node, fromNode = null) {
+      const visible = getVisibleNodes();
+      const from = visible.findIndex((item) => sameNode(item, fromNode));
+      const to = visible.findIndex((item) => sameNode(item, node));
+      if (from < 0 || to < 0) {
+        addNodeToSelection(node);
+        return;
+      }
+      const step = to >= from ? 1 : -1;
+      for (let i = from; i !== to + step; i += step) addNodeToSelection(visible[i]);
     }
 
     function insertSiblingBelowNode(node = selectedNode) {
@@ -6285,6 +6325,7 @@
     }
 
     boardEl.addEventListener("click", (event) => {
+      if (Date.now() < squelchTapUntil) return;
       const button = event.target.closest("button");
       const groupRow = event.target.closest("[data-group-row]");
       const row = event.target.closest("[data-task-row]");
@@ -6456,7 +6497,7 @@
     });
 
     boardEl.addEventListener("focusin", (event) => {
-      if (suppressFocusSelection) return;
+      if (suppressFocusSelection || Date.now() < squelchTapUntil) return;
       const sectionRow = event.target.closest("[data-section-row]");
       if (sectionRow) {
         selectNode("section", sectionRow.dataset.sectionRow);
@@ -6516,7 +6557,10 @@
 
     boardEl.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse" || touchDrag) return;
-      const handle = event.target.closest("[data-touch-drag]");
+      // Evren's touch spec (2026-07-17): a hold anywhere on the item is a
+      // move, not just on the grip. The grip stays for rows whose press
+      // target is a button.
+      const handle = event.target.closest("[data-touch-drag], [data-task-row]");
       const source = handle?.closest("[data-drag-kind]") || (handle?.matches("[data-drag-kind]") ? handle : null);
       if (!source) return;
       touchDrag = {
@@ -6537,6 +6581,10 @@
         return;
       }
       event.preventDefault();
+      if (!touchDrag.selected) {
+        touchDrag.selected = true;
+        selectNode(draggedNode.kind, draggedNode.id);
+      }
       updateDragAutoScroll(event.clientY);
       const target = document.elementFromPoint?.(event.clientX, event.clientY);
       const instruction = target ? getDropInstruction({ target, clientY: event.clientY }) : null;
@@ -6596,6 +6644,85 @@
 
     boardEl.addEventListener("pointerup", () => finishTouchSwipe());
     boardEl.addEventListener("pointercancel", () => finishTouchSwipe(true));
+
+    // Evren's touch spec (2026-07-17): a hold past 1.5s stops being a move and
+    // becomes drag select — sweep over rows to take them, and every later hold
+    // past 1.5s adds more items to the selection.
+    let touchSelect = null;
+
+    function clearTouchSelect() {
+      if (!touchSelect) return;
+      if (touchSelect.timer) window.clearTimeout?.(touchSelect.timer);
+      boardEl.classList.remove("is-touch-selecting");
+      stopDragAutoScroll();
+      touchSelect = null;
+    }
+
+    function armTouchSelect() {
+      if (!touchSelect) return;
+      touchSelect.timer = null;
+      touchSelect.armed = true;
+      clearTouchDrag();
+      touchSwipe = null;
+      boardEl.classList.add("is-touch-selecting");
+      addNodeToSelection(touchSelect.node);
+      touchSelect.lastNode = touchSelect.node;
+      navigator.vibrate?.(15);
+    }
+
+    boardEl.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" || touchSelect) return;
+      const row = event.target.closest("[data-node-kind]");
+      if (!row) return;
+      touchSelect = {
+        pointerId: event.pointerId,
+        node: { kind: row.dataset.nodeKind, id: row.dataset.nodeId },
+        startX: event.clientX,
+        startY: event.clientY,
+        armed: false,
+        lastNode: null,
+        timer: window.setTimeout?.(armTouchSelect, SELECT_HOLD_MS),
+      };
+    });
+
+    boardEl.addEventListener("pointermove", (event) => {
+      if (!touchSelect || event.pointerId !== touchSelect.pointerId) return;
+      if (!touchSelect.armed) {
+        if (shouldCancelLongPress(touchSelect.startX, touchSelect.startY, event.clientX, event.clientY)) clearTouchSelect();
+        return;
+      }
+      event.preventDefault();
+      updateDragAutoScroll(event.clientY);
+      const row = document.elementFromPoint?.(event.clientX, event.clientY)?.closest?.("[data-node-kind]");
+      if (!row) return;
+      const node = { kind: row.dataset.nodeKind, id: row.dataset.nodeId };
+      if (sameNode(node, touchSelect.lastNode)) return;
+      extendSelectionThrough(node, touchSelect.lastNode);
+      touchSelect.lastNode = node;
+    });
+
+    function finishTouchSelect(event) {
+      if (!touchSelect || event.pointerId !== touchSelect.pointerId) return;
+      // the release still fires focusin + click on the row under the finger;
+      // either would collapse the selection we just built
+      if (touchSelect.armed) squelchTapUntil = Date.now() + 500;
+      clearTouchSelect();
+    }
+
+    boardEl.addEventListener("pointerup", (event) => finishTouchSelect(event));
+    boardEl.addEventListener("pointercancel", (event) => finishTouchSelect(event));
+
+    // touch-action pan-y lets the browser own vertical pans; once a hold has
+    // armed move or select, the first cancelable touchmove must be eaten or
+    // the scroll steals the pointer stream (pointercancel) mid-gesture.
+    boardEl.addEventListener("touchmove", (event) => {
+      if ((touchDrag?.armed || touchSelect?.armed) && event.cancelable) event.preventDefault();
+    }, { passive: false });
+
+    boardEl.addEventListener("contextmenu", (event) => {
+      // long-press must not pop the OS menu while a touch gesture is pending
+      if (touchDrag || touchSelect) event.preventDefault();
+    });
 
     focusTaskEl?.addEventListener("click", (event) => {
       const toggle = event.target.closest("[data-focus-toggle]");
@@ -7344,6 +7471,20 @@
       }
 
       const isEditingText = event.target.matches?.("[contenteditable='true']") ?? false;
+
+      // Alt+Left is the browser's Back shortcut — a stray press was navigating
+      // the whole page away (Evren, 2026-07-17). Swallow the pair everywhere;
+      // on a selected row they outdent/indent, matching the swipe gesture.
+      if ((event.key === "ArrowLeft" || event.key === "ArrowRight") && event.altKey && !event.ctrlKey) {
+        event.preventDefault();
+        if (!isEditingText && !focusModeTaskId && !focusModeGroupId
+          && !event.target.closest?.(".sidebar")
+          && !(event.target.matches?.("input, select, textarea") ?? false)) {
+          shiftSelectedDepth(event.key === "ArrowLeft");
+        }
+        return;
+      }
+
       if (isEditingText && event.key === "Enter" && event.shiftKey) {
         insertEditingLineBreak(event);
         return;
@@ -7934,6 +8075,8 @@
       getVisibleNodes,
       getSelectedNodes,
       selectNode,
+      addNodeToSelection,
+      extendSelectionThrough,
       moveSelectedNode,
       moveSelectedNodes,
       moveTaskVisually,
