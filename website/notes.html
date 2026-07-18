@@ -271,6 +271,16 @@
 
     <article>
       <header>
+        <h2>Phone gestures: hold to move, hold longer to grab a bunch</h2>
+        <span class="entry-date">July 18, 2026</span>
+      </header>
+      <p>Your touch spec from yesterday is built. A tap still selects. A sideways drag still indents or outdents. A press held under 1.5 seconds arms move — & now from anywhere on the row, not just the grip icon. Keep the finger down past 1.5 seconds & it flips into drag select: the row joins the selection, sweeping up or down takes every row the finger crosses, & a fast sweep can't skip rows because the range in between fills itself in. Release, hold another row past 1.5 seconds, & it joins too. A plain tap starts the selection over.</p>
+      <p>Two fixes rode along. The viewport no longer pans sideways on the phone — wide content clips instead of dragging the whole page around, which was also what kept stealing the indent swipe. & Alt+Left no longer fires the browser's Back shortcut (that was navigating the whole page away): on a selected row, Alt+Left & Alt+Right now outdent & indent — the keyboard twin of the swipe. The status page swallows the shortcut too, so a stray press can't eat a half-typed chat message anymore.</p>
+      <p>98 automated tests pass on this build, one new for the selection logic. The gesture timing ran in a real browser at phone size, both themes; what it needs now is your thumb on actual glass.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>New tasks start empty</h2>
         <span class="entry-date">July 17, 2026</span>
       </header>
