@@ -490,9 +490,51 @@
     return found;
   }
 
+  // A clicked node may live under collapsed parents (grayed done items under
+  // the Completed holder, most often) — expand the chain via the app's own
+  // chevrons so the jump actually lands (Evren 2026-07-18).
+  function expandTowards(id) {
+    const state = readBoardState();
+    const doc = frame.contentDocument;
+    if (!state || !doc) return;
+    const chain = [];
+    let ownerGroup = null;
+    const walk = (tasks, trail) => {
+      for (const t of tasks) {
+        if (t.id === id) { chain.push(...trail); return true; }
+        if (walk(t.children || [], [...trail, t.id])) return true;
+      }
+      return false;
+    };
+    for (const g of state.groups) if (walk(g.tasks, [])) { ownerGroup = g; break; }
+    if (ownerGroup && ownerGroup.collapsed) {
+      doc.querySelector('[data-group-row="' + ownerGroup.id + '"]')
+        ?.querySelector('[data-action="toggle-group"]')?.click();
+    }
+    for (const ancestorId of chain) {
+      if (doc.querySelector('[data-task-row="' + id + '"]')) return;
+      doc.querySelector('[data-task-row="' + ancestorId + '"]')
+        ?.querySelector('[data-action="toggle-task"]')?.click();
+    }
+  }
+
   function jumpToTask(id) {
     const doc = frame.contentDocument;
-    const row = doc && doc.querySelector('[data-task-row="' + id + '"]');
+    let row = doc && doc.querySelector('[data-task-row="' + id + '"]');
+    if (!row) {
+      // retention-hidden completed tasks never render in the outline; their
+      // home is the Completed section — open it and land on the entry there
+      // (checked BEFORE expanding parents, which would mutate collapse state
+      // for nothing)
+      const restore = doc && doc.querySelector('[data-action="restore-completed"][data-task-id="' + id + '"]');
+      const section = restore && restore.closest("[data-completed-section]");
+      if (section) section.open = true;
+      row = restore && restore.closest(".lifecycle-row");
+    }
+    if (!row) {
+      expandTowards(id);
+      row = doc && doc.querySelector('[data-task-row="' + id + '"]');
+    }
     if (!row) return;
     row.scrollIntoView({ behavior: "smooth", block: "center" });
     row.classList.add("jump-flash");
@@ -629,8 +671,8 @@
     return {
       id: task.id, text: task.text || "(untitled)", kind, by: task.by || "",
       lane: task.lane === "dev" ? "dev" : "app",
-      stubs: kids.slice(0, 6).map((c) => ({ text: c.text, done: Boolean(c.done) })),
-      more: Math.max(0, kids.length - 6),
+      stubs: kids.slice(0, 24).map((c) => ({ text: c.text, done: Boolean(c.done) })),
+      more: Math.max(0, kids.length - 24),
     };
   }
 
@@ -639,21 +681,27 @@
     const branch = [];
     const inbox = state.groups.find((g) => g.id === "group-inbox");
     if (!inbox) return { cols, branch };
-    const holder = inbox.tasks.find((t) => t.id === "task-agent-completed");
-    (holder ? holder.children : []).filter((t) => t.completedAt && !t.inserted)
-      .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-5)
-      .forEach((t) => cols.push([nodeOf(t, "done")]));
-    // Finished branch items stay ON the branch, grayed like other done nodes
-    // (Evren 2026-07-17); last four, then the still-open insertions.
-    (holder ? holder.children : []).filter((t) => t.completedAt && t.inserted)
-      .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-4)
-      .forEach((t) => branch.push(nodeOf(t, "done")));
     const actives = [];
     walkTasks(state.groups, (t) => { if (t.active && !t.done) actives.push(t); });
+    const activeIds = new Set(actives.map((t) => t.id));
+    const holder = inbox.tasks.find((t) => t.id === "task-agent-completed");
+    // Everything completed rides the main line; the side branch is reserved
+    // for true forks (Evren 2026-07-18: unrelated items were stacking under
+    // whatever happened to be active).
+    (holder ? holder.children : []).filter((t) => t.completedAt)
+      .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-5)
+      .forEach((t) => cols.push([nodeOf(t, "done")]));
     cols.push(actives.length ? actives.map((t) => nodeOf(t, "active"))
       : [{ id: null, text: "idle — nothing active", kind: "idle", by: "", stubs: [], more: 0 }]);
+    // Branch = ONLY items explicitly spawned under an active item
+    // (createdUnderTaskId). The inserted flag no longer routes here — agents
+    // set it on every priority insertion, related or not, and the graph was
+    // attaching everything to the active node.
     inbox.tasks.filter((t) => !t.done && t.id !== "task-agent-completed" && !t.active)
-      .forEach((t) => { if (t.inserted) branch.push(nodeOf(t, "queue")); else cols.push([nodeOf(t, "queue")]); });
+      .forEach((t) => {
+        if (t.createdUnderTaskId && activeIds.has(t.createdUnderTaskId)) branch.push(nodeOf(t, "queue"));
+        else cols.push([nodeOf(t, "queue")]);
+      });
     const dirA = state.groups.find((g) => g.id === "group-dir-a");
     const friction = dirA && dirA.tasks.find((t) => (t.text || "").startsWith("Friction list"));
     let expandedFork = false;
@@ -661,7 +709,7 @@
       const open = (level.children || []).filter((c) => !c.done);
       if (!open.length) return;
       if (!expandedFork) { cols.push(open.map((c) => nodeOf(c, "queue"))); expandedFork = true; }
-      else cols.push([{ id: level.id, text: level.text + " — " + open.length + " open", kind: "bucket", by: level.by || "", lane: "app", stubs: open.slice(0, 2).map((c) => c.text), more: Math.max(0, open.length - 2) }]);
+      else cols.push([{ id: level.id, text: level.text + " — " + open.length + " open", kind: "bucket", by: level.by || "", lane: "app", stubs: open.slice(0, 24).map((c) => ({ text: c.text, done: false })), more: Math.max(0, open.length - 24) }]);
     });
     return { cols, branch };
   }
@@ -681,7 +729,9 @@
     const Z = graphZoom;
     const NODE_W = Math.round(200 * Z), COL_STEP = Math.round(270 * Z), GAP = Math.round(18 * Z);
     const MID = Math.max(120, (graphPane.clientHeight - 6) / 2);
-    const stubBudget = Z < 0.75 ? 0 : Math.max(1, Math.round(3 * Z));
+    // near max zoom everything shows: no clamps, no "+N more" (Evren's spec)
+    const maxZoom = Z >= 1.8;
+    const stubBudget = maxZoom ? Infinity : Z < 0.75 ? 0 : Math.max(1, Math.round(3 * Z));
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.classList.add("graph-links");
     graphWorld.appendChild(svg);
@@ -692,7 +742,7 @@
       if (node.id) el.dataset.taskId = node.id;
       const text = document.createElement("div");
       text.className = "gtext";
-      text.style.webkitLineClamp = String(Math.max(1, Math.round(3 * Z)));
+      text.style.webkitLineClamp = maxZoom ? "unset" : String(Math.max(1, Math.round(3 * Z)));
       text.textContent = node.text;
       el.appendChild(text);
       const visible = Math.min(node.stubs.length, stubBudget);
