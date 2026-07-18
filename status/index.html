@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Punchlist — Status Board</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%237c3aed' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
   :root {
     color-scheme: light;
@@ -170,9 +171,9 @@
   .swatch-agent { border-color: #246bfe; background: color-mix(in srgb, #246bfe 16%, transparent); }
   .swatch-user { border-color: #2d7d46; background: color-mix(in srgb, #2d7d46 16%, transparent); }
 
-  #menu-toggle { margin-left: auto; }
-  #graph-toggle { margin-left: 0; }
-  #chat-toggle { margin-left: 0; }
+  /* hamburger, Graph, Chat move as ONE cluster — a long status line may wrap
+     the cluster to the next row but can never split it (Evren's report) */
+  .bar-actions { margin-left: auto; display: inline-flex; gap: 12px; align-items: baseline; flex: none; }
 
   .graphpane {
     position: relative; flex: none; height: 280px; min-height: 160px;
@@ -277,6 +278,13 @@
     color: var(--muted); font-size: 11.5px; text-align: center;
   }
   .msg time { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
+  .msg-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+  .msg-seen, .msg-reply {
+    font: inherit; font-size: 10.5px; border: 0; background: transparent;
+    color: var(--muted); cursor: pointer; padding: 0; opacity: 0.75;
+  }
+  .msg-seen:hover, .msg-reply:hover { text-decoration: underline; opacity: 1; }
+  .msg-seen.on { color: #246bfe; font-weight: 700; opacity: 1; }
   .msg a { color: var(--accent); word-break: break-all; }
   .msg-img {
     display: block; max-width: 100%; border-radius: 8px; margin-top: 6px;
@@ -339,9 +347,7 @@
       <span class="stamp" id="synced" data-local-only></span>
       <span class="workline" id="workline" data-local-only hidden></span>
       <span class="hint" id="hint">↑↓ browse · Tab indents · Ctrl+Enter completes. Braindump is private until you press “Intake”. “Agent_Active” = in progress.</span>
-      <button class="chat-toggle" id="menu-toggle" type="button" data-local-only title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button>
-      <button class="chat-toggle" id="graph-toggle" type="button" data-local-only aria-pressed="false">Graph</button>
-      <button class="chat-toggle" id="chat-toggle" type="button" data-local-only aria-pressed="false">Chat<span class="chat-badge" id="chat-badge"></span></button>
+      <span class="bar-actions" data-local-only><button class="chat-toggle" id="menu-toggle" type="button" title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button><button class="chat-toggle" id="graph-toggle" type="button" aria-pressed="false">Graph</button><button class="chat-toggle" id="chat-toggle" type="button" aria-pressed="false">Chat<span class="chat-badge" id="chat-badge"></span></button></span>
     </div>
     <div class="activebar idle" id="activebar">
       <span class="active-label">Active</span>
@@ -1027,6 +1033,8 @@
   const chatBadge = document.getElementById("chat-badge");
   const chatInput = document.getElementById("chat-input");
   const CHAT_SEEN_KEY = "punchlist-status-chat-seen";
+  const CHAT_MARKS_KEY = "punchlist-status-chat-seen-marks";
+  const chatSeenMarks = new Set(JSON.parse(localStorage.getItem(CHAT_MARKS_KEY) || "[]"));
   let chatCount = 0;
   let chatSeen = Number(localStorage.getItem(CHAT_SEEN_KEY)) || 0;
 
@@ -1206,6 +1214,39 @@
         time.textContent = new Date(entry.at).toLocaleTimeString();
         div.appendChild(time);
       }
+      // Agent messages carry a private read-marker and a reply hook
+      // (Evren's asks, 2026-07-17): "seen" flips gray to blue, for his eyes
+      // only; "reply" quotes the message into the input.
+      if (entry.from === "agent" && entry.at) {
+        const foot = document.createElement("div");
+        foot.className = "msg-foot";
+        const seen = document.createElement("button");
+        seen.type = "button";
+        seen.className = "msg-seen" + (chatSeenMarks.has(entry.at) ? " on" : "");
+        seen.textContent = "seen";
+        const toggleSeen = () => {
+          chatSeenMarks.has(entry.at) ? chatSeenMarks.delete(entry.at) : chatSeenMarks.add(entry.at);
+          localStorage.setItem(CHAT_MARKS_KEY, JSON.stringify([...chatSeenMarks]));
+          seen.classList.toggle("on", chatSeenMarks.has(entry.at));
+        };
+        seen.addEventListener("click", toggleSeen);
+        div.addEventListener("dblclick", (event) => {
+          if (!event.target.closest("a, img, button, input")) toggleSeen();
+        });
+        const reply = document.createElement("button");
+        reply.type = "button";
+        reply.className = "msg-reply";
+        reply.textContent = "reply";
+        reply.addEventListener("click", () => {
+          const quote = "> " + (entry.text || "").split("\n")[0].slice(0, 80) + "\n";
+          chatInput.value = quote + chatInput.value;
+          chatInput.dispatchEvent(new Event("input", { bubbles: true }));
+          chatInput.focus();
+        });
+        foot.appendChild(seen);
+        foot.appendChild(reply);
+        div.appendChild(foot);
+      }
       chatLog.appendChild(div);
     });
     if (!hidden) chatLog.scrollTop = nearBottom ? chatLog.scrollHeight : keepScroll;
@@ -1287,12 +1328,22 @@
     reader.readAsDataURL(file);
   });
 
+  // Half-typed messages survive anything — reload, tab close, a stray
+  // shortcut (Evren's report: a draft vanished with the pane).
+  const CHAT_DRAFT_KEY = "punchlist-status-chat-draft";
+  chatInput.value = localStorage.getItem(CHAT_DRAFT_KEY) || "";
+  chatInput.addEventListener("input", () => {
+    if (chatInput.value) localStorage.setItem(CHAT_DRAFT_KEY, chatInput.value);
+    else localStorage.removeItem(CHAT_DRAFT_KEY);
+  });
+
   async function sendChat() {
     const text = chatInput.value.trim();
     if (!text && !pendingImg) return;
     const body = { from: "user", text };
     if (pendingImg) body.img = pendingImg;
     chatInput.value = "";
+    localStorage.removeItem(CHAT_DRAFT_KEY);
     chatInput.style.height = "36px";
     setPendingImg(null);
     try {
