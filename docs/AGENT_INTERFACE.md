@@ -6,6 +6,8 @@ Everything an agent needs to operate the live status board at **http://localhost
 
 A wrapper page (`status/index.html`) embedding the real built app (`website/task-board.html`) in an iframe, seeded from `status/status-board.json`. A ~50-line zero-dependency server (`status/serve.mjs`, port 4173) mediates everything. A SessionStart hook runs `status/ensure-server.mjs` so it is always up; the hook also posts a "new agent session" line into chat — introduce yourself by name in your first chat message.
 
+At session start, open the wrapper as a normal (non-isolated) tab in the agent-controlled browser — for Claude Code the Chrome DevTools MCP window — never Evren's default browser (his request, 2026-07-18). He uses that window; open links you want to show him as new tabs there. Keep destructive/app testing in isolated contexts; his tab is live data.
+
 ## Server endpoints
 
 - `GET /` wrapper page · `GET /board` the built app · `GET /state` the board JSON

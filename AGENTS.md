@@ -6,6 +6,8 @@ Canonical instructions for EVERY agent, whatever the harness — Claude Code arr
 
 Run `node status/ensure-server.mjs` (Claude Code automates this via a SessionStart hook; other harnesses run it by hand — same command, same result). It brings the development interface up at **http://localhost:4173/**, announces your session in its chat, and prints next steps. Introduce yourself there by your own agent name; every presence feature takes whatever name you register.
 
+Then open http://localhost:4173/ as a normal tab in the browser YOU control (Claude Code: the Chrome DevTools MCP window), never Evren's default browser — his request, 2026-07-18. He works in that window, so test links you want him to see open as new tabs right next to the board. App testing still happens in isolated contexts, not in his tab.
+
 Then read, in this order, before changing anything:
 
 1. `docs/AGENT_HANDOFF.md` — purpose, constraints, full current state, **Hard-won working notes** (real traps that already bit once), and known rough edges.
