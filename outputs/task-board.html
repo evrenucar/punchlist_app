@@ -3945,7 +3945,7 @@
           // slide-away, the lifecycle sections move
           animateRowsAway([found.item.id], render);
         } else if (taskIsLinkFree(found.item)) {
-          renderGroupInPlace(found.group.id);
+          renderTaskSubtreeInPlace(found.item.id, found.group.id);
         } else {
           render();
         }
@@ -3967,6 +3967,7 @@
       // scope check while the lookup still resolves: a link anywhere in the
       // subtree fans the delete into other groups' articles
       const scopedGroupId = found.group?.id || null;
+      const scopedParentId = found.parent?.id || null;
       const scopedOk = scopedGroupId && subtreeIsLinkFree(found.item);
       const source = {
         groupId: found.group?.id || null,
@@ -3995,7 +3996,7 @@
       if (options.save !== false) saveState();
       if (options.render !== false) {
         if (scopedOk) {
-          renderGroupInPlace(scopedGroupId);
+          renderScoped(scopedParentId, scopedGroupId);
           refreshLifecycleSections();
         } else {
           render();
@@ -4198,6 +4199,7 @@
       const found = findTask(id);
       if (!found) return false;
       const scopedGroupId = found.group?.id || null;
+      const scopedParentId = found.parent?.id || null;
       const scopedOk = scopedGroupId && subtreeIsLinkFree(found.item);
       const node = { kind: "task", id };
       const target = getNeighborAfterDelete(node, getVisibleNodes(), collectDeletedNodeKeys([node]));
@@ -4217,7 +4219,7 @@
       }
       saveState();
       if (scopedOk) {
-        renderGroupInPlace(scopedGroupId);
+        renderScoped(scopedParentId, scopedGroupId);
         refreshLifecycleSections();
       } else {
         render();
@@ -4236,7 +4238,7 @@
       pushUndoState("collapse");
       found.item.collapsed = nextCollapsed;
       saveState();
-      renderGroupInPlace(found.group.id);
+      renderTaskSubtreeInPlace(id, found.group.id);
       selectNode("task", id);
     }
 
@@ -4367,6 +4369,14 @@
         return;
       }
       pendingGroupDelete = null;
+      // a single link-free task delete (the Delete key's everyday path) may
+      // render scoped: capture its covering parent before the removal
+      const singleTask = !groupsToDelete.length && taskNodes.length === 1 && nodes.length === 1
+        ? findTask(taskNodes[0].id)
+        : null;
+      const scopedDelete = singleTask && subtreeIsLinkFree(singleTask.item)
+        ? { parentId: singleTask.parent?.id || null, groupId: singleTask.group?.id || null }
+        : null;
       const firstGroup = groupsToDelete.length ? findGroup(groupsToDelete[0].id) : null;
       let deleteLabel = `Deleted ${nodes.length} items`;
       if (nodes.length === 1 && firstGroup) deleteLabel = `Deleted group "${shortText(firstGroup.title)}"`;
@@ -4419,7 +4429,12 @@
         selectionAnchorNode = null;
       }
       saveState();
-      render();
+      if (scopedDelete && scopedDelete.groupId) {
+        renderScoped(scopedDelete.parentId, scopedDelete.groupId);
+        refreshLifecycleSections();
+      } else {
+        render();
+      }
     }
 
     function toggleSelectedNodes(collapsed) {
@@ -4656,7 +4671,11 @@
 
     function applySwipeIndent(id, levels) {
       const step = levels > 0 ? indentTask : outdentTask;
-      const groupId = findTask(id)?.group?.id;
+      const before = findTask(id);
+      const groupId = before?.group?.id;
+      // indents stay inside the pre-op parent's subtree; outdents can climb
+      // out of it, so they take the group-article path
+      const covering = levels > 0 ? before?.parent?.id ?? null : null;
       let applied = 0;
       for (let i = 0; i < Math.abs(levels); i += 1) {
         if (!step(id, { pushUndo: applied === 0, save: false, render: false })) break;
@@ -4664,7 +4683,7 @@
       }
       if (applied) {
         saveState();
-        renderGroupInPlace(groupId);
+        renderScoped(covering, groupId);
       }
       return applied;
     }
@@ -4781,7 +4800,7 @@
       // writing into an alias's resolved children lands in ANOTHER group's
       // subtree; only the plain same-group insert may scope
       if (found.item.linkType || getLinkCount(resolved.id) > 0) render();
-      else renderGroupInPlace(found.group.id);
+      else renderScoped(intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id);
       return item;
     }
 
@@ -4803,7 +4822,9 @@
       newParent.collapsed = false;
       if (options.select !== false) setSingleSelection({ kind: "task", id });
       if (options.save !== false) saveState();
-      if (options.render !== false) renderGroupInPlace(found.group.id);
+      // the pre-op parent's subtree contains both the old slot and the new
+      // parent (the previous sibling); top-level indents cover via the group
+      if (options.render !== false) renderScoped(found.parent?.id ?? null, found.group.id);
       return true;
     }
 
@@ -4817,7 +4838,8 @@
       parent.list.splice(parent.index + 1, 0, item);
       if (options.select !== false) setSingleSelection({ kind: "task", id });
       if (options.save !== false) saveState();
-      if (options.render !== false) renderGroupInPlace(found.group.id);
+      // the item leaves its parent P for P's own list: P's parent covers both
+      if (options.render !== false) renderScoped(parent.parent?.id ?? null, found.group.id);
       return true;
     }
 
@@ -4884,7 +4906,7 @@
       pushUndoState("move", `Moved "${shortText(resolveTaskItem(found.item)?.text)}"`);
       found.list.splice(to, 0, found.list.splice(found.index, 1)[0]);
       saveState();
-      renderGroupInPlace(found.group.id);
+      renderScoped(found.parent?.id ?? null, found.group.id);
       return true;
     }
 
@@ -4999,7 +5021,7 @@
       }
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
-      if (scopedOk) renderGroupInPlace(groupId);
+      if (scopedOk) renderScoped(parentId || null, groupId);
       else render();
       focusTaskText(item.id);
       return item;
@@ -5337,7 +5359,7 @@
       setSingleSelection({ kind: "task", id: target.id });
       saveState();
       // merged text fans out through any linked placement of either item
-      if (taskIsLinkFree(prevFound.item) && !getLinkCount(item.id)) renderGroupInPlace(found.group.id);
+      if (taskIsLinkFree(prevFound.item) && !getLinkCount(item.id)) renderScoped(found.parent?.id ?? null, found.group.id);
       else render();
       return true;
     }
@@ -5547,7 +5569,7 @@
       setSingleSelection({ kind: "task", id: newItem.id });
       saveState();
       // the rewritten text of the split task shows in every linked placement
-      if (taskIsLinkFree(found.item)) renderGroupInPlace(found.group.id);
+      if (taskIsLinkFree(found.item)) renderScoped(intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id);
       else render();
       focusTaskText(newItem.id, false);
       return { item: newItem, position: plan.position };
@@ -6268,6 +6290,33 @@
       // full render one second later and masks scoping bugs
       lifecycleSignature = getLifecycleSignature();
       if (selectedNode) renderSelection();
+    }
+
+    // Scoping v2 (Evren 2026-07-19, "mainly sub items flash"): his boards are
+    // a few HUGE groups, so a group-article swap is nearly a full render
+    // (~150ms measured) and shifts the viewport ~90px on nested creates. A
+    // task-subtree swap replaces one <li> — the drop zones ride inside it —
+    // and leaves layout above and below untouched.
+    function renderTaskSubtreeInPlace(taskId, groupId) {
+      const li = document.querySelector?.(`li[data-task="${taskId}"]`);
+      const found = li ? findTask(taskId) : null;
+      const query = searchEl?.value?.trim() || "";
+      if (!li || !found || boardEl.hidden || query) {
+        renderGroupInPlace(groupId);
+        return;
+      }
+      const wrap = document.createElement("div");
+      wrap.innerHTML = renderTask(found.item, found.group?.id || groupId, "");
+      li.replaceWith(wrap.firstElementChild);
+      lifecycleSignature = getLifecycleSignature();
+      if (selectedNode) renderSelection();
+    }
+
+    // Route a scoped render to the smallest container that covers the change:
+    // a task subtree when one exists, else the group article.
+    function renderScoped(coveringTaskId, groupId) {
+      if (coveringTaskId) renderTaskSubtreeInPlace(coveringTaskId, groupId);
+      else renderGroupInPlace(groupId);
     }
 
     // A task placement is safe for scoped rendering only when nothing else
@@ -8252,6 +8301,8 @@
       addNodeToSelection,
       extendSelectionThrough,
       renderGroupInPlace,
+      renderTaskSubtreeInPlace,
+      renderScoped,
       taskIsLinkFree,
       moveSelectedNode,
       moveSelectedNodes,
