@@ -1966,3 +1966,142 @@ test("scoped render keeps behavior identical and falls back safely", async () =>
   assert.equal(api.taskIsLinkFree(first), false, "an aliased original is never link-free");
   assert.equal(api.taskIsLinkFree(second), true, "an untouched task is link-free");
 });
+
+test("a new primary touch press clears stale gesture candidates (dead-toggles guard)", async () => {
+  // A render that replaces the pressed row mid-press swallows its pointerup
+  // (implicit touch capture dies with the node). The 1.5s hold timer then
+  // arms with no finger down, and because finishTouchSelect requires a
+  // matching pointerId, the ghost either ate the next tap's click (iOS
+  // reuses pointerIds) or every scroll forever. Invariant under test: any
+  // new primary touch press resets all gesture candidates.
+  const listeners = new Map();
+  const setClassList = () => {
+    const classes = new Set();
+    return {
+      add: (...names) => names.forEach((name) => classes.add(name)),
+      remove: (...names) => names.forEach((name) => classes.delete(name)),
+      contains: (name) => classes.has(name),
+    };
+  };
+  const stubEl = () => ({
+    innerHTML: "",
+    textContent: "",
+    value: "",
+    dataset: {},
+    classList: { add() {}, remove() {} },
+    addEventListener() {},
+    contains() {
+      return false;
+    },
+    focus() {},
+    scrollIntoView() {},
+  });
+  const boardEl = stubEl();
+  boardEl.classList = setClassList();
+  boardEl.addEventListener = (type, fn) => {
+    const list = listeners.get(type) || [];
+    list.push(fn);
+    listeners.set(type, list);
+  };
+  const elements = new Map([
+    ["[data-board]", boardEl],
+    ["[data-section-nav]", stubEl()],
+    ["[data-total-count]", stubEl()],
+    ["[data-done-count]", stubEl()],
+    ["[data-search]", stubEl({ value: "" })],
+  ]);
+  const timers = [];
+  const flushTimers = () => {
+    for (const timer of [...timers]) {
+      if (!timer.cleared && !timer.fired) {
+        timer.fired = true;
+        timer.fn();
+      }
+    }
+  };
+  const api = await loadBoardApi({
+    navigator: {},
+    document: {
+      activeElement: null,
+      querySelector(selector) {
+        return elements.get(selector) || null;
+      },
+      querySelectorAll() {
+        return [];
+      },
+      addEventListener() {},
+      createRange() {
+        return { collapse() {}, deleteContents() {}, insertNode() {}, selectNodeContents() {}, setStartAfter() {} };
+      },
+    },
+    window: {
+      getSelection() {
+        return { rangeCount: 0, addRange() {}, getRangeAt() { return null; }, removeAllRanges() {} };
+      },
+      setTimeout(fn) {
+        timers.push({ fn, cleared: false, fired: false });
+        return timers.length;
+      },
+      clearTimeout(id) {
+        if (timers[id - 1]) timers[id - 1].cleared = true;
+      },
+    },
+  });
+
+  const taskId = api.state.groups[0].tasks[0].id;
+  const row = {
+    dataset: { taskRow: taskId, nodeKind: "task", nodeId: taskId, dragKind: "task" },
+    classList: { add() {}, remove() {}, contains() { return false; } },
+    style: {},
+    setPointerCapture() {},
+    matches() {
+      return false;
+    },
+  };
+  row.closest = (selector) =>
+    selector.includes("data-task-row") || selector.includes("data-node-kind") || selector.includes("data-drag-kind") ? row : null;
+
+  const fire = (type, event) => {
+    for (const handler of listeners.get(type) || []) handler(event);
+  };
+  const touchEvent = (pointerId) => ({
+    pointerType: "touch",
+    pointerId,
+    isPrimary: true,
+    clientX: 0,
+    clientY: 0,
+    target: row,
+    defaultPrevented: false,
+    preventDefault() {
+      this.defaultPrevented = true;
+    },
+  });
+  const probe = () => {
+    const menu = { target: row, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    fire("contextmenu", menu);
+    const move = { cancelable: true, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+    fire("touchmove", move);
+    return { candidate: menu.defaultPrevented, armed: move.defaultPrevented };
+  };
+
+  // ghost press: the pointerup for id 41 never arrives, both hold timers fire
+  fire("pointerdown", touchEvent(41));
+  flushTimers();
+  const ghost = probe();
+  assert.equal(ghost.candidate, true, "the ghost candidate exists after the lost pointerup");
+  assert.equal(ghost.armed, true, "the ghost armed with no finger down");
+
+  // a fresh press must sweep the ghost; its own tap then finishes cleanly
+  fire("pointerdown", touchEvent(53));
+  fire("pointerup", touchEvent(53));
+  const after = probe();
+  assert.equal(after.candidate, false, "no gesture candidate survives a new press-and-release");
+  assert.equal(after.armed, false, "no armed ghost eats touchmoves after a new press-and-release");
+  assert.equal(boardEl.classList.contains("is-touch-selecting"), false, "the select mode class is gone");
+
+  // the sweep must not kill the new press's own candidates
+  fire("pointerdown", touchEvent(60));
+  assert.equal(probe().candidate, true, "a live press still owns its candidates");
+  fire("pointerup", touchEvent(60));
+  assert.equal(probe().candidate, false, "release cleans up the live press");
+});

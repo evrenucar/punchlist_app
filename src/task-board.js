@@ -4252,6 +4252,19 @@
       return Boolean(editable && editable === document.activeElement);
     }
 
+    // A render that replaces the pressed row mid-press takes the touch stream
+    // with it (implicit capture dies with the node): pointerup never arrives,
+    // the hold timers arm with no finger down, and the ghost then eats the
+    // next tap's click (iOS reuses pointerIds) or every scroll (the reported
+    // intermittent dead toggles). A new primary press is proof no older touch
+    // is still live, so it starts from a clean slate.
+    boardEl.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" || !event.isPrimary) return;
+      clearTouchDrag();
+      clearTouchSelect();
+      touchSwipe = null;
+    });
+
     boardEl.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse" || touchDrag) return;
       if (pressInsideFocusedText(event.target)) return;
