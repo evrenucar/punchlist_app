@@ -683,6 +683,32 @@
       render();
     }
 
+    // For embedders (the status/ wrapper): swap in a new whole-board state
+    // WITHOUT reloading the page. Unlike applySyncedState this keeps the
+    // user's selection when the node survives, logs no history entry (the
+    // writer already attributed its edit), and adopts incoming settings —
+    // the caller owns the whole board, not a settings-stripped sync payload.
+    function applyExternalState(rawState) {
+      if (!rawState || !Array.isArray(rawState.groups)) throw new Error("applyExternalState needs a board with groups");
+      if (focusModeTaskId || focusModeGroupId) exitFocusMode();
+      const keepSelection = selectedNode ? { ...selectedNode } : null;
+      const currentIdentity = state.identity || null;
+      const currentContacts = state.contacts && typeof state.contacts === "object" ? state.contacts : {};
+      state = migrateState(rawState, new Date().toISOString(), { includeResearch: false });
+      if (!state.identity && currentIdentity) state.identity = currentIdentity;
+      if (!Object.keys(state.contacts || {}).length && Object.keys(currentContacts).length) state.contacts = currentContacts;
+      saveStateToLocalStorage();
+      render();
+      if (keepSelection && getNodeRow(keepSelection)) {
+        selectNode(keepSelection);
+      } else {
+        selectedNode = getVisibleNodes()[0] || null;
+        multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
+        selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
+        if (selectedNode) renderSelection();
+      }
+    }
+
     function syncApiUrl() {
       const repo = String(syncConfig.repo || "").trim();
       return `https://api.github.com/repos/${repo}/contents/punchlist-board.json`;
@@ -6066,6 +6092,7 @@
       decodeBase64Utf8,
       getSyncPayload,
       applySyncedState,
+      applyExternalState,
       syncIsActive,
       getExportState,
       storeAsset,

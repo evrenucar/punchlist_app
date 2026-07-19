@@ -1747,7 +1747,19 @@
         pullDeferredSince = null;
         localStorage.setItem(KEY, server);
         lastCanon = canon(server);
-        frame.contentWindow?.location.reload();
+        // Apply in place through the app's own API — no iframe reload, no
+        // whole-page flash, selection survives (Evren's "keeps refreshing
+        // while I'm writing" report). Reload stays as the fallback.
+        const api = frame.contentWindow?.taskBoardTestApi;
+        if (api?.applyExternalState) {
+          try {
+            api.applyExternalState(JSON.parse(server));
+          } catch {
+            frame.contentWindow?.location.reload();
+          }
+        } else {
+          frame.contentWindow?.location.reload();
+        }
         mark("updated");
       } else {
         pullDeferredSince = null;

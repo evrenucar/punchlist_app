@@ -1858,6 +1858,30 @@ test("built board keeps the DOM hooks the status-board wrapper depends on", asyn
   for (const hook of ["data-task-row", "data-group-title", "data-sidebar-toggle"]) {
     assert.equal(built.includes(hook), true, `${hook} is part of the status/ layer contract (CLAUDE.md)`);
   }
+  // the wrapper also applies board updates in place through the test API
+  const api = await loadBoardApi();
+  for (const hook of ["applyExternalState", "selectNode"]) {
+    assert.equal(typeof api[hook], "function", `taskBoardTestApi.${hook} is part of the status/ layer contract`);
+  }
+});
+
+test("applyExternalState swaps the board in place without history noise", async () => {
+  const api = await loadBoardApi();
+  api.state.identity = { privateKeyJwk: { k: "keep-me" }, publicKeyJwk: {} };
+  const historyBefore = api.state.history.length;
+  api.applyExternalState({
+    version: 2,
+    groups: [{ id: "g-ext", title: "From the wrapper", collapsed: false, tasks: [{ id: "t-ext", text: "swapped in", children: [] }] }],
+    history: [],
+    trash: [],
+    settings: { exportTrash: true },
+  });
+  assert.equal(api.state.groups.length, 1, "the incoming board replaced the old one");
+  assert.equal(api.state.groups[0].title, "From the wrapper");
+  assert.equal(api.state.identity.privateKeyJwk.k, "keep-me", "a running identity survives an external apply");
+  assert.equal(api.state.history.length, 0, "no synthetic history entry is logged (the writer already attributed its edit)");
+  assert.notEqual(api.state.history.length, historyBefore + 1, "external applies never add pull-style noise");
+  assert.throws(() => api.applyExternalState({ nope: true }), /groups/, "a malformed board is refused loudly");
 });
 
 test("demo mode signs nothing and keeps the roster empty", async () => {
