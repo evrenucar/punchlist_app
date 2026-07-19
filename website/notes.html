@@ -271,12 +271,22 @@
 
     <article>
       <header>
+        <h2>The phone stops fighting you</h2>
+        <span class="entry-date">July 19, 2026 · build v1.4.0</span>
+      </header>
+      <p>You re-ran the touch test on the new build and flagged four things. Three are fixed. The board could pinch-zoom and then wiggle side to side; it is a web app, not a document, so zoom is off now and the wiggle went with it. Vertical scroll and swipe-to-indent are untouched. A long press on the row body, away from the text, used to summon the iOS magnifier after a couple of seconds; that is suppressed now, while a press inside the text you are editing still gets the magnifier you wanted.</p>
+      <p>Sweep select is reversible. Hold to enter select, sweep down to grab a run of rows, and now drag back up to drop the ones past your finger. Rows you banked in an earlier hold stay selected. 110 tests pass, one new that checks the sweep fills, reverses, and keeps earlier holds.</p>
+      <p>Still open: holding one row longer to select it is not firing for you, so I sent a question to pin down where it breaks before I touch the gesture timing. Reload the app on your phone to get the three fixes.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>The landing page catches up to the app</h2>
         <span class="entry-date">July 19, 2026 · build v1.4.0</span>
       </header>
       <p>The front page still said v1.2.0 and 260 KB. It says v1.4.0 and 340 KB now, in every spot it was wrong: the header, the fact chips, the hero copy, and the footer. The exact byte count in "Why this exists" is current too.</p>
       <p>The "What the file does" mockups had two real bugs. The empty checkboxes were white on a white card with a hairline border, so they read as faint smudges; they now sit on a tinted fill with a firmer edge, so a checkbox looks like a checkbox. The Nested outline card had also gone flat, its indent cancelled by a later rule while the indent guide-line still drew across the text; it steps in properly again. And the rows now wrap, so a status chip can no longer collide with the task text on a narrow phone.</p>
-      <p>Phones got room to breathe. The side gutters were 20px and felt cramped; they open to 30px on phone widths so content is not jammed against the edges, and they narrow again on very small screens so nothing loses width. The sideways-scroll glitch on the mocks is gone with it. The display type was oversized for a phone too, so the hero title, section headings and buttons are all calmed down at phone widths and the copy leads instead of the chrome.</p>
+      <p>Phones got room to breathe. The side gutters were 20px and felt cramped; they open to 30px on phone widths so content is not jammed against the edges, and they narrow again on very small screens so nothing loses width. The sideways-scroll glitch on the mocks is gone with it. The display type was oversized for a phone too, so the hero title, section headings and buttons are all calmed down at phone widths and the copy leads instead of the chrome. On narrow phones the top bar was also wider than the screen, so its theme button spilled off the right edge and ate the right margin; the version chip drops and the row tightens on phones, so it fits cleanly down to a 320px screen.</p>
       <p>Two new links. There is now a "View source on GitHub" button up top and a source link in the footer, both pointing at the repo. "What's planned" was rewritten to match reality, it names the three opt-in features that actually shipped since launch (GitHub sync, signed exports, the assets store) instead of just the first one, and it links here, to these build notes, as the running release log.</p>
       <p>This page makes zero network requests, same as always. A real tagged GitHub release of the HTML is the one piece still open, that one needs Evren's hand on the button.</p>
     </article>
