@@ -972,7 +972,10 @@
 
   function applyGraphPan(glide) {
     graphWorld.classList.toggle("gliding", Boolean(glide));
-    graphWorld.style.transform = `translate(${graphPan.x}px, ${graphPan.y}px)`;
+    // round to whole pixels: a fractional translate on this will-change layer
+    // left the node text sitting off the pixel grid and rendered it blurry
+    // (Evren's screenshot). Internal pan stays exact; only the paint snaps.
+    graphWorld.style.transform = `translate(${Math.round(graphPan.x)}px, ${Math.round(graphPan.y)}px)`;
     if (glide) setTimeout(() => graphWorld.classList.remove("gliding"), 750);
   }
 
