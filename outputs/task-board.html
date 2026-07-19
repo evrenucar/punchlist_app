@@ -5089,18 +5089,31 @@
       renderSelection();
     }
 
-    // Sweep fill: fast finger moves skip rows between two elementFromPoint
-    // samples, so take every visible node from the last swept row through here.
-    function extendSelectionThrough(node, fromNode = null) {
+    // Reversible sweep: the selection is whatever earlier holds accumulated
+    // (base) plus the contiguous range from THIS sweep's anchor to the finger.
+    // Dragging back toward the anchor shrinks the range, dropping rows this
+    // sweep grabbed, while earlier holds persist (his phone re-test: sweep 5
+    // down, then drag back 2 to drop the last two). The range also fills any
+    // rows a fast finger skipped between elementFromPoint samples.
+    function applySweepSelection(base, anchorNode, node) {
       const visible = getVisibleNodes();
-      const from = visible.findIndex((item) => sameNode(item, fromNode));
-      const to = visible.findIndex((item) => sameNode(item, node));
-      if (from < 0 || to < 0) {
-        addNodeToSelection(node);
-        return;
+      const a = visible.findIndex((item) => sameNode(item, anchorNode));
+      const b = visible.findIndex((item) => sameNode(item, node));
+      const range = a < 0 || b < 0
+        ? [node]
+        : visible.slice(Math.min(a, b), Math.max(a, b) + 1);
+      const seen = new Set();
+      const merged = [];
+      for (const candidate of [...base, ...range]) {
+        const key = nodeKey(candidate);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push({ ...candidate });
       }
-      const step = to >= from ? 1 : -1;
-      for (let i = from; i !== to + step; i += step) addNodeToSelection(visible[i]);
+      multiSelectedNodes = merged;
+      selectedNode = { ...node };
+      selectionAnchorNode = { ...anchorNode };
+      renderSelection();
     }
 
     function insertSiblingBelowNode(node = selectedNode) {
@@ -7305,6 +7318,10 @@
       clearTouchDrag();
       touchSwipe = null;
       boardEl.classList.add("is-touch-selecting");
+      // snapshot earlier holds BEFORE the anchor joins, so a reversed sweep
+      // only drops what this sweep added, never the accumulated selection
+      touchSelect.base = getSelectedNodes().map((existing) => ({ ...existing }));
+      touchSelect.anchorNode = { ...touchSelect.node };
       addNodeToSelection(touchSelect.node);
       touchSelect.lastNode = touchSelect.node;
       navigator.vibrate?.(15);
@@ -7340,7 +7357,7 @@
       if (!row) return;
       const node = { kind: row.dataset.nodeKind, id: row.dataset.nodeId };
       if (sameNode(node, touchSelect.lastNode)) return;
-      extendSelectionThrough(node, touchSelect.lastNode);
+      applySweepSelection(touchSelect.base, touchSelect.anchorNode, node);
       touchSelect.lastNode = node;
     });
 
@@ -8742,7 +8759,7 @@
       getSelectedNodes,
       selectNode,
       addNodeToSelection,
-      extendSelectionThrough,
+      applySweepSelection,
       renderGroupInPlace,
       renderTaskSubtreeInPlace,
       renderScoped,

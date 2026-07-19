@@ -1927,13 +1927,26 @@ test("hold-select accumulates without duplicates and sweep fills the visible ran
     { kind: "task", id: third.id },
   ], "a second hold adds once; holding the same row twice never duplicates");
 
-  api.selectNode({ kind: "task", id: first.id });
-  api.extendSelectionThrough({ kind: "task", id: third.id }, { kind: "task", id: first.id });
+  // a sweep from an anchor fills the whole range, including rows a fast finger skipped
+  api.applySweepSelection([], { kind: "task", id: first.id }, { kind: "task", id: third.id });
   assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes())), [
     { kind: "task", id: first.id },
     { kind: "task", id: second.id },
     { kind: "task", id: third.id },
   ], "a fast sweep takes the rows elementFromPoint skipped");
+
+  // dragging back toward the anchor drops the rows the sweep grabbed
+  api.applySweepSelection([], { kind: "task", id: first.id }, { kind: "task", id: first.id });
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes())), [
+    { kind: "task", id: first.id },
+  ], "reversing the sweep back to the anchor deselects the rows it grabbed");
+
+  // earlier holds (the base) persist even when this sweep shrinks to its anchor
+  api.applySweepSelection([{ kind: "task", id: third.id }], { kind: "task", id: first.id }, { kind: "task", id: first.id });
+  assert.deepEqual(JSON.parse(JSON.stringify(api.getSelectedNodes())), [
+    { kind: "task", id: third.id },
+    { kind: "task", id: first.id },
+  ], "a prior hold stays selected when a reversed sweep shrinks past it");
 });
 
 test("ctrl+shift+v pastes a real unlinked copy", async () => {
