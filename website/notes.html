@@ -271,6 +271,17 @@
 
     <article>
       <header>
+        <h2>The ghost that ate your taps, & images move out of the board</h2>
+        <span class="entry-date">July 19, 2026</span>
+      </header>
+      <p>Your "toggles sometimes stop working" report from the touch test plan turned out to be a ghost. When the app repaints the row your finger is pressing, the browser silently drops that touch — no release event, ever. The 1.5-second hold timer kept running, armed "drag select" with no finger on the glass, & that ghost then ate the next tap's click (dead chevron) or every scroll until reload. Reproduced both ways in a real browser, then fixed with one rule: any new press wipes every stale gesture first. A regression test now fails the build if the ghost ever returns.</p>
+      <p>Two more touch findings fell in the same session. The weird copy-paste-looking drag on unselected rows was iOS itself: rows are marked draggable for desktop mouse drag, & iOS treats a long-press on anything draggable as a native OS drag, stealing the touch before the app's own 420ms hold could arm. Touch presses now refuse the native drag & always get the real one with drop indicators — rows & group headers both. & the jagged auto-scroll near the top was four small sins at once: whole-pixel speed jumps, a ramp that hit full speed too close to the edge, the scroller shoving into the iOS rubber-band at the very top, & one internal cleanup killing the scroll mid-drag. All four fixed, plus a real bug that fell out of the investigation: dropping while the list auto-scrolled under a still finger used to drop on the row where your finger last moved, possibly pages away. The target now follows the content.</p>
+      <p>Then the big one: v1.4.0 moves image bytes out of the board file. Each image becomes an immutable record in IndexedDB on your device & one file under <code>assets/</code> in the sync repo; the board keeps a reference measured in bytes, not kilobytes. Push uploads whatever the remote is missing before the board itself, pull downloads whatever your device is missing, every image transfers exactly once, & both devices end up with everything offline — your Q22 pick, lazy loading stayed rejected. The two ceilings that actually bit you retire together: the 1MB read cap that split your phone & laptop on the 18th, & the browser's ~5MB limit on the board itself. Existing images migrate out on next load, exports still embed everything so backups stay lossless & readable by older builds, & videos or STLs ride these same rails whenever you want them.</p>
+      <p>108 automated tests green, 5 commits, migration & rendering & lightbox & reload persistence all verified in a real browser at phone & desktop widths. What's left on the touch batch is your fingers: the tap-beside-text hitbox, the drag-select re-grade, & whether the flash is finally dead on your glass.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>The night the agent learned to listen</h2>
         <span class="entry-date">July 19, 2026</span>
       </header>
