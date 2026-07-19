@@ -19,77 +19,105 @@
     font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     padding: 24px 16px 60px;
   }
-  main { max-width: 640px; margin: 0 auto; }
+  main { max-width: 760px; margin: 0 auto; }
   h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
   .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 18px; }
   h2 { font-size: 15px; margin: 26px 0 8px; }
-  label.step {
-    display: flex; gap: 10px; align-items: flex-start;
+  .step {
+    display: flex; gap: 10px; align-items: stretch;
     background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
-    padding: 10px 12px; margin: 6px 0; cursor: pointer;
+    padding: 10px 12px; margin: 6px 0;
   }
-  label.step input { margin: 3px 0 0; width: 18px; height: 18px; flex: none; accent-color: var(--done); }
-  label.step.checked { opacity: 0.55; }
+  .step label { display: flex; gap: 10px; align-items: flex-start; flex: 1 1 60%; cursor: pointer; min-width: 0; }
+  .step input[type="checkbox"] { margin: 3px 0 0; width: 18px; height: 18px; flex: none; accent-color: var(--done); }
+  .step.checked label { opacity: 0.55; }
   .exp { display: block; color: var(--muted); font-size: 13px; }
   .exp::before { content: "Expect: "; font-weight: 700; }
+  .fb {
+    flex: 1 1 40%; min-width: 120px; font: inherit; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+    color: var(--text); padding: 6px 8px; align-self: center;
+  }
+  .fb::placeholder { color: var(--muted); opacity: 0.7; }
+  @media (max-width: 560px) {
+    .step { flex-direction: column; }
+    .fb { align-self: stretch; }
+  }
+  .sendbar { display: flex; gap: 10px; align-items: center; margin-top: 26px; flex-wrap: wrap; }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
   button.reset {
-    font: inherit; font-size: 12px; margin-top: 24px; padding: 6px 12px;
+    font: inherit; font-size: 12px; padding: 6px 12px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
     color: var(--muted); cursor: pointer;
   }
-  .note { font-size: 13px; color: var(--warn); margin: 12px 0 0; }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
 </style>
 </head>
 <body>
 <main>
   <h1>Touch test plan</h1>
-  <p class="sub">Built 2026-07-18 for the hold/swipe/select batch. Run on the iPhone (hosted board is fine) unless a step says desktop. Ticks survive reloads on this machine.</p>
+  <p class="sub">Built 2026-07-18, upgraded 2026-07-19: write notes next to any step, then send everything to the agent chat with one button. Run on the iPhone (hosted board) unless a step says desktop. Ticks and notes survive reloads on this machine.</p>
   <p class="progress" id="progress"></p>
 
   <h2>1 · Tap and swipe</h2>
-  <label class="step"><input type="checkbox" data-id="tap-select"><span>Tap a task, then tap a different one.<span class="exp">Selection follows the taps, one row at a time, action buttons ride the selected row.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="swipe-in"><span>Swipe a row slowly to the right.<span class="exp">The row slides in steps (detents), release indents one level per step, three max.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="swipe-out"><span>Swipe a nested row to the left.<span class="exp">Outdents. On a top-level task nothing breaks.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="no-pan"><span>During any swipe, watch the whole page.<span class="exp">The viewport never shifts sideways. Vertical scrolling still feels native.</span></span></label>
+  <div class="step"><label><input type="checkbox" data-id="tap-select"><span>Tap a task, then tap a different one.<span class="exp">Selection follows the taps, one row at a time, action buttons ride the selected row.</span></span></label><input class="fb" data-fb="tap-select" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="swipe-in"><span>Swipe a row slowly to the right.<span class="exp">The row slides in steps (detents), release indents one level per step, three max.</span></span></label><input class="fb" data-fb="swipe-in" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="swipe-out"><span>Swipe a nested row to the left.<span class="exp">Outdents. On a top-level task nothing breaks.</span></span></label><input class="fb" data-fb="swipe-out" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="no-pan"><span>During any swipe, watch the whole page.<span class="exp">The viewport never shifts sideways. Vertical scrolling still feels native.</span></span></label><input class="fb" data-fb="no-pan" placeholder="notes…"></div>
 
   <h2>2 · Hold to move (under 1.5&nbsp;s)</h2>
-  <label class="step"><input type="checkbox" data-id="move-lift"><span>Press a row anywhere (not just the grip), hold about half a second until it lifts, then drag up or down.<span class="exp">A drop indicator follows the finger; release moves the task there.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="move-scroll"><span>While dragging, pull the finger to the top or bottom screen edge.<span class="exp">The list auto-scrolls so long drags can cross groups.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="move-abort"><span>Hold half a second, release without dragging.<span class="exp">Nothing moves, nothing gets deleted, a following tap behaves normally.</span></span></label>
+  <div class="step"><label><input type="checkbox" data-id="move-lift"><span>Press a row anywhere (not just the grip), hold about half a second until it lifts, then drag up or down.<span class="exp">A drop indicator follows the finger; release moves the task there.</span></span></label><input class="fb" data-fb="move-lift" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="move-scroll"><span>While dragging, pull the finger to the top or bottom screen edge.<span class="exp">The list auto-scrolls so long drags can cross groups.</span></span></label><input class="fb" data-fb="move-scroll" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="move-abort"><span>Hold half a second, release without dragging.<span class="exp">Nothing moves, nothing gets deleted, a following tap behaves normally.</span></span></label><input class="fb" data-fb="move-abort" placeholder="notes…"></div>
 
   <h2>3 · Hold longer to select (past 1.5&nbsp;s)</h2>
-  <label class="step"><input type="checkbox" data-id="sel-flip"><span>Press and hold still: the row lifts around half a second, keep holding to 1.5&nbsp;s.<span class="exp">The lift drops and the row joins the selection instead (Android also vibrates briefly).</span></span></label>
-  <label class="step"><input type="checkbox" data-id="sel-sweep"><span>Without releasing, sweep the finger down across several rows, fast.<span class="exp">Every crossed row joins, no gaps even on a quick sweep. Sweeping to the screen edge auto-scrolls.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="sel-keep"><span>Release after a sweep.<span class="exp">The multi-selection stays highlighted.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="sel-add"><span>Now hold a different, unrelated row past 1.5&nbsp;s.<span class="exp">It joins the existing selection, nothing gets dropped.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="sel-reset"><span>Tap any row.<span class="exp">Selection collapses back to that single row.</span></span></label>
+  <div class="step"><label><input type="checkbox" data-id="sel-flip"><span>Press and hold still: the row lifts around half a second, keep holding to 1.5&nbsp;s.<span class="exp">The lift drops and the row joins the selection instead (Android also vibrates briefly).</span></span></label><input class="fb" data-fb="sel-flip" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="sel-sweep"><span>Without releasing, sweep the finger down across several rows, fast.<span class="exp">Every crossed row joins, no gaps even on a quick sweep. Sweeping to the screen edge auto-scrolls.</span></span></label><input class="fb" data-fb="sel-sweep" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="sel-keep"><span>Release after a sweep.<span class="exp">The multi-selection stays highlighted.</span></span></label><input class="fb" data-fb="sel-keep" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="sel-add"><span>Now hold a different, unrelated row past 1.5&nbsp;s.<span class="exp">It joins the existing selection, nothing gets dropped.</span></span></label><input class="fb" data-fb="sel-add" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="sel-reset"><span>Tap any row.<span class="exp">Selection collapses back to that single row.</span></span></label><input class="fb" data-fb="sel-reset" placeholder="notes…"></div>
 
   <h2>4 · Nothing else interferes</h2>
-  <label class="step"><input type="checkbox" data-id="no-callout"><span>Hold on a task's text without having tapped into it first.<span class="exp">No iOS text magnifier, no copy/paste callout, no context menu, the hold arms move/select instead.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="edit-ok"><span>Tap into a task's text and edit; hold inside the focused text.<span class="exp">Keyboard, caret, and normal word-selection all behave like any text field.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="chevron-ok"><span>Tap chevrons and checkboxes quickly a few times.<span class="exp">Collapse/complete toggles fire on tap, no accidental moves or selections.</span></span></label>
+  <div class="step"><label><input type="checkbox" data-id="no-callout"><span>Hold on a task's text without having tapped into it first.<span class="exp">No iOS text magnifier, no copy/paste callout, no context menu, the hold arms move/select instead.</span></span></label><input class="fb" data-fb="no-callout" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="edit-ok"><span>Tap into a task's text and edit; hold inside the focused text.<span class="exp">Keyboard, caret, and normal word-selection all behave like any text field.</span></span></label><input class="fb" data-fb="edit-ok" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="kb-stays"><span>Tap into a task's text so the keyboard is up, then swipe the row to indent.<span class="exp">The indent applies AND the keyboard stays up with the caret in place (your 2026-07-19 report; fix pending, note what you see).</span></span></label><input class="fb" data-fb="kb-stays" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="chevron-ok"><span>Tap chevrons and checkboxes quickly a few times.<span class="exp">Collapse/complete toggles fire on tap, no accidental moves or selections.</span></span></label><input class="fb" data-fb="chevron-ok" placeholder="notes…"></div>
 
   <h2>5 · Desktop spot-checks</h2>
-  <label class="step"><input type="checkbox" data-id="alt-left"><span>Select a nested task, press Alt+Left, then Alt+Right.<span class="exp">Outdent, then indent. The browser never navigates back.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="alt-edit"><span>While typing inside a task, press Alt+Left.<span class="exp">Nothing changes, the page stays put, typing continues.</span></span></label>
-  <label class="step"><input type="checkbox" data-id="mouse-drag"><span>Mouse drag a task and a group header.<span class="exp">Classic drag and drop, unchanged.</span></span></label>
+  <div class="step"><label><input type="checkbox" data-id="alt-left"><span>Select a nested task, press Alt+Left, then Alt+Right.<span class="exp">Outdent, then indent. The browser never navigates back.</span></span></label><input class="fb" data-fb="alt-left" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="alt-edit"><span>While typing inside a task, press Alt+Left.<span class="exp">Nothing changes, the page stays put, typing continues.</span></span></label><input class="fb" data-fb="alt-edit" placeholder="notes…"></div>
+  <div class="step"><label><input type="checkbox" data-id="mouse-drag"><span>Mouse drag a task and a group header.<span class="exp">Classic drag and drop, unchanged.</span></span></label><input class="fb" data-fb="mouse-drag" placeholder="notes…"></div>
 
-  <p class="note">Anything that fails: one line in the status chat is enough, the watcher picks it up.</p>
-  <button class="reset" id="reset">Reset all ticks</button>
+  <div class="sendbar">
+    <button class="send" id="send">Send results to the agent chat</button>
+    <button class="reset" id="reset">Reset all</button>
+    <span class="sendmsg" id="sendmsg"></span>
+  </div>
 </main>
 <script>
   const KEY = "punchlist-touch-testplan-v1";
+  const NOTES_KEY = "punchlist-touch-testplan-notes-v1";
   const state = JSON.parse(localStorage.getItem(KEY) || "{}");
+  const notes = JSON.parse(localStorage.getItem(NOTES_KEY) || "{}");
   const boxes = [...document.querySelectorAll("input[data-id]")];
+  const fbs = [...document.querySelectorAll("input[data-fb]")];
   const progress = document.getElementById("progress");
+  const sendmsg = document.getElementById("sendmsg");
+
   function paint() {
     let done = 0;
     boxes.forEach((box) => {
       box.checked = Boolean(state[box.dataset.id]);
-      box.closest("label").classList.toggle("checked", box.checked);
+      box.closest(".step").classList.toggle("checked", box.checked);
       if (box.checked) done += 1;
     });
+    fbs.forEach((fb) => { fb.value = notes[fb.dataset.fb] || ""; });
     progress.textContent = done + " of " + boxes.length + " checked";
   }
   boxes.forEach((box) => box.addEventListener("change", () => {
@@ -97,10 +125,40 @@
     localStorage.setItem(KEY, JSON.stringify(state));
     paint();
   }));
+  fbs.forEach((fb) => fb.addEventListener("input", () => {
+    if (fb.value) notes[fb.dataset.fb] = fb.value;
+    else delete notes[fb.dataset.fb];
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+  }));
   document.getElementById("reset").addEventListener("click", () => {
     boxes.forEach((box) => delete state[box.dataset.id]);
+    fbs.forEach((fb) => delete notes[fb.dataset.fb]);
     localStorage.setItem(KEY, JSON.stringify(state));
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
     paint();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const labelFor = (id) => document.querySelector(`input[data-id="${id}"]`)?.closest("label")?.querySelector("span")?.firstChild?.textContent?.trim().slice(0, 60) || id;
+    const done = boxes.filter((b) => state[b.dataset.id]).length;
+    const noted = Object.entries(notes).map(([id, note]) => `- ${labelFor(id)} — ${note}`);
+    const unchecked = boxes.filter((b) => !state[b.dataset.id]).map((b) => labelFor(b.dataset.id));
+    let text = `Touch test plan results: ${done} of ${boxes.length} checked.`;
+    if (noted.length) text += `\n\nNotes:\n${noted.join("\n")}`;
+    if (unchecked.length && unchecked.length <= 6) text += `\n\nNot checked: ${unchecked.join(" · ")}`;
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text }),
+      });
+      if (!response.ok) throw new Error();
+      sendmsg.textContent = "Sent — the agent has it.";
+      sendmsg.className = "sendmsg ok";
+    } catch {
+      sendmsg.textContent = "Could not reach the agent. Open this page as http://localhost:4173/testplan (not as a file) and try again.";
+      sendmsg.className = "sendmsg err";
+    }
   });
   paint();
 </script>

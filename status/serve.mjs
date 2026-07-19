@@ -38,6 +38,8 @@ const routes = {
   // real context numbers from the Claude Code statusline hook; 404 until a
   // session with the statusLine setting has run
   "/ctx": { file: join(statusDir, "ctx.json"), type: "application/json" },
+  // served (not file://) so its send-feedback button can POST /chat same-origin
+  "/testplan": { file: join(statusDir, "..", "docs", "touch-test-plan.html"), type: "text/html; charset=utf-8" },
 };
 
 createServer(async (req, res) => {
