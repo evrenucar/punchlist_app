@@ -1967,13 +1967,10 @@ test("scoped render keeps behavior identical and falls back safely", async () =>
   assert.equal(api.taskIsLinkFree(second), true, "an untouched task is link-free");
 });
 
-test("a new primary touch press clears stale gesture candidates (dead-toggles guard)", async () => {
-  // A render that replaces the pressed row mid-press swallows its pointerup
-  // (implicit touch capture dies with the node). The 1.5s hold timer then
-  // arms with no finger down, and because finishTouchSelect requires a
-  // matching pointerId, the ghost either ate the next tap's click (iOS
-  // reuses pointerIds) or every scroll forever. Invariant under test: any
-  // new primary touch press resets all gesture candidates.
+// Boots the board with a [data-board] element that records its event
+// listeners, so tests can dispatch synthetic pointer sequences through the
+// real gesture handlers. Timers are manual: flushTimers() fires pending holds.
+async function loadGestureHarness() {
   const listeners = new Map();
   const setClassList = () => {
     const classes = new Set();
@@ -2084,6 +2081,18 @@ test("a new primary touch press clears stale gesture candidates (dead-toggles gu
     return { candidate: menu.defaultPrevented, armed: move.defaultPrevented };
   };
 
+  return { api, boardEl, row, fire, touchEvent, probe, flushTimers };
+}
+
+test("a new primary touch press clears stale gesture candidates (dead-toggles guard)", async () => {
+  // A render that replaces the pressed row mid-press swallows its pointerup
+  // (implicit touch capture dies with the node). The 1.5s hold timer then
+  // arms with no finger down, and because finishTouchSelect requires a
+  // matching pointerId, the ghost either ate the next tap's click (iOS
+  // reuses pointerIds) or every scroll forever. Invariant under test: any
+  // new primary touch press resets all gesture candidates.
+  const { boardEl, fire, touchEvent, probe, flushTimers } = await loadGestureHarness();
+
   // ghost press: the pointerup for id 41 never arrives, both hold timers fire
   fire("pointerdown", touchEvent(41));
   flushTimers();
@@ -2104,4 +2113,23 @@ test("a new primary touch press clears stale gesture candidates (dead-toggles gu
   assert.equal(probe().candidate, true, "a live press still owns its candidates");
   fire("pointerup", touchEvent(60));
   assert.equal(probe().candidate, false, "release cleans up the live press");
+});
+
+test("touch presses suppress the native HTML5 drag; the mouse keeps it", async () => {
+  // iOS long-press on a draggable row starts the OS drag (a text-snapshot
+  // ghost, no drop indicators) and steals the stream from the pointer-based
+  // long-press drag. Native dragstart must die for touch and survive for mouse.
+  const { row, fire, touchEvent } = await loadGestureHarness();
+
+  fire("pointerdown", touchEvent(80));
+  const touchStart = { target: row, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, dataTransfer: { setData() {} } };
+  fire("dragstart", touchStart);
+  assert.equal(touchStart.defaultPrevented, true, "a dragstart born from a touch press is suppressed");
+  fire("pointerup", touchEvent(80));
+
+  const mouseDown = { ...touchEvent(1), pointerType: "mouse" };
+  fire("pointerdown", mouseDown);
+  const mouseStart = { target: row, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, dataTransfer: { setData() {} } };
+  fire("dragstart", mouseStart);
+  assert.equal(mouseStart.defaultPrevented, false, "a mouse drag still takes the native HTML5 path");
 });

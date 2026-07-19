@@ -130,6 +130,7 @@
     let autoScrollFrame = null;
     let autoScrollVelocity = 0;
     let touchDrag = null;
+    let lastPressWasTouch = false;
     let undoStack = [];
     let undoActions = [];
     let lastUndoAction = null;
@@ -4204,6 +4205,13 @@
     });
 
     boardEl.addEventListener("dragstart", (event) => {
+      // touch never gets the OS-native HTML5 drag (iOS lifts a text-snapshot
+      // ghost with no drop indicators — his "copy-paste-like" report); the
+      // long-press pointer drag owns touch, the mouse keeps native drag
+      if (lastPressWasTouch) {
+        event.preventDefault();
+        return;
+      }
       if (event.target.matches("input, [contenteditable='true']")) return;
       const source = event.target.closest("[data-drag-kind]");
       if (!source) return;
@@ -4259,6 +4267,7 @@
     // intermittent dead toggles). A new primary press is proof no older touch
     // is still live, so it starts from a clean slate.
     boardEl.addEventListener("pointerdown", (event) => {
+      lastPressWasTouch = event.pointerType !== "mouse";
       if (event.pointerType === "mouse" || !event.isPrimary) return;
       clearTouchDrag();
       clearTouchSelect();
