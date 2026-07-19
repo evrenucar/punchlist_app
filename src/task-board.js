@@ -4,7 +4,7 @@
     const STORAGE_KEY = "scheduling-task-management-board-v1" + (IS_DEMO ? "-demo" : "");
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1" + (IS_DEMO ? "-demo" : "");
     const SCHEMA_VERSION = 2;
-    const APP_VERSION = "1.4.0";
+    const APP_VERSION = "1.5.0";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";
     const DEFAULT_SETTINGS = Object.freeze({

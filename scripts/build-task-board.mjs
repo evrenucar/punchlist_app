@@ -27,4 +27,24 @@ const websiteCopy = path.join(root, "website", "task-board.html");
 await mkdir(path.dirname(websiteCopy), { recursive: true });
 await writeFile(websiteCopy, output, "utf8");
 
-console.log(`Built ${path.relative(root, outputPath)} (+ website copy)`);
+// Single source of version + size: APP_VERSION in the app is the truth, and
+// the built file's own byte count is the real size. Stamp both into the
+// landing page so its version chips and "N KB" can never drift or lie. The
+// patterns (vX.Y.Z, "N KB", "N,NNN bytes") only ever match this metadata.
+const version = (script.match(/APP_VERSION\s*=\s*["']([^"']+)["']/) || [])[1];
+const bytes = Buffer.byteLength(output, "utf8");
+const kb = Math.round(bytes / 1024);
+const indexPath = path.join(root, "website", "index.html");
+let index = await readFile(indexPath, "utf8");
+if (version) {
+  index = index
+    .replace(/v\d+\.\d+\.\d+/g, `v${version}`)
+    .replace(/\d+ KB/g, `${kb} KB`)
+    .replace(/[\d,]+ bytes/g, `${bytes.toLocaleString("en-US")} bytes`);
+  await writeFile(indexPath, index, "utf8");
+  if (index.match(/v\d+\.\d+\.\d+/g).some((v) => v !== `v${version}`)) {
+    throw new Error("landing page version stamp failed");
+  }
+}
+
+console.log(`Built ${path.relative(root, outputPath)} (+ website copy) — v${version || "?"}, ${kb} KB`);
