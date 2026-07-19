@@ -72,6 +72,15 @@
                 <option value="ask">Ask each time</option>
               </select>
             </label>
+            <label class="settings-row" title="How much to shrink images when you paste them in. Applies to new pastes; the original is discarded after paste unless you pick Original.">
+              Image keep resolution
+              <select data-image-resolution>
+                <option value="original">Original — full size, 1 to 5 MB</option>
+                <option value="high">High — 2560px, up to ~2 MB</option>
+                <option value="medium">Medium — 1440px, up to ~500 KB</option>
+                <option value="low">Low — 800px, up to ~120 KB</option>
+              </select>
+            </label>
             <details class="settings-section">
               <summary>Lifecycle</summary>
               <label class="settings-row">
