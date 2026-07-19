@@ -27,6 +27,32 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
+### Session delta 2026-07-18/19 (read this first — ~45 commits, ended by Evren's STOP button)
+
+App (`src/`), all deployed to the hosted board:
+- **Scoped rendering, two rounds.** `renderTaskSubtreeInPlace`/`renderScoped` swap one task `<li>` (drop zones ride inside it); `renderGroupInPlace` swaps one group article; full `render()` only for multi-group ops. Create/indent/delete went 75-150ms → 8-21ms with ZERO viewport jump. His boards are a few HUGE groups, so group-level scoping alone was still a full repaint — subtree scoping is what killed his "flash". Link-safety guards (`taskIsLinkFree`, `subtreeIsLinkFree`) force full renders when placements fan out; deletes also call `refreshLifecycleSections()`. The vm harness's null `querySelector` makes every scoped call fall back to `render()`, so the suite pins behavior, not scoping — scoping proof lives in browser measurements.
+- **Typing perf**: per-keystroke full-state saves debounced (`saveStateDebounced`, flushes on focusout/beforeunload/focus-exit); 13ms → 0.2ms per key. Focus mode marks the hidden board stale (`boardStaleBehindFocus`) instead of rendering it per keystroke.
+- **Sync past 1MB**: pulls fall back to the Git blobs API when the contents API returns empty content (his devices split-brained on this). Whole board must stay <100MB; real ceiling is localStorage 5-10MB — the ASSETS BUILD (below) retires both.
+- **Touch batch 2 + test-plan fixes**: 1.5s hold = drag-select (28px drift tolerance), swipe indent caps at achievable levels, swipe-during-edit returns the keyboard, presses inside focused text spawn NO gestures (magnifier restored), touch text hitbox = content width (tap beside text selects; UNVERIFIED on glass — shipped under the STOP). Enter at text start creates BELOW now ("before" split position retired). Ctrl+Shift+V pastes an unlinked copy. Alt+Left/Right outdent/indent. Group-header drops land FIRST.
+- Enter on group/task specs, favicon, delete confirmations etc. from 07-17 all still stand.
+
+Development interface (`status/`):
+- **Chat wake-up watcher is MANDATORY** — see "Chat wake-up" in `docs/AGENT_INTERFACE.md`; the filter must include `Braindump intake requested`. Two missed-message incidents drove this.
+- **`status/board-write.mjs` is the only sanctioned board-write path** (quiet window + History entries attributed to a Claude device — his explicit spec: agent edits behave like a sharing user's).
+- **F+ staircase graph** (his pick after 3 sketch rounds in `docs/graph-design-options.html`): trunk timeline + one staircase path, arrow-key walk, +N pills, blue new-dots, click selects (↗ or J jumps). Zoom-anchor instability still open.
+- Chat: question cards take pick+comment/own answer, answers fold under questions, auto-seen, seen/reply buttons, drafts persist, pause(⏸/▶ toggle)/stop buttons, ctx chip with REAL numbers via `status/statusline.mjs` (statusLine hook in `.claude/settings.json`; never fake token numbers — stale shows LAST KNOWN dashed). Board toggle button for graph-only view. Test plan served at `/testplan` with per-step feedback + send-to-chat (first submission processed 2026-07-19; its results drove the touch fixes).
+- `prefs.json`: `fullAuto` (do NOT stop to ask "which next" — he corrected this twice), `preferParallel` (spawn NAMED subagents, visible via one-shot POSTs to /agents — `claude-sub1` pattern).
+
+**Open queue (top first), all tracked on the status board** (`group-inbox` actives + `group-dev-todo`):
+1. **Intermittent dead toggles on touch** (task-tpr-toggles, P1): chevrons stop responding "after a while"; suspect stuck gesture-candidate state from mismatched pointerIds. Needs a pointer-fuzzing repro.
+2. **Native text-drag hijacks hold-move on UNSELECTED rows** (task-tpr-natdrag) + groups don't touch-move well.
+3. **Tap-hitbox change needs his on-glass verdict** (task-tpr-tapedit half-closed).
+4. **Assets build** (grilled, specced Q21-Q23 in the grill memory + pinned on task-mrr4ug8y): images/videos/STLs out of board JSON → IndexedDB + `assets/` in the sync repo, FULL EAGER parity (lazy rejected), immutable files, migrate on first run. Per-file git ceiling 100MB.
+5. Graph zoom anchoring; agent ghost outline; drag auto-scroll smoothing near top; multi-agent name collisions (low); codebase-summary pages for Evren (wants clickable local links in chat); values doc + direction grill (daytime ask).
+6. "Flash still there" (task-mrred11c) stays open until HIS fingers confirm the subtree fix; same for drag-select re-grade (test plan steps 8-11).
+
+### State as of 2026-07-16 (previous baseline, still accurate below)
+
 `outputs/task-board.html` is generated from `src/` by `scripts/build-task-board.mjs` (which also refreshes `website/task-board.html`). Everything in the original scope shipped, plus several iteration rounds driven by the user's live usage:
 
 - Outline editing with 40-step undo, mouse and long-press touch drag, caret-aware Enter, Shift+Enter line breaks (with an end-of-content `<br>` sentinel because `pre-wrap` swallows a trailing newline), Ctrl+Enter completes, Alt+A adds a group, Ctrl+Shift+Down/Up expands/collapses all. Alt+arrows move a task one VISUAL slot (into expanded subtrees, out of them, and across group boundaries — `moveTaskVisually`), and Tab/Shift+Tab indent or outdent an entire multi-selection in one undo step (`shiftSelectedDepth`).
@@ -55,6 +81,12 @@ One historical note: a "rename to cosmo_vid" request (branding, folder, README) 
 Do not encode mutable placement into task IDs; aliases/references, lifecycle history, and scheduling all rely on stable task identity.
 
 ## Hard-won working notes (read before touching code)
+
+- **(2026-07-19) Scoped rendering traps**: every scoped path must refresh `lifecycleSignature` or the 1s maintenance loop full-renders a second later and MASKS scoping bugs. Covering ancestors must be computed BEFORE mutation (lookups die after splices). The Delete key routes through `deleteSelectedNodes`, NOT `deleteTaskAndSelectNeighbor` — a fix that misses it looks done and isn't. Never trust status-board perf numbers for his personal board: his groups are 10x bigger, seed a realistic board (80 parents × 3 deep + images) and measure scroll-jump too, the JUMP was the visible "flash".
+- **(2026-07-19) Touch-gesture layering**: three candidates ride every touch press (drag, swipe, select). Presses inside the FOCUSED editable must spawn none of them (`pressInsideFocusedText`) or iOS text editing breaks. Swipe lock must clear the select candidate. Finger drift during a 1.5s hold is ~15-25px — thresholds under that make gestures "collide". His board tab may hold a DRAFT in the chat input — check `chat-input.value` before ANY `location.reload()` of his tab, and never reload while he is mid-board-edit (the quiet-guard bounces are the signal).
+- **(2026-07-19) The wrapper reloads its iframe on agent board-writes** — that whole-page flash is NOT fixed by app-side scoped rendering; the queued fix is applying state in place. Don't re-diagnose it as an app bug.
+- **(2026-07-19) `board-write.mjs` throws on a <8s-old file** — he edits in bursts; retry loops with 10-20s waits, and NEVER let a failed board write silently swallow a chat announcement (sequence them independently).
+- **(2026-07-19) Intake protocol scar**: `take()`-style splices DELETE items if you drop the reference — two of his items were briefly lost and restored from the read. Move objects, verify counts, admit slips.
 
 - **Never write `src/` files with PowerShell 5.1 `-Encoding utf8`** — it prepends a BOM, the build inlines it mid-document, the browser drops the `:root` rule, and every font falls back to serif. Use `[System.IO.File]::WriteAllText` (BOM-free) or the Write tool. This actually happened; the fix was stripping the BOM.
 - **The user's live board is in this machine's browser localStorage under the `file://` origin** (key `scheduling-task-management-board-v1`). Any browser-based testing mutates their real data: revert every test mutation (tasks, images, history entries, trash records, settings) before ending a session.
