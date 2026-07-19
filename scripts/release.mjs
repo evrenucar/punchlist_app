@@ -12,7 +12,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const run = (cmd, args, opts = {}) => execFileSync(cmd, args, { cwd: root, ...opts }).toString?.().trim();
+const run = (cmd, args, opts = {}) => {
+  const out = execFileSync(cmd, args, { cwd: root, ...opts });
+  return out ? out.toString().trim() : ""; // stdio:"inherit" returns null
+};
 
 // gh is not always on PATH right after a winget install; fall back to the
 // standard install location.
