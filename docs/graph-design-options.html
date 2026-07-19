@@ -79,7 +79,84 @@
 </head>
 <body>
 <main>
-  <h1>Graph redesign — four directions</h1>
+  <h1>Graph redesign — round 2: the tree, expanding downward</h1>
+  <p class="sub">Your pick: "like tree but sub items should expand downwards." Three ways to do exactly that. Sequence still flows left to right; expanding any node unrolls its children DOWN, so verticality carries hierarchy. Round 1 stays below for reference.</p>
+
+  <section>
+    <h2>E · Trunk on top, outlines hang down</h2>
+    <p class="verdict"><b>The literal reading.</b> Top-level flow runs left to right along the top; expand a node and its subtree unrolls straight down beneath it, indented exactly like the task board. Several nodes can hang open at once, each column grows independently. <b>Tradeoff:</b> two long open columns side by side can want horizontal room.</p>
+    <div class="mock">
+      <div style="display:flex; gap:26px; align-items:flex-start; min-width:640px">
+        <div style="flex:none">
+          <div class="tnode compact" style="margin-bottom:6px">done · perf batch ▸</div>
+        </div>
+        <div class="tarrow" style="padding-top:2px">→</div>
+        <div style="flex:none">
+          <div class="tnode active">Graph redesign ▾<br><span style="font-size:10px;color:var(--muted)">now · Claude</span></div>
+          <div class="skids" style="margin-left:10px; margin-top:8px">
+            <div>round 1: four directions</div>
+            <div>your pick: tree, downward ▾</div>
+            <div style="margin-left:14px">three E/F/G sketches</div>
+            <div style="margin-left:14px">card for the pick</div>
+          </div>
+        </div>
+        <div class="tarrow" style="padding-top:2px">→</div>
+        <div style="flex:none">
+          <div class="tnode">Queue ▾</div>
+          <div class="skids" style="margin-left:10px; margin-top:8px">
+            <div>multi-agent robustness</div>
+            <div>graph build itself</div>
+          </div>
+        </div>
+      </div>
+      <p class="keys"><code>←→</code> walk the trunk · <code>↓</code> dive into the open subtree · <code>↑</code> climb back to the trunk · <code>Enter</code> expand/compact</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>F · The staircase — depth steps down AND right</h2>
+    <p class="verdict"><b>The task board rotated a half-turn.</b> Each expansion drops a row and indents right, so the active path reads as a staircase; the next top-level item resumes top-right. Depth is visible as literal depth. <b>Tradeoff:</b> deep trees drift rightward; the walk is the most novel of the three.</p>
+    <div class="mock">
+      <div style="min-width:640px; font-size:12.5px">
+        <div style="display:flex; gap:8px; align-items:center"><span class="tnode compact">done · perf ▸</span><span class="tarrow">→</span><span class="tnode active">Graph redesign ▾</span><span class="tarrow" style="margin-left:120px">→</span><span class="tnode">Queue ▸</span></div>
+        <div style="margin:8px 0 0 130px; border-left:2px solid var(--active); padding-left:12px">
+          <div class="tnode" style="margin-bottom:6px">round 1 sketches ✓</div>
+          <div class="tnode sel" style="margin-bottom:6px">round 2: downward tree ▾</div>
+          <div style="margin-left:26px; border-left:2px solid var(--line); padding-left:12px">
+            <div class="tnode compact" style="margin-bottom:4px">E · trunk with hanging outlines</div>
+            <div class="tnode compact">F · this staircase · G · columns</div>
+          </div>
+        </div>
+      </div>
+      <p class="keys"><code>↓</code> deeper (down-right) · <code>↑</code> shallower · <code>←→</code> siblings at the current depth · <code>Enter</code> expand/compact</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>G · Miller columns — Finder-style, everything stacks down</h2>
+    <p class="verdict"><b>The most keyboard-native.</b> Column one is the flow, newest at top; opening a node fills the next column with its children, also stacked downward. Every column is a vertical list, so recency and next-up read top-down at every level. <b>Tradeoff:</b> only the selected path is visible; sibling subtrees close when you move.</p>
+    <div class="mock">
+      <div style="display:flex; gap:0; min-width:640px">
+        <div class="tcol" style="border-right:1px solid var(--line); padding-right:14px">
+          <div class="tnode compact">Queue ▸</div>
+          <div class="tnode active">Graph redesign ▸</div>
+          <div class="tnode compact">done · ctx chip</div>
+          <div class="tnode compact">done · perf batch</div>
+        </div>
+        <div class="tcol" style="border-right:1px solid var(--line); padding:0 14px">
+          <div class="tnode sel">round 2: downward tree ▸</div>
+          <div class="tnode compact">round 1: four directions ✓</div>
+        </div>
+        <div class="tcol" style="padding-left:14px">
+          <div class="tnode compact">three sketches E F G</div>
+          <div class="tnode compact">card for the pick</div>
+        </div>
+      </div>
+      <p class="keys"><code>↑↓</code> within a column · <code>→</code> open children in the next column · <code>←</code> back — the Finder grammar, zero learning</p>
+    </div>
+  </section>
+
+  <h1 style="margin-top:50px; font-size:18px">Round 1 — the original four, for reference</h1>
   <p class="sub">Sketches with real items from this week. Every option keeps your three requirements: arrow-key browsing, expand/compact per node like the task board, and granular children. They differ in what the LAYOUT itself tells you. Patterns borrowed from: git commit graphs (A), mind-map/org trees (B), CI pipeline views (C), Obsidian-style canvas (D).</p>
 
   <section>
