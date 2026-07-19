@@ -6767,8 +6767,17 @@
       draggedNode = null;
     });
 
+    // A press inside the ACTIVELY EDITED text belongs to iOS text editing:
+    // magnifier, word select, callout. No gesture may claim it (Evren's test
+    // results, 2026-07-19: "can't get magnifier to show, goes dark").
+    function pressInsideFocusedText(target) {
+      const editable = target?.closest?.("[contenteditable='true']");
+      return Boolean(editable && editable === document.activeElement);
+    }
+
     boardEl.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse" || touchDrag) return;
+      if (pressInsideFocusedText(event.target)) return;
       // Evren's touch spec (2026-07-17): a hold anywhere on the item is a
       // move, not just on the grip. The grip stays for rows whose press
       // target is a button.
@@ -6811,19 +6820,28 @@
 
     function finishTouchSwipe(cancelled = false) {
       if (!touchSwipe) return 0;
-      const { row, taskId, dx = 0, locked } = touchSwipe;
+      const { row, taskId, dx = 0, locked, editingId } = touchSwipe;
       row.classList.remove("swiping");
       row.style.transform = "";
       touchSwipe = null;
       if (!locked || cancelled) return 0;
-      return applySwipeIndent(taskId, getSwipeLevels(dx));
+      const applied = applySwipeIndent(taskId, getSwipeLevels(dx));
+      // the re-render replaced the focused element; hand the caret (and the
+      // phone keyboard) back to the text he was editing
+      if (applied && editingId) focusTaskText(editingId, false);
+      return applied;
     }
 
     boardEl.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse") return;
       const row = event.target.closest("[data-task-row]");
       if (!row) return;
-      touchSwipe = { pointerId: event.pointerId, row, taskId: row.dataset.taskRow, startX: event.clientX, startY: event.clientY, locked: false };
+      // dragging INSIDE focused text is iOS text selection — not a swipe; a
+      // swipe from elsewhere on the row while editing works and must give the
+      // keyboard back afterwards (his report: it vanished)
+      if (pressInsideFocusedText(event.target)) return;
+      const editingId = document.activeElement?.dataset?.taskText || null;
+      touchSwipe = { pointerId: event.pointerId, row, taskId: row.dataset.taskRow, startX: event.clientX, startY: event.clientY, locked: false, editingId };
     });
 
     boardEl.addEventListener("pointermove", (event) => {
@@ -6840,6 +6858,27 @@
         if (!(Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy) * 1.2)) return;
         touchSwipe.locked = true;
         clearTouchDrag();
+        clearTouchSelect();
+        // the preview must stop at what the release can actually do (his
+        // note: the pull kept going past the max indent level)
+        const found = findTask(touchSwipe.taskId);
+        let maxIn = 0;
+        if (found && found.index > 0) {
+          maxIn = 1;
+          let host = found.list[found.index - 1];
+          while (maxIn < SWIPE_MAX_LEVELS && (host.children || []).length) {
+            host = host.children[host.children.length - 1];
+            maxIn += 1;
+          }
+        }
+        let maxOut = 0;
+        let climb = found;
+        while (climb?.parent && maxOut < SWIPE_MAX_LEVELS) {
+          maxOut += 1;
+          climb = findTask(climb.parent.id);
+        }
+        touchSwipe.maxIn = maxIn;
+        touchSwipe.maxOut = maxOut;
         touchSwipe.row.classList.add("swiping");
         try {
           touchSwipe.row.setPointerCapture?.(event.pointerId);
@@ -6848,8 +6887,9 @@
         }
       }
       event.preventDefault();
-      const limit = SWIPE_MAX_LEVELS * SWIPE_LEVEL_PX;
-      touchSwipe.dx = Math.max(-limit, Math.min(limit, dx));
+      const limit = Math.min(SWIPE_MAX_LEVELS, touchSwipe.maxIn ?? SWIPE_MAX_LEVELS) * SWIPE_LEVEL_PX;
+      const limitOut = Math.min(SWIPE_MAX_LEVELS, touchSwipe.maxOut ?? SWIPE_MAX_LEVELS) * SWIPE_LEVEL_PX;
+      touchSwipe.dx = Math.max(-limitOut, Math.min(limit, dx));
       // snap the preview to level detents so the row clicks between levels
       touchSwipe.row.style.transform = `translateX(${getSwipeLevels(touchSwipe.dx) * SWIPE_LEVEL_PX}px)`;
     });
@@ -6884,6 +6924,7 @@
 
     boardEl.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse" || touchSelect) return;
+      if (pressInsideFocusedText(event.target)) return;
       const row = event.target.closest("[data-node-kind]");
       if (!row) return;
       touchSelect = {
@@ -6900,7 +6941,9 @@
     boardEl.addEventListener("pointermove", (event) => {
       if (!touchSelect || event.pointerId !== touchSelect.pointerId) return;
       if (!touchSelect.armed) {
-        if (shouldCancelLongPress(touchSelect.startX, touchSelect.startY, event.clientX, event.clientY)) clearTouchSelect();
+        // fingers drift during a 1.5s hold; a tight threshold was killing the
+        // select candidate while move stayed armed (his "collides with drag")
+        if (shouldCancelLongPress(touchSelect.startX, touchSelect.startY, event.clientX, event.clientY, 28)) clearTouchSelect();
         return;
       }
       event.preventDefault();
