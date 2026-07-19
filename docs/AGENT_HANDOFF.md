@@ -27,7 +27,27 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
-### Session delta 2026-07-19 daytime (read this first — 9 commits, queue drained to waiting-on-Evren)
+### Session delta 2026-07-19 afternoon (Opus — read this first; braindump #7 intaken, 4 shipped fixes, STOPPED mid-landing-page)
+
+Evren pressed STOP while I was mid-survey of the landing-page batch (no edits made to `website/index.html` yet — safe). Everything below is committed and pushed.
+
+**Braindump intake #7 done.** 13 items viewed (3 had images — pulled from IndexedDB `punchlist-assets-v1` via the browser, since the assets build moved image bytes out of the JSON and `status/extract-images.mjs` is now stale for asset-ref shapes). Placed into: To-do — development interface (6), product & site (3), Direction A/app (3), Notes (1). Braindump group is empty. Dedup flags raised: the mobile "toggles stall after edits" + "drag copies contents" items overlap today's shipped fixes (task-tpr-toggles, task-tpr-natdrag) and need his on-glass re-verify after reload; the Enter-at-start item reverses the AM call.
+
+**Shipped this session (app, pushed — commits 9d8a909, e834c45):**
+- **Enter-at-start reversed** (his "important for app"): caret at the start of a NON-empty item now inserts a fresh empty sibling ABOVE at the same depth and focuses it; a fully empty line is the exception and still creates below. `getTaskSplitPlan` returns `position: "before"`; `splitTaskAtOffset` splices at `found.index`. Test + real-browser verified both ways.
+- **Delete-confirm readability**: `.delete-confirm` prompt text was `--danger` (red on surface, unreadable on dark); now `--text` (white on dark, dark on light). Border + Delete button keep the danger signal.
+
+**Shipped this session (dev interface `status/index.html`, live on reload — commits 9d8a909, e834c45's sibling):**
+- **Chat timestamps drop seconds** (`toLocaleTimeString([], {hour,minute})`); **seen button gained a tooltip** with the double-click shortcut.
+- **Graph timestamp overlap fixed** (his screenshot): `.gwhen` was `position:absolute` top-right, colliding with the first text line; now a right-aligned in-flow block under the text. Verified 0px overlap on 11 done nodes.
+
+**His two card answers this session (both BUILT INTO THE QUEUE, not yet coded):**
+- **Mobile-behavior guide** = a LIVE LOCAL PAGE like `/codebase` + `/testplan` with a per-item comment box (NOT a claude.ai artifact — the local-only rule holds). Reuse the testplan per-item-feedback + send-to-chat pattern.
+- **Blue agent checkmarks** = everywhere (board checkboxes + graph) BUT keep it in the status board, DO NOT change the app. Plan: agent completions tag the task (`completedBy:"agent"`) in `status-board.json`; the graph colors those `.gnode.done` blue; the wrapper injects per-task-ID `<style>` into the board iframe (same origin) so the app's green checkboxes render blue for agent-completed IDs only. His personal board never runs an agent, so it stays all-green automatically. NOTE: `by` field is who RAISED an item, not who completed it — don't color by `by`.
+
+**Open queue after STOP (all on the board):** landing-page batch (version v1.2.0→v1.4.0 in ~6 spots + byte size 266,809→344,492; mobile side margins; "what the file does" card polish per his image; What's-planned rewrite; release-notes link; a real GitHub release of the HTML; repo link), README refresh, build-notes rules revamp (this session's notes entry already follows it: concise, build number, no em-dashes), blue checkmarks, mobile guide, agents-identify-by-model + launch-test-chrome-in-background (adopt as rules). Still waiting on his fingers: tap-hitbox, drag-select re-grade, flash verdict, and whether today's mobile toggle/drag fixes landed.
+
+
 
 App (`src/`), all deployed:
 - **Dead toggles CRACKED (task-tpr-toggles)**: a render replacing the pressed row mid-press kills that touch stream (implicit capture dies with the node) — no pointerup ever arrives, the 1.5s select timer arms with no finger down, and the ghost either eats the next tap's click via `squelchTapUntil` (iOS reuses pointerIds) or eats every touchmove forever (ids not reused). Reproduced BOTH flavors in-browser before fixing. Fix: every new primary touch press sweeps all three gesture candidates (`pointerdown` sweep listener before the candidate creators). The gesture test harness in the suite (`loadGestureHarness`) records boardEl listeners and drives synthetic pointer sequences with manual timers — use it for any future gesture work.
