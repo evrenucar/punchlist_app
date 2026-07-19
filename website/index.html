@@ -494,6 +494,10 @@
          tighten the gap so the row always fits. */
       .topbar-inner { gap: 8px; }
       .brand-ver { display: none; }
+      /* the four hero buttons wrapped into a ragged 2+1+1; a 2-col grid lays
+         them out as a clean 2x2 on phones (Evren's braindump). */
+      .cta-row { display: grid; grid-template-columns: 1fr 1fr; }
+      .cta-row .btn { justify-content: center; }
       /* Desktop hero/buttons read oversized on a phone (Evren: too big).
          Calm the display type and slim the chrome so the copy leads. */
       h1 { font-size: clamp(27px, 7vw, 32px); }
