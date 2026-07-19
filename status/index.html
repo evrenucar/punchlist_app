@@ -209,6 +209,12 @@
   }
   .grail { position: absolute; width: 2px; background: var(--line-strong); border-radius: 1px; }
   .grail.hot { background: #7c3aed; }
+  .gwhen { position: absolute; top: 5px; right: 8px; font-size: 9.5px; color: var(--muted); }
+  .gjump {
+    position: absolute; bottom: 3px; right: 6px; font: inherit; font-size: 11px;
+    border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 2px;
+  }
+  .gjump:hover { text-decoration: underline; }
   .graph-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .gnode.active {
     border-color: #7c3aed; border-left-color: #7c3aed;
@@ -270,8 +276,11 @@
     color: var(--muted); border: 1px solid var(--line-strong);
     border-radius: 999px; padding: 2px 8px; white-space: nowrap;
   }
-  .ctx-chip.warn { color: #bd6f23; border-color: #bd6f23; }
-  .ctx-chip.hot { color: #b73d3d; border-color: #b73d3d; }
+  /* Evren's thresholds (2026-07-19): yellow above 40, orange above 60, red above 85 */
+  .ctx-chip.warn { color: #a16207; border-color: #eab308; }
+  .ctx-chip.hot { color: #bd6f23; border-color: #bd6f23; }
+  .ctx-chip.max { color: #b73d3d; border-color: #b73d3d; }
+  .ctx-chip.stale { opacity: 0.55; border-style: dashed; }
   .ctx-chip[hidden] { display: none; }
   .ctx-chip[hidden] + .chat-gear { margin-left: auto; }
   .chat-gear:hover, .chat-gear[aria-expanded="true"] { color: var(--text); }
@@ -782,11 +791,27 @@
         dot.title = "new since your last look at the graph";
         el.appendChild(dot);
       }
+      if (kind === "done" && task?.completedAt) {
+        const when = document.createElement("span");
+        when.className = "gwhen";
+        when.textContent = new Date(task.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        el.appendChild(when);
+      }
       if (task && kind !== "idle" && kind !== "pill") {
         const tag = document.createElement("div");
         tag.className = "gtag " + laneOf(task);
         tag.textContent = laneOf(task) === "dev" ? "development interface" : "app";
         el.appendChild(tag);
+      }
+      if (task && onPath) {
+        // click selects, never transports (Evren 2026-07-19); THIS is the jump
+        const jump = document.createElement("button");
+        jump.className = "gjump";
+        jump.type = "button";
+        jump.textContent = "↗";
+        jump.title = "Open this item on the board (or press J)";
+        jump.dataset.jump = task.id;
+        el.appendChild(jump);
       }
       graphWorld.appendChild(el);
       return el;
@@ -797,7 +822,7 @@
     let x = 30;
     const trunkY = 16;
     trunk.forEach((node) => {
-      const el = nodeEl(node.kind, node.task, node.text, false);
+      const el = nodeEl(node.kind, node.task, node.text, node.id === graphPath[0]);
       el.style.left = x + "px";
       el.style.top = trunkY + "px";
       const h = el.offsetHeight;
@@ -841,6 +866,7 @@
           const el = nodeEl(k.done ? "done" : "step", k, null, k.id === pathChildId);
           el.style.left = levelX + "px";
           el.style.top = yCursor + "px";
+          el.dataset.stairDepth = String(depth + 1);
           const h = el.offsetHeight;
           stairPlaced.push({ node: { id: k.id }, el, cx: levelX, cy: yCursor + h / 2, h });
           yCursor += h + GAP_Y;
@@ -951,18 +977,23 @@
     });
     graphViewport.addEventListener("pointerup", () => {
       if (drag && !drag.moved) {
+        const jump = drag.target.closest(".gjump");
         const node = drag.target.closest(".gnode");
-        if (node && node.dataset.reveal) {
+        if (jump) {
+          jumpToTask(jump.dataset.jump);
+        } else if (node && node.dataset.reveal) {
           graphReveal.add(node.dataset.reveal);
           renderGraph(true);
         } else if (node && node.dataset.taskId) {
-          // clicking a trunk node also opens ITS staircase
-          const state = readBoardState();
-          if (state && trunkOf(state).some((n) => n.id === node.dataset.taskId)) {
-            graphPath = [node.dataset.taskId];
-            renderGraph(true);
+          // click SELECTS, never transports (Evren 2026-07-19) — the ↗ or J jumps
+          if (node.dataset.stairDepth) {
+            const depth = Number(node.dataset.stairDepth);
+            graphPath = [...graphPath.slice(0, depth), node.dataset.taskId];
+          } else {
+            const state = readBoardState();
+            if (state && trunkOf(state).some((n) => n.id === node.dataset.taskId)) graphPath = [node.dataset.taskId];
           }
-          jumpToTask(node.dataset.taskId);
+          renderGraph(true);
         }
       }
       drag = null;
@@ -1094,8 +1125,21 @@
   }
 
   // Real context numbers, written by status/statusline.mjs from the Claude
-  // Code statusline payload. Stale or missing file = chip hides; the page
-  // never invents a number.
+  // Code statusline payload. The page never invents a number — but a stale
+  // one shows as LAST KNOWN (dashed, dimmed) instead of vanishing (Evren's
+  // ask: the chip disappeared the moment the agent stopped).
+  const CTX_LAST_KEY = "punchlist-status-ctx-last";
+  function paintCtx(chip, used, stale, at) {
+    chip.textContent = "ctx " + used + "%";
+    chip.classList.toggle("warn", used > 40 && used <= 60);
+    chip.classList.toggle("hot", used > 60 && used <= 85);
+    chip.classList.toggle("max", used > 85);
+    chip.classList.toggle("stale", stale);
+    chip.title = stale
+      ? "Last known context use — the agent session is not reporting (as of " + new Date(at).toLocaleTimeString() + ")"
+      : "Real context usage from the agent's terminal session";
+    chip.hidden = false;
+  }
   async function pollCtx() {
     const chip = document.getElementById("ctx-chip");
     try {
@@ -1103,12 +1147,12 @@
       if (!response.ok) throw new Error();
       const ctx = await response.json();
       if (Date.now() - (ctx.at || 0) > 180000) throw new Error();
-      chip.textContent = "ctx " + ctx.usedPercentage + "%";
-      chip.classList.toggle("warn", ctx.usedPercentage >= 70 && ctx.usedPercentage < 90);
-      chip.classList.toggle("hot", ctx.usedPercentage >= 90);
-      chip.hidden = false;
+      localStorage.setItem(CTX_LAST_KEY, JSON.stringify({ used: ctx.usedPercentage, at: ctx.at }));
+      paintCtx(chip, ctx.usedPercentage, false, ctx.at);
     } catch {
-      chip.hidden = true;
+      const last = JSON.parse(localStorage.getItem(CTX_LAST_KEY) || "null");
+      if (last && typeof last.used === "number") paintCtx(chip, last.used, true, last.at);
+      else chip.hidden = true;
     }
   }
 
@@ -1247,6 +1291,9 @@
   }
 
   async function sendAnswer(answerTo, text) {
+    // answering marks the question seen automatically (Evren 2026-07-19)
+    chatSeenMarks.add(answerTo);
+    localStorage.setItem(CHAT_MARKS_KEY, JSON.stringify([...chatSeenMarks]));
     try {
       await fetch("/chat", {
         method: "POST",
@@ -1260,6 +1307,9 @@
   function renderChat(lines) {
     const entries = lines.map((line) => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
     const answered = new Set(entries.filter((e) => e.answerTo).map((e) => e.answerTo));
+    // card answers render under their question, not as loose messages (Evren)
+    const answersBy = new Map();
+    entries.forEach((e) => { if (e.from === "user" && e.answerTo) answersBy.set(e.answerTo, e.text); });
     // keep the reader's place: only auto-scroll when they were already at the
     // bottom, and never touch scroll while the pane is hidden (its metrics
     // read 0 and restoring them later threw the view to the top).
@@ -1268,6 +1318,7 @@
     const keepScroll = chatLog.scrollTop;
     chatLog.innerHTML = "";
     entries.forEach((entry) => {
+      if (entry.from === "user" && entry.answerTo) return; // shown under its question
       const div = document.createElement("div");
       div.className = "msg " + (entry.from === "user" ? "user" : entry.from === "agent" ? "agent" : "system");
       renderMessageText(div, entry.text);
@@ -1339,7 +1390,7 @@
         if (isAnswered) {
           const done = document.createElement("div");
           done.className = "q-done";
-          done.textContent = "answered";
+          done.textContent = answersBy.has(entry.at) ? "answered · " + answersBy.get(entry.at) : "answered";
           div.appendChild(done);
         }
       }
@@ -1395,6 +1446,10 @@
       if (!response.ok) return;
       const lines = (await response.text()).split("\n").filter(Boolean);
       if (lines.length !== chatCount) {
+        // never re-render the log out from under a card note he is typing in
+        // (the rebuild was stealing his cursor); retry on the next tick
+        const active = document.activeElement;
+        if (chatLog.contains(active) && active.matches?.("input")) return;
         const initialLoad = chatCount === 0;
         const fresh = lines.slice(chatCount).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
         chatCount = lines.length;
@@ -1524,7 +1579,26 @@
       await pollChat();
     } catch {}
   }
-  document.getElementById("chat-pause").addEventListener("click", () => sendControl("⏸ PAUSE — finish the current step, then hold all work until I write resume"));
+  // Pause is a toggle (Evren 2026-07-19): ⏸ becomes ▶ while paused, ▶ sends
+  // the resume and flips back.
+  const PAUSE_KEY = "punchlist-status-paused";
+  const pauseBtn = document.getElementById("chat-pause");
+  function paintPause() {
+    const paused = localStorage.getItem(PAUSE_KEY) === "1";
+    pauseBtn.textContent = paused ? "▶" : "⏸";
+    pauseBtn.title = paused
+      ? "Resume the agent"
+      : "Pause the agent: it finishes its current step, then holds until you resume";
+  }
+  pauseBtn.addEventListener("click", () => {
+    const paused = localStorage.getItem(PAUSE_KEY) === "1";
+    localStorage.setItem(PAUSE_KEY, paused ? "0" : "1");
+    sendControl(paused
+      ? "▶ RESUME — continue where you left off"
+      : "⏸ PAUSE — finish the current step, then hold all work until I write resume");
+    paintPause();
+  });
+  paintPause();
   document.getElementById("chat-stop").addEventListener("click", () => sendControl("⏹ STOP — wrap up now, log your state, and go offline"));
 
   async function loadPrefs() {
