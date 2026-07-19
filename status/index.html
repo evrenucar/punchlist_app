@@ -385,7 +385,7 @@
       <span class="stamp" id="synced" data-local-only></span>
       <span class="workline" id="workline" data-local-only hidden></span>
       <span class="hint" id="hint">↑↓ browse · Tab indents · Ctrl+Enter completes. Braindump is private until you press “Intake”. “Agent_Active” = in progress.</span>
-      <span class="bar-actions" data-local-only><button class="chat-toggle" id="menu-toggle" type="button" title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button><button class="chat-toggle" id="graph-toggle" type="button" aria-pressed="false">Graph</button><button class="chat-toggle" id="chat-toggle" type="button" aria-pressed="false">Chat<span class="chat-badge" id="chat-badge"></span></button></span>
+      <span class="bar-actions" data-local-only><button class="chat-toggle" id="menu-toggle" type="button" title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button><button class="chat-toggle" id="board-toggle" type="button" aria-pressed="true" title="Show or hide the embedded board (sync keeps running)">Board</button><button class="chat-toggle" id="graph-toggle" type="button" aria-pressed="false">Graph</button><button class="chat-toggle" id="chat-toggle" type="button" aria-pressed="false">Chat<span class="chat-badge" id="chat-badge"></span></button></span>
     </div>
     <div class="activebar idle" id="activebar">
       <span class="active-label">Active</span>
@@ -1476,6 +1476,19 @@
     document.getElementById("chat-toggle").setAttribute("aria-pressed", chatPane.hidden ? "false" : "true");
     if (!chatPane.hidden) { markChatSeen(); chatLog.scrollTop = chatLog.scrollHeight; chatInput.focus(); }
   });
+
+  // Board toggle (Evren 2026-07-19): hide the embedded board for a graph-only
+  // view. The iframe stays mounted, so the two-way sync never stops.
+  const BOARD_OPEN_KEY = "punchlist-status-board-open";
+  const boardCol = document.querySelector(".boardcol");
+  const boardToggle = document.getElementById("board-toggle");
+  function setBoardOpen(open) {
+    boardCol.style.display = open ? "" : "none";
+    boardToggle.setAttribute("aria-pressed", open ? "true" : "false");
+    localStorage.setItem(BOARD_OPEN_KEY, open ? "1" : "0");
+  }
+  boardToggle.addEventListener("click", () => setBoardOpen(boardCol.style.display === "none"));
+  if (localStorage.getItem(BOARD_OPEN_KEY) === "0") setBoardOpen(false);
   document.getElementById("menu-toggle").addEventListener("click", () => {
     frame.contentDocument?.querySelector("[data-sidebar-toggle]")?.click();
   });
