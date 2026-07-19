@@ -394,6 +394,11 @@
     }
 
     .feature-demo .demo-row { padding: 4px 2px; font-size: 14px; }
+    /* The compact feature-demo padding above would flatten the nested-outline
+       mock (its child/grandchild indent lost to equal specificity), leaving the
+       indent guide-line drawing over flush text. Restore the step explicitly. */
+    .feature-demo .demo-row.child { padding-left: 34px; }
+    .feature-demo .demo-row.grandchild { padding-left: 62px; }
 
     .f-md {
       margin: 0;
