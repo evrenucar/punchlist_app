@@ -271,6 +271,18 @@
 
     <article>
       <header>
+        <h2>The night the agent learned to listen</h2>
+        <span class="entry-date">July 19, 2026</span>
+      </header>
+      <p>The biggest fix wasn't code, it was attention. Messages typed into the status chat used to sit unread until you typed in the terminal — twice you caught me sleeping through them, once through the Intake button itself. A file watcher now wakes the agent on every chat message & every intake press, it's part of the session-start ritual for all future agents, & the pause/stop buttons that ride on it got their first real use within the hour of shipping.</p>
+      <p>The graph got redesigned the right way: you rejected the old stacked columns, three rounds of sketched alternatives converged on the "staircase," & it's now built — a horizontal trunk that reads as a timeline, one path of children stepping down under whichever node you select, +N pills for collapsed siblings, blue dots on anything added since your last look, & the whole thing walkable with arrow keys. The sketches page that got us there stays in the repo.</p>
+      <p>App side: typing cost 13ms per keystroke on a 2MB board because every key saved everything; it's 0.2ms now, saves settle 400ms after you stop & flush on blur, so nothing is lost. That same hunt explained the "background flash" on add/delete — the image lazy-loading was chasing this very stutter in the wrong place & blanked every picture for a few frames. Both fixed. Ctrl+Shift+V now pastes a real unlinked copy, one shot, & dropping a task on a group's header lands it first instead of last.</p>
+      <p>Chat panel: question cards finally work like you asked — pick an option, still comment under it, or write your own answer, & the next open question lights up. Seen & reply buttons on agent messages (seen recedes the bubble into the background), drafts survive anything, message time shares the button row, & a ctx chip in the header shows the agent's REAL context usage, piped from the terminal because the page itself can never know token numbers & refuses to invent them. Agent board edits now also flow through History like a second user named Claude.</p>
+      <p>23 commits in one evening session, 100 automated tests green on the app build, every interface change verified in isolated browser pages before touching your tab.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Phone gestures: hold to move, hold longer to grab a bunch</h2>
         <span class="entry-date">July 18, 2026</span>
       </header>
