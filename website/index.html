@@ -63,6 +63,15 @@
 
     * { box-sizing: border-box; }
 
+    html {
+      /* iOS Safari inflates text on its own and, with nothing clipping the
+         overflow, a single wide line scrolls the page sideways so the right
+         gutter collapses while the left holds (Evren, iPhone 13 mini: right
+         super close, left ideal). Pin the text size and clip the overflow. */
+      -webkit-text-size-adjust: 100%;
+      overflow-x: hidden;
+    }
+
     body {
       margin: 0;
       background: var(--bg);
@@ -70,6 +79,7 @@
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       font-size: 16px;
       line-height: 1.55;
+      overflow-x: hidden;
     }
 
     a { color: var(--accent); }
@@ -492,7 +502,7 @@
       .btn { padding: 10px 15px; font-size: 14.5px; }
     }
     @media (max-width: 380px) {
-      .wrap, .topbar-inner { padding-left: 22px; padding-right: 22px; }
+      .wrap, .topbar-inner { padding-left: 26px; padding-right: 26px; }
     }
   </style>
 </head>
