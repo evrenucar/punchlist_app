@@ -1304,6 +1304,10 @@
     image.src = src;
     image.draggable = false;
     let scale = 1, tx = 0, ty = 0;
+    // a pan that ends over the backdrop used to fire a click and dismiss the
+    // viewer (Evren: dragging around can exit it). Track real movement and
+    // swallow the click that follows a drag.
+    let dragMoved = false;
     const apply = () => { image.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`; };
     image.addEventListener("load", () => {
       scale = Math.min(1, (innerWidth * 0.9) / image.naturalWidth, (innerHeight * 0.9) / image.naturalHeight);
@@ -1316,7 +1320,7 @@
     const dismiss = () => { lightbox.remove(); lightbox = null; document.removeEventListener("keydown", onKey); };
     const onKey = (event) => { if (event.key === "Escape") dismiss(); };
     close.addEventListener("click", dismiss);
-    lightbox.addEventListener("click", (event) => { if (event.target === lightbox) dismiss(); });
+    lightbox.addEventListener("click", (event) => { if (event.target === lightbox && !dragMoved) dismiss(); dragMoved = false; });
     document.addEventListener("keydown", onKey);
     lightbox.addEventListener("wheel", (event) => {
       event.preventDefault();
@@ -1331,12 +1335,14 @@
     let drag = null;
     lightbox.addEventListener("pointerdown", (event) => {
       drag = { x: event.clientX, y: event.clientY, tx, ty };
+      dragMoved = false;
       lightbox.setPointerCapture(event.pointerId);
       lightbox.classList.add("dragging");
     });
     lightbox.addEventListener("pointermove", (event) => {
       if (!drag) return;
       if (event.buttons === 0) { drag = null; lightbox.classList.remove("dragging"); return; } // button released off-window: never stick to the cursor
+      if (Math.abs(event.clientX - drag.x) > 4 || Math.abs(event.clientY - drag.y) > 4) dragMoved = true;
       tx = drag.tx + event.clientX - drag.x;
       ty = drag.ty + event.clientY - drag.y;
       apply();
