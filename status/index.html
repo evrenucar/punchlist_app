@@ -209,7 +209,8 @@
   }
   .grail { position: absolute; width: 2px; background: var(--line-strong); border-radius: 1px; }
   .grail.hot { background: #7c3aed; }
-  .gwhen { position: absolute; top: 5px; right: 8px; font-size: 9.5px; color: var(--muted); }
+  /* time sits on its own line under the text, never over it (Evren 2026-07-19 PM) */
+  .gwhen { display: block; text-align: right; margin-top: 3px; font-size: 9.5px; color: var(--muted); }
   .gjump {
     position: absolute; bottom: 3px; right: 6px; font: inherit; font-size: 11px;
     border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0 2px;
