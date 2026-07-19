@@ -252,8 +252,17 @@
     font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 6px;
   }
   /* the whole control cluster sits right as one tight group; margin-left auto
-     on the shared class was spreading each button apart (Evren's report) */
-  #chat-pause { margin-left: auto; }
+     on the shared class was spreading each button apart (Evren's report).
+     The ctx chip owns the push when it is visible, pause takes over when not. */
+  .ctx-chip {
+    margin-left: auto; margin-right: 2px; font-size: 11px; font-weight: 700;
+    color: var(--muted); border: 1px solid var(--line-strong);
+    border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+  }
+  .ctx-chip.warn { color: #bd6f23; border-color: #bd6f23; }
+  .ctx-chip.hot { color: #b73d3d; border-color: #b73d3d; }
+  .ctx-chip[hidden] { display: none; }
+  .ctx-chip[hidden] + .chat-gear { margin-left: auto; }
   .chat-gear:hover, .chat-gear[aria-expanded="true"] { color: var(--text); }
   .chat-settings {
     flex: none; padding: 8px 14px 10px; border-bottom: 1px solid var(--line);
@@ -381,7 +390,7 @@
     </div>
     <aside class="chatpane" id="chat" hidden aria-label="Chat with the agent">
       <div class="chat-vdivider" id="chat-vdivider" title="Drag to resize the chat pane"></div>
-      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><button class="chat-gear" id="chat-pause" type="button" title="Pause the agent: it finishes its current step, then holds until you write resume" aria-label="Pause the agent">⏸</button><button class="chat-gear" id="chat-stop" type="button" title="Stop the agent: it wraps up, logs its state, and goes offline" aria-label="Stop the agent">⏹</button><button class="chat-gear" id="chat-gear" type="button" aria-label="Chat settings" aria-expanded="false">⚙</button><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
+      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><span class="ctx-chip" id="ctx-chip" hidden title="Real context usage from the agent's terminal session"></span><button class="chat-gear" id="chat-pause" type="button" title="Pause the agent: it finishes its current step, then holds until you write resume" aria-label="Pause the agent">⏸</button><button class="chat-gear" id="chat-stop" type="button" title="Stop the agent: it wraps up, logs its state, and goes offline" aria-label="Stop the agent">⏹</button><button class="chat-gear" id="chat-gear" type="button" aria-label="Chat settings" aria-expanded="false">⚙</button><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
       <div class="chat-settings" id="chat-settings" hidden>
         <label class="pref-row"><input type="checkbox" id="pref-notifications"> Desktop notifications (attention needed, run complete)</label>
         <button class="pref-warn" id="notif-grant" type="button" hidden>Notifications are blocked in this browser — click to allow</button>
@@ -1005,6 +1014,25 @@
     workline.hidden = false;
   }
 
+  // Real context numbers, written by status/statusline.mjs from the Claude
+  // Code statusline payload. Stale or missing file = chip hides; the page
+  // never invents a number.
+  async function pollCtx() {
+    const chip = document.getElementById("ctx-chip");
+    try {
+      const response = await fetch("/ctx", { cache: "no-store" });
+      if (!response.ok) throw new Error();
+      const ctx = await response.json();
+      if (Date.now() - (ctx.at || 0) > 180000) throw new Error();
+      chip.textContent = "ctx " + ctx.usedPercentage + "%";
+      chip.classList.toggle("warn", ctx.usedPercentage >= 70 && ctx.usedPercentage < 90);
+      chip.classList.toggle("hot", ctx.usedPercentage >= 90);
+      chip.hidden = false;
+    } catch {
+      chip.hidden = true;
+    }
+  }
+
   async function pollAgents() {
     try {
       const response = await fetch("/agents", { cache: "no-store" });
@@ -1523,6 +1551,7 @@
     applyTheme();
     pollChat();
     pollAgents();
+    pollCtx();
     graphTick();
     try {
       const local = tagUserTasks();

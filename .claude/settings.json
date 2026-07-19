@@ -1,4 +1,8 @@
 {
+  "statusLine": {
+    "type": "command",
+    "command": "node status/statusline.mjs"
+  },
   "hooks": {
     "SessionStart": [
       {

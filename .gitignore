@@ -25,3 +25,6 @@ status/chat.jsonl
 
 # Status-board user prefs (notifications, auto mode)
 status/prefs.json
+
+# Live context numbers from the statusline hook (session data, not project state)
+status/ctx.json

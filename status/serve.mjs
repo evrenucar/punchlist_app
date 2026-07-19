@@ -35,6 +35,9 @@ const routes = {
   "/": { file: join(statusDir, "index.html"), type: "text/html; charset=utf-8" },
   "/board": { file: join(statusDir, "..", "website", "task-board.html"), type: "text/html; charset=utf-8" },
   "/state": { file: stateFile, type: "application/json" },
+  // real context numbers from the Claude Code statusline hook; 404 until a
+  // session with the statusLine setting has run
+  "/ctx": { file: join(statusDir, "ctx.json"), type: "application/json" },
 };
 
 createServer(async (req, res) => {
