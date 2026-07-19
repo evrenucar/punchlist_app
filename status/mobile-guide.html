@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punchlist — mobile behavior guide</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px 16px 60px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+  .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 18px; }
+  h2 { font-size: 15px; margin: 26px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+  .item {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; margin: 8px 0;
+  }
+  .item.noted { border-color: var(--accent); }
+  .item h3 { font-size: 15px; margin: 0 0 3px; }
+  .item p { margin: 0 0 8px; color: var(--muted); font-size: 13.5px; }
+  .item .gesture { display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent); border-radius: 5px; padding: 1px 7px; margin-bottom: 6px; }
+  .fb {
+    width: 100%; font: inherit; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+    color: var(--text); padding: 8px 10px; resize: vertical; min-height: 38px;
+  }
+  .fb::placeholder { color: var(--muted); opacity: 0.7; }
+  .sendbar { display: flex; gap: 10px; align-items: center; margin-top: 26px; flex-wrap: wrap;
+    position: sticky; bottom: 0; background: var(--bg); padding: 14px 0 4px; }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.reset {
+    font: inherit; font-size: 12px; padding: 6px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Mobile behavior guide</h1>
+  <p class="sub">How each phone gesture behaves right now, one card at a time. Type in the box under any behavior you want changed, then send it all to the chat with one button. Empty boxes are ignored. Notes survive reloads on this machine.</p>
+  <p class="progress" id="progress"></p>
+
+  <h2>Selecting and editing</h2>
+
+  <div class="item">
+    <span class="gesture">tap</span>
+    <h3>Tap a row to select it</h3>
+    <p>A single tap anywhere on a row selects that row, including the empty space beside the text. Action buttons ride the selected row. Tapping a different row moves the selection.</p>
+    <textarea class="fb" data-fb="tap-select" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <div class="item">
+    <span class="gesture">tap the text</span>
+    <h3>Tap into the text to edit</h3>
+    <p>Tapping directly on a row's text opens the keyboard with the caret placed where you tapped. Normal word-selection and the caret behave like any text field.</p>
+    <textarea class="fb" data-fb="tap-edit" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <h2>Moving and reordering</h2>
+
+  <div class="item">
+    <span class="gesture">hold ~0.5s, drag</span>
+    <h3>Hold to move a row</h3>
+    <p>Press a row anywhere (not just a grip) and hold about half a second until it lifts, then drag up or down. A drop indicator follows your finger; release drops it there. Dragging to the top or bottom edge auto-scrolls so you can cross groups.</p>
+    <textarea class="fb" data-fb="hold-move" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <div class="item">
+    <span class="gesture">hold past 1.5s</span>
+    <h3>Hold longer to multi-select</h3>
+    <p>Keep holding a still row past 1.5 seconds and the lift drops, the row joins the selection instead. This is how you start grabbing several rows at once with one finger.</p>
+    <textarea class="fb" data-fb="hold-select" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <div class="item">
+    <span class="gesture">sweep</span>
+    <h3>Sweep to add rows to the selection</h3>
+    <p>After a row joins the selection, sweep the finger up or down across more rows without releasing. Every crossed row joins, even on a fast sweep, and sweeping to the screen edge auto-scrolls. Hold another unrelated row past 1.5 seconds to add it too. A plain tap collapses back to one row.</p>
+    <textarea class="fb" data-fb="sweep" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <h2>Indenting</h2>
+
+  <div class="item">
+    <span class="gesture">swipe sideways</span>
+    <h3>Swipe right to indent, left to outdent</h3>
+    <p>Swipe a row slowly sideways. It slides in steps (detents); release indents one level per step, up to three. Swipe a nested row left to outdent. The whole page never pans sideways while you do this.</p>
+    <textarea class="fb" data-fb="swipe-indent" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <h2>Toggles and keys</h2>
+
+  <div class="item">
+    <span class="gesture">tap</span>
+    <h3>Chevrons and checkboxes</h3>
+    <p>Tapping a chevron collapses or expands; tapping a checkbox completes or reopens. These fire on a plain tap with no accidental move or selection, even when tapped quickly in a row.</p>
+    <textarea class="fb" data-fb="toggles" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <div class="item">
+    <span class="gesture">Enter</span>
+    <h3>Enter at the start of a line</h3>
+    <p>With the caret at the very start of a row that has text, Enter drops a fresh empty line above it at the same indent and puts the caret there. Your text is never split. A fully empty line is the exception: Enter there makes a new item below.</p>
+    <textarea class="fb" data-fb="enter-start" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <h2>Groups and interference</h2>
+
+  <div class="item">
+    <span class="gesture">hold, drag</span>
+    <h3>Group headers move on touch too</h3>
+    <p>A group header can be held and dragged like a row. Dropping a task on a group header lands it first inside that group rather than last.</p>
+    <textarea class="fb" data-fb="group-move" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <div class="item">
+    <span class="gesture">nothing pops up</span>
+    <h3>No native interference</h3>
+    <p>Holding a row's text without tapping into it first raises no iOS magnifier, no copy/paste callout, and no context menu; the hold arms move or select instead. The browser's own long-press drag is suppressed on touch. Vertical scrolling still feels native.</p>
+    <textarea class="fb" data-fb="no-native" placeholder="Change anything about this?"></textarea>
+  </div>
+
+  <div class="sendbar">
+    <button class="send" id="send">Send my notes to the chat</button>
+    <button class="reset" id="reset">Clear notes</button>
+    <span class="sendmsg" id="sendmsg"></span>
+  </div>
+</main>
+<script>
+  const NOTES_KEY = "punchlist-mobile-guide-notes-v1";
+  const notes = JSON.parse(localStorage.getItem(NOTES_KEY) || "{}");
+  const fbs = [...document.querySelectorAll("textarea[data-fb]")];
+  const progress = document.getElementById("progress");
+  const sendmsg = document.getElementById("sendmsg");
+
+  function paint() {
+    let noted = 0;
+    fbs.forEach((fb) => {
+      fb.value = notes[fb.dataset.fb] || "";
+      const has = Boolean(fb.value.trim());
+      fb.closest(".item").classList.toggle("noted", has);
+      if (has) noted += 1;
+    });
+    progress.textContent = noted ? noted + " behavior" + (noted === 1 ? "" : "s") + " noted" : "No notes yet, type under any behavior you want changed";
+  }
+  fbs.forEach((fb) => fb.addEventListener("input", () => {
+    if (fb.value.trim()) notes[fb.dataset.fb] = fb.value;
+    else delete notes[fb.dataset.fb];
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+    fb.closest(".item").classList.toggle("noted", Boolean(fb.value.trim()));
+  }));
+  document.getElementById("reset").addEventListener("click", () => {
+    fbs.forEach((fb) => delete notes[fb.dataset.fb]);
+    localStorage.setItem(NOTES_KEY, JSON.stringify(notes));
+    paint();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const titleFor = (id) => document.querySelector(`textarea[data-fb="${id}"]`)?.closest(".item")?.querySelector("h3")?.textContent?.trim() || id;
+    const noted = fbs.filter((fb) => fb.value.trim()).map((fb) => `- ${titleFor(fb.dataset.fb)}: ${fb.value.trim()}`);
+    if (!noted.length) {
+      sendmsg.textContent = "Nothing to send yet, type a note under a behavior first.";
+      sendmsg.className = "sendmsg err";
+      return;
+    }
+    const text = `Mobile guide feedback:\n${noted.join("\n")}`;
+    try {
+      const response = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text }),
+      });
+      if (!response.ok) throw new Error();
+      sendmsg.textContent = "Sent, the agent has it.";
+      sendmsg.className = "sendmsg ok";
+    } catch {
+      sendmsg.textContent = "Could not reach the agent. Open this as http://localhost:4173/mobile-guide (not as a file) and try again.";
+      sendmsg.className = "sendmsg err";
+    }
+  });
+  paint();
+</script>
+</body>
+</html>

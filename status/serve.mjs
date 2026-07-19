@@ -42,6 +42,9 @@ const routes = {
   "/testplan": { file: join(statusDir, "..", "docs", "touch-test-plan.html"), type: "text/html; charset=utf-8" },
   // codebase summary for Evren; agents refresh the file when the shape changes
   "/codebase": { file: join(statusDir, "codebase.html"), type: "text/html; charset=utf-8" },
+  // mobile-behavior guide: one card per gesture with a comment box that POSTs
+  // /chat same-origin (like /testplan). Keep in step with the app's touch spec.
+  "/mobile-guide": { file: join(statusDir, "mobile-guide.html"), type: "text/html; charset=utf-8" },
 };
 
 createServer(async (req, res) => {
