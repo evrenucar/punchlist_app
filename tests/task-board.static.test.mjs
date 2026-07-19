@@ -2016,10 +2016,21 @@ async function loadGestureHarness() {
       }
     }
   };
+  const scrollByCalls = [];
+  const scroller = {
+    scrollTop: 500,
+    scrollHeight: 5000,
+    clientHeight: 700,
+    scrollBy({ top }) {
+      scrollByCalls.push(top);
+      this.scrollTop = Math.max(0, this.scrollTop + top);
+    },
+  };
   const api = await loadBoardApi({
     navigator: {},
     document: {
       activeElement: null,
+      scrollingElement: scroller,
       querySelector(selector) {
         return elements.get(selector) || null;
       },
@@ -2032,6 +2043,7 @@ async function loadGestureHarness() {
       },
     },
     window: {
+      innerHeight: 800,
       getSelection() {
         return { rangeCount: 0, addRange() {}, getRangeAt() { return null; }, removeAllRanges() {} };
       },
@@ -2081,7 +2093,16 @@ async function loadGestureHarness() {
     return { candidate: menu.defaultPrevented, armed: move.defaultPrevented };
   };
 
-  return { api, boardEl, row, fire, touchEvent, probe, flushTimers };
+  const runLatestTimer = () => {
+    const pending = timers.filter((timer) => !timer.cleared && !timer.fired);
+    const latest = pending[pending.length - 1];
+    if (!latest) return false;
+    latest.fired = true;
+    latest.fn();
+    return true;
+  };
+
+  return { api, boardEl, row, fire, touchEvent, probe, flushTimers, timers, runLatestTimer, scroller, scrollByCalls };
 }
 
 test("a new primary touch press clears stale gesture candidates (dead-toggles guard)", async () => {
@@ -2132,4 +2153,38 @@ test("touch presses suppress the native HTML5 drag; the mouse keeps it", async (
   const mouseStart = { target: row, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, dataTransfer: { setData() {} } };
   fire("dragstart", mouseStart);
   assert.equal(mouseStart.defaultPrevented, false, "a mouse drag still takes the native HTML5 path");
+});
+
+test("drag auto-scroll steps evenly and never shoves past the top", async () => {
+  // The old loop Math.ceil'd a linear ramp into integer px/frame and kept
+  // calling scrollBy against the scroller's top edge, which reads as jag on
+  // iOS rubber-banding — Evren's "a bit jagged, especially towards the top".
+  const { fire, touchEvent, timers, runLatestTimer, scroller, scrollByCalls } = await loadGestureHarness();
+
+  fire("pointerdown", touchEvent(70));
+  timers[0].fired = true;
+  timers[0].fn(); // the 420ms hold arms the drag; the 1.5s select timer stays pending
+
+  // finger deep in the top band (clientY 10 of a 96px edge zone)
+  fire("pointermove", { ...touchEvent(70), clientX: 40, clientY: 10 });
+  assert.equal(runLatestTimer(), true, "a scroll frame is scheduled");
+  runLatestTimer();
+  runLatestTimer();
+  assert.ok(scrollByCalls.length >= 3, "frames keep scrolling while the finger holds the edge");
+  assert.ok(scrollByCalls.every((step) => step < 0), "top-edge scrolling moves up");
+  const magnitudes = scrollByCalls.map((step) => Math.abs(step));
+  const spread = Math.max(...magnitudes) - Math.min(...magnitudes);
+  assert.ok(spread <= 1, `steps stay even (carry smoothing), got ${scrollByCalls.join(", ")}`);
+
+  // at the very top the loop must stop scrolling instead of fighting the edge
+  scroller.scrollTop = 0;
+  const callsBefore = scrollByCalls.length;
+  runLatestTimer();
+  assert.equal(scrollByCalls.length, callsBefore, "no scrollBy against the top edge");
+
+  // back to mid-viewport: velocity zeroes and the loop shuts down
+  fire("pointermove", { ...touchEvent(70), clientX: 40, clientY: 400 });
+  const scheduled = timers.filter((timer) => !timer.cleared && !timer.fired).length;
+  fire("pointerup", touchEvent(70));
+  assert.equal(timers.filter((timer) => !timer.cleared && !timer.fired).length <= scheduled, true, "no frame leak after release");
 });

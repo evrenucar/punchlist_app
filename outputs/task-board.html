@@ -2662,6 +2662,7 @@
     let focusModeTimerFrame = null;
     let autoScrollFrame = null;
     let autoScrollVelocity = 0;
+    let autoScrollCarry = 0;
     let touchDrag = null;
     let lastPressWasTouch = false;
     let undoStack = [];
@@ -4596,6 +4597,7 @@
 
     function stopDragAutoScroll() {
       autoScrollVelocity = 0;
+      autoScrollCarry = 0;
       if (autoScrollFrame) {
         const cancelFrame = window.cancelAnimationFrame || window.clearTimeout;
         cancelFrame(autoScrollFrame);
@@ -4603,12 +4605,36 @@
       }
     }
 
+    // The touch drag's target follows the finger on pointermove, and follows
+    // the CONTENT whenever auto-scroll slides it under a still finger.
+    function refreshTouchDragTarget(clientX, clientY) {
+      if (!touchDrag) return;
+      const target = document.elementFromPoint?.(clientX, clientY);
+      const instruction = target ? getDropInstruction({ target, clientY }) : null;
+      touchDrag.instruction = canDropOn(instruction) ? instruction : null;
+      if (touchDrag.instruction) showDropInstruction(touchDrag.instruction);
+    }
+
     function runDragAutoScroll() {
       if (!autoScrollVelocity) {
         stopDragAutoScroll();
         return;
       }
-      (mainEl || window).scrollBy({ top: autoScrollVelocity, behavior: "auto" });
+      const scroller = mainEl || document.scrollingElement;
+      // never push past the ends: shoving into iOS rubber-banding at the top
+      // is the jag Evren reported (bounce fighting the per-frame scrollBy)
+      const atTop = autoScrollVelocity < 0 && scroller.scrollTop <= 0;
+      const atBottom = autoScrollVelocity > 0 && scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+      if (!atTop && !atBottom) {
+        // fractional velocities accumulate into whole-pixel steps, so the
+        // slow end scrolls evenly instead of in Math.ceil'd 1px stutters
+        autoScrollCarry += autoScrollVelocity;
+        const step = Math.trunc(autoScrollCarry);
+        autoScrollCarry -= step;
+        if (step) scroller.scrollBy({ top: step, behavior: "auto" });
+        // content slides under a still finger; the drop target must slide too
+        if (touchDrag?.armed && touchDrag.lastX != null) refreshTouchDragTarget(touchDrag.lastX, touchDrag.lastY);
+      }
       const nextFrame = window.requestAnimationFrame || window.setTimeout;
       autoScrollFrame = nextFrame(runDragAutoScroll, 16);
     }
@@ -4617,10 +4643,14 @@
       const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
       let nextVelocity = 0;
 
+      // squared ramp: gentle where the finger fine-positions at the band's
+      // inner edge, full speed only deep in the edge zone
       if (clientY < AUTO_SCROLL_EDGE_PX) {
-        nextVelocity = -Math.ceil(((AUTO_SCROLL_EDGE_PX - clientY) / AUTO_SCROLL_EDGE_PX) * MAX_AUTO_SCROLL_SPEED);
+        const ratio = (AUTO_SCROLL_EDGE_PX - Math.max(0, clientY)) / AUTO_SCROLL_EDGE_PX;
+        nextVelocity = -ratio * ratio * MAX_AUTO_SCROLL_SPEED;
       } else if (clientY > viewportHeight - AUTO_SCROLL_EDGE_PX) {
-        nextVelocity = Math.ceil(((clientY - (viewportHeight - AUTO_SCROLL_EDGE_PX)) / AUTO_SCROLL_EDGE_PX) * MAX_AUTO_SCROLL_SPEED);
+        const ratio = (Math.min(viewportHeight, clientY) - (viewportHeight - AUTO_SCROLL_EDGE_PX)) / AUTO_SCROLL_EDGE_PX;
+        nextVelocity = ratio * ratio * MAX_AUTO_SCROLL_SPEED;
       }
 
       autoScrollVelocity = nextVelocity;
@@ -4705,7 +4735,9 @@
       touchDrag.source?.classList.remove("touch-dragging");
       boardEl.classList.remove("is-dragging-group", "is-touch-dragging");
       clearDropIndicators();
-      stopDragAutoScroll();
+      // auto-scroll belongs to whichever gesture is live: the drag-to-select
+      // handover at 1.5s must not stall a scroll the sweep keeps using
+      if (!touchSelect?.armed) stopDragAutoScroll();
       draggedNode = null;
       touchDrag = null;
     }
@@ -6839,10 +6871,9 @@
         selectNode(draggedNode.kind, draggedNode.id);
       }
       updateDragAutoScroll(event.clientY);
-      const target = document.elementFromPoint?.(event.clientX, event.clientY);
-      const instruction = target ? getDropInstruction({ target, clientY: event.clientY }) : null;
-      touchDrag.instruction = canDropOn(instruction) ? instruction : null;
-      if (touchDrag.instruction) showDropInstruction(touchDrag.instruction);
+      touchDrag.lastX = event.clientX;
+      touchDrag.lastY = event.clientY;
+      refreshTouchDragTarget(event.clientX, event.clientY);
     });
 
     boardEl.addEventListener("pointerup", (event) => finishTouchDrag(event));
@@ -6938,7 +6969,9 @@
       if (!touchSelect) return;
       if (touchSelect.timer) window.clearTimeout?.(touchSelect.timer);
       boardEl.classList.remove("is-touch-selecting");
-      stopDragAutoScroll();
+      // killing the unarmed select candidate mid-drag must not stall the
+      // drag's auto-scroll frame (it stuttered scrolls started near an edge)
+      if (!touchDrag?.armed) stopDragAutoScroll();
       touchSelect = null;
     }
 
