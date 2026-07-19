@@ -197,6 +197,10 @@
   .gnode.by-agent { border-left-color: #246bfe; }
   .gnode.done { opacity: 0.62; border-left-color: var(--done); }
   .gnode.done .gtext::before { content: "✓ "; color: var(--done); font-weight: 700; }
+  /* An item a Claude session completed is checked off in agent-blue, not
+     Evren-green: completedBy, NOT by (which marks who raised it). */
+  .gnode.done.agent-done { border-left-color: var(--accent); }
+  .gnode.done.agent-done .gtext::before { color: var(--accent); }
   .gnode.bucket { border-style: dashed; color: var(--muted); background: var(--bg); }
   .gnode.idle { border-style: dashed; color: var(--muted); background: var(--bg); cursor: default; }
   .gnode.pill { border-style: dashed; color: var(--muted); background: var(--bg); font-size: 11px; text-align: center; }
@@ -520,6 +524,10 @@
       0%, 100% { box-shadow: inset 3px 0 0 #7c3aed, 0 0 0 0 rgba(124, 58, 237, 0); }
       50% { box-shadow: inset 3px 0 0 #7c3aed, 0 0 14px 2px rgba(124, 58, 237, 0.45); }
     }
+    /* A checkbox ticked by a Claude session paints agent-blue instead of the
+       app's green. Keyed on completedBy, injected only here, so the app file
+       never changes and Evren's own board (no agent runs on it) stays green. */
+    .task-row.agent-done > .checkbox.done { border-color: #246bfe; background: #246bfe; }
     .jump-flash { outline: 2px solid #7c3aed; outline-offset: 2px; }
     .intake-btn {
       margin-left: 10px; font: inherit; font-size: 11px; font-weight: 600;
@@ -644,12 +652,17 @@
     renderActiveBar(state);
     const byId = {};
     const workingIds = new Set();
+    const agentDoneIds = new Set();
     if (state) walkTasks(state.groups, (task) => {
       byId[task.id] = task.by || "";
       if (task.active && !task.done) workingIds.add(task.id);
+      if (task.done && task.completedBy === "agent") agentDoneIds.add(task.id);
     });
     doc.querySelectorAll("[data-task-row]").forEach((row) => {
       const id = row.getAttribute("data-task-row");
+      // agent-done rides completedBy, which is independent of authorship, so it
+      // applies even to untagged snapshots — set it before the by-guard returns.
+      row.classList.toggle("agent-done", agentDoneIds.has(id));
       if (!(id in byId) || !byId[id]) return; // unknown or untagged snapshot: never strip, only add
       row.classList.toggle("by-user", byId[id] === "user");
       row.classList.toggle("by-agent", byId[id] === "agent");
@@ -798,6 +811,7 @@
       const el = document.createElement("div");
       el.className = "gnode " + kind
         + (task?.by === "user" ? " by-user" : task?.by === "agent" ? " by-agent" : "")
+        + (kind === "done" && task?.completedBy === "agent" ? " agent-done" : "")
         + (onPath ? " path-sel" : "");
       el.style.width = NODE_W + "px";
       if (task) el.dataset.taskId = task.id;
