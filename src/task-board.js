@@ -349,6 +349,34 @@
       }
     }
 
+    // Typing persistence: serializing the whole board per keystroke costs
+    // ~13ms at 2MB (measured 2026-07-19) — the reported input lag. Text-input
+    // paths debounce the save; everything structural stays immediate. The
+    // state object itself is always current, so any immediate save that lands
+    // first persists the typed text too.
+    let saveDebounceTimer = null;
+
+    function saveStateDebounced(delay = 400) {
+      if (typeof window.setTimeout !== "function") {
+        saveState();
+        return;
+      }
+      if (saveDebounceTimer) window.clearTimeout?.(saveDebounceTimer);
+      saveDebounceTimer = window.setTimeout(() => {
+        saveDebounceTimer = null;
+        saveState();
+      }, delay);
+    }
+
+    function flushPendingSave() {
+      if (!saveDebounceTimer) return;
+      window.clearTimeout?.(saveDebounceTimer);
+      saveDebounceTimer = null;
+      saveState();
+    }
+
+    window.addEventListener?.("beforeunload", flushPendingSave);
+
     function loadTheme() {
       return localStorage.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
     }
@@ -2666,7 +2694,7 @@
       if (!found) return false;
       const item = resolveTaskItem(found.item);
       item.text = getMarkdownTextFromEditable(valueOrElement);
-      saveState();
+      saveStateDebounced();
       return true;
     }
 
@@ -3209,7 +3237,7 @@
             <span class="task-image ${isSelected("image", img.id) ? "selected" : ""}" data-node-kind="image" data-node-id="${img.id}" data-image-task="${resolved.id}" tabindex="0">
               <span class="task-image-frame">
                 <span class="image-handle" data-image-handle="left" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
-                <img src="${img.src}" style="width: ${Math.max(60, Number(img.width) || 260)}px" alt="Pasted image" draggable="false" loading="lazy" decoding="async">
+                <img src="${img.src}" style="width: ${Math.max(60, Number(img.width) || 260)}px" alt="Pasted image" draggable="false" decoding="sync">
                 <span class="image-handle" data-image-handle="right" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
                 <button class="image-remove" type="button" data-image-remove="${img.id}" data-image-task="${resolved.id}" title="Remove image" aria-label="Remove image">×</button>
               </span>
@@ -3869,7 +3897,7 @@
         if (info) {
           info.image.caption = getMarkdownTextFromEditable(captionEl);
           captionEl.classList.toggle("empty", !info.image.caption);
-          saveState();
+          saveStateDebounced();
         }
         return;
       }
@@ -3882,7 +3910,7 @@
         const group = findGroup(groupTitle.dataset.groupTitle);
         if (group) {
           group.title = groupTitle.textContent.trim() || "Untitled group";
-          saveState();
+          saveStateDebounced();
         }
       }
     });
@@ -3945,6 +3973,7 @@
     });
 
     boardEl.addEventListener("focusout", (event) => {
+      flushPendingSave();
       const textEl = event.target.closest("[data-task-text]");
       if (!textEl) return;
       const found = findTask(textEl.dataset.taskText);
@@ -5600,6 +5629,8 @@
       shouldUseBoardUndo,
       loadStateFromLocalStorage,
       saveStateToLocalStorage,
+      saveStateDebounced,
+      flushPendingSave,
       getBoardExportPayload,
       serializeBoardState,
       downloadBoardState,

@@ -731,9 +731,14 @@ test("favicon renders single color, opposite of the browser scheme, checkmark cu
   assert.match(html, /<mask id='m'>/);
 });
 
-test("task images decode lazily so scrolling a screenshot-heavy board stays smooth", async () => {
+test("task images decode sync so re-renders never flash the background", async () => {
+  // lazy+async (0e12d7b) made every add/delete blank the images for a few
+  // frames — Evren's "back fill color flashes" report, confirmed 2026-07-19
+  // via img.complete=false after a structural render. The stutter that change
+  // chased was actually the per-keystroke full-state save, now debounced.
   const html = await readBoard();
-  assert.match(html, /alt="Pasted image" draggable="false" loading="lazy" decoding="async"/);
+  assert.match(html, /alt="Pasted image" draggable="false" decoding="sync"/);
+  assert.doesNotMatch(html, /loading="lazy"/);
 });
 
 test("backspace at the start merges a task into the item above, children follow", async () => {
@@ -1905,4 +1910,15 @@ test("ctrl+shift+v pastes a real unlinked copy", async () => {
   for (const hook of ["pasteLinkOverride = \"duplicate\"", "if (pasteLinkOverride) return pasteLinkOverride"]) {
     assert.match(html, new RegExp(hook.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), "the ctrl+shift+v one-shot glue survives the build");
   }
+});
+
+test("typed text persists through the debounced save; flush loses nothing", async () => {
+  const api = await loadBoardApi();
+  const today = api.state.groups.find((group) => group.title === "Today");
+  const task = today.tasks[0];
+  api.updateTaskTextFromEditable(task.id, "typed at full speed");
+  api.flushPendingSave();
+  const persisted = api.loadStateFromLocalStorage();
+  const saved = persisted.groups.find((group) => group.title === "Today").tasks.find((t) => t.id === task.id);
+  assert.equal(saved.text, "typed at full speed", "flush writes the latest keystroke state");
 });
