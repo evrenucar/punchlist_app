@@ -271,6 +271,17 @@
 
     <article>
       <header>
+        <h2>The landing page catches up to the app</h2>
+        <span class="entry-date">July 19, 2026 · build v1.4.0</span>
+      </header>
+      <p>The front page still said v1.2.0 and 260 KB. It says v1.4.0 and 340 KB now, in every spot it was wrong: the header, the fact chips, the hero copy, and the footer. The exact byte count in "Why this exists" is current too.</p>
+      <p>The "What the file does" mockups had a real bug. The empty checkboxes were white on a white card with a hairline border, so they read as faint smudges rather than boxes. They now sit on a tinted fill with a firmer edge, so a checkbox looks like a checkbox. The mock rows also learned to wrap: a status chip can no longer collide with the task text on a narrow phone, it drops to its own line instead.</p>
+      <p>Two new links. There is now a "View source on GitHub" button up top and a source link in the footer, both pointing at the repo. "What's planned" was rewritten to match reality, it names the three opt-in features that actually shipped since launch (GitHub sync, signed exports, the assets store) instead of just the first one, and it links here, to these build notes, as the running release log.</p>
+      <p>This page makes zero network requests, same as always. A real tagged GitHub release of the HTML is the one piece still open, that one needs Evren's hand on the button.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Enter at the start of a line, and a batch of small fixes</h2>
         <span class="entry-date">July 19, 2026 · build v1.4.0</span>
       </header>
