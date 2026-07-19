@@ -2027,7 +2027,10 @@
       padding: 3px 6px 3px 10px;
       font-size: 13px;
       font-weight: 700;
-      color: var(--danger);
+      /* prompt text reads in the theme's normal color (white on dark,
+         dark on light) — the red border + Delete button carry the danger
+         signal; red-on-surface was hard to read (Evren 2026-07-19 PM) */
+      color: var(--text);
       white-space: nowrap;
     }
 
