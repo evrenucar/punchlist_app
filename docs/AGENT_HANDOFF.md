@@ -41,7 +41,12 @@ Development interface (`status/`):
 - **`/codebase`** serves `status/codebase.html`, a summary page for Evren — refresh it whenever the repo's shape changes (route additions need a real server restart: kill serve.mjs PID, then `ensure-server.mjs --quiet`).
 - Heartbeat processes run forever (setInterval): start them `run_in_background`, kill via TaskStop, and verify with `wmic ... like '%agent-heartbeat%'` — multiple live beats flip the displayed status every 30s.
 
-**Waiting on Evren (all boarded)**: ghost-outline design card (sent), tap-hitbox on-glass verdict, flash re-check, test-plan steps 8-11 re-grade, answer-editing design, values doc + direction grill (daytime ask). Actionable backlog is otherwise EMPTY — next agent: check chat/cards first, then `docs/DIRECTIONS.md`.
+Late-afternoon additions (he answered both cards within minutes — he reads cards fast when present):
+- **Agent ghosts shipped** (his pick + note): a stopped agent leaves a dimmed dashed chip, name + sign-off time, on its last node; persisted in localStorage, cleared on agent return or the next session's system chat line.
+- **Answer editing shipped** (his pick): an edit button on answered cards reopens the form; corrections post as fresh `answerTo` messages (latest wins in the display, "(edited)" marker). A correction reaching you through the watcher on an OLD question = adapt to it.
+- **Chat linkifier** sheds trailing sentence punctuation from URLs — a trailing period in a chat message 404'd him once. Watch message endings anyway.
+
+**Waiting on Evren (all boarded)**: tap-hitbox on-glass verdict, flash re-check, test-plan steps 8-11 re-grade, values doc + direction grill (daytime ask). Actionable backlog is otherwise EMPTY — next agent: check chat/cards first, then `docs/DIRECTIONS.md`.
 
 ### Session delta 2026-07-18/19 (previous session — ~45 commits, ended by Evren's STOP button)
 
