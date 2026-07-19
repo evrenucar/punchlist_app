@@ -1922,3 +1922,25 @@ test("typed text persists through the debounced save; flush loses nothing", asyn
   const saved = persisted.groups.find((group) => group.title === "Today").tasks.find((t) => t.id === task.id);
   assert.equal(saved.text, "typed at full speed", "flush writes the latest keystroke state");
 });
+
+test("boards past the 1 MB contents cap pull through the blobs API", async () => {
+  const calls = [];
+  const payload = {
+    version: 2,
+    syncedAt: "2026-07-19T02:00:00.000Z",
+    state: { groups: [{ id: "g-blob", title: "From the blob", tasks: [], collapsed: false }], history: [], trash: [] },
+  };
+  const base64 = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+  const fetchMock = async (url) => {
+    calls.push(String(url));
+    if (String(url).includes("/git/blobs/")) {
+      return { ok: true, status: 200, json: async () => ({ content: base64, encoding: "base64" }) };
+    }
+    return { ok: true, status: 200, json: async () => ({ sha: "bigsha", size: 2000000, content: "" }) };
+  };
+  const api = await loadBoardApi({ fetch: fetchMock, TextEncoder, TextDecoder, btoa, atob });
+  api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "old", dirty: false });
+  await api.syncNow("test");
+  assert.equal(calls.some((u) => u.includes("/git/blobs/bigsha")), true, "an empty-content oversized read falls back to the blob endpoint");
+  assert.equal(api.state.groups.some((g) => g.title === "From the blob"), true, "the oversized board pulled and applied instead of erroring");
+});

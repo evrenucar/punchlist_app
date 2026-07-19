@@ -3110,8 +3110,9 @@
     // device reads and writes it through the GitHub contents API with a
     // fine-grained token scoped to that repo. Each push is a commit, so any
     // overwritten version stays recoverable in the repo's git history.
-    // ponytail: the contents API caps files at ~1 MB; switch to the git blob
-    // API if a board ever outgrows that.
+    // Reads past the contents API's ~1 MB cap fall back to the Git blobs API
+    // (100 MB) — the deferred ponytail note came due when Evren's board
+    // outgrew the cap and his devices split-brained (2026-07-18).
 
     function loadSyncConfig() {
       try {
@@ -3202,6 +3203,11 @@
       return `https://api.github.com/repos/${repo}/contents/punchlist-board.json`;
     }
 
+    function syncBlobUrl(sha) {
+      const repo = String(syncConfig.repo || "").trim();
+      return `https://api.github.com/repos/${repo}/git/blobs/${sha}`;
+    }
+
     function syncAuthHeaders() {
       return {
         Authorization: `Bearer ${syncConfig.token}`,
@@ -3236,7 +3242,14 @@
         let remote = { exists: false, sha: null, content: null };
         if (get.ok) {
           const data = await get.json();
-          if (!data.content && data.size > 0) throw new Error("Board file exceeds the 1 MB contents-API cap.");
+          if (!data.content && data.size > 0) {
+            // Boards past ~1 MB come back with empty content from the contents
+            // API; the Git blobs API serves the same file up to 100 MB (this
+            // stranded Evren's devices on 2026-07-18 — the split-brain bug).
+            const blob = await fetch(syncBlobUrl(data.sha), { headers: syncAuthHeaders(), cache: "no-store" });
+            if (!blob.ok) throw new Error(`Board is over 1 MB and the blob fetch answered ${blob.status}.`);
+            data.content = (await blob.json()).content;
+          }
           remote = { exists: true, sha: data.sha, content: data.content };
         } else if (get.status !== 404) {
           throw new Error(`GitHub answered ${get.status}${get.status === 401 ? "; check the token" : ""}.`);
@@ -8050,6 +8063,8 @@
       updateSettings,
       syncSettingsControls,
       syncDecision,
+      syncNow,
+      saveSyncConfig,
       encodeBase64Utf8,
       decodeBase64Utf8,
       getSyncPayload,
