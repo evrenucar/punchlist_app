@@ -1517,7 +1517,7 @@
         }
       }
       const timeEl = entry.from !== "system" && entry.at ? document.createElement("time") : null;
-      if (timeEl) timeEl.textContent = new Date(entry.at).toLocaleTimeString();
+      if (timeEl) timeEl.textContent = new Date(entry.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       // user messages keep the time on its own line; agent messages fold it
       // into the seen/reply row below (his note: wasted space)
       if (timeEl && entry.from !== "agent") div.appendChild(timeEl);
@@ -1533,6 +1533,7 @@
         seen.type = "button";
         seen.className = "msg-seen" + (chatSeenMarks.has(entry.at) ? " on" : "");
         seen.textContent = "seen";
+        seen.title = "Mark this message read (turns blue, just for your eyes). Shortcut: double-click the message.";
         const toggleSeen = () => {
           chatSeenMarks.has(entry.at) ? chatSeenMarks.delete(entry.at) : chatSeenMarks.add(entry.at);
           localStorage.setItem(CHAT_MARKS_KEY, JSON.stringify([...chatSeenMarks]));

@@ -5815,10 +5815,11 @@
     function getTaskSplitPlan(text, offset) {
       const source = String(text || "");
       const caret = Math.max(0, Math.min(source.length, Number(offset) || 0));
-      // Enter at the very start creates an empty item BELOW and leaves the
-      // original intact (Evren 2026-07-19) — it used to push an empty row
-      // above and move his caret up into it
-      if (caret === 0) return { beforeText: source, afterText: "", position: "start" };
+      // Enter at the start of a NON-empty item pushes a fresh empty line ABOVE,
+      // at the same depth, and drops his caret into it — he wants to write
+      // before an item (Evren 2026-07-19 PM, reversing the 2026-07-19 AM call).
+      // A fully empty line is the one exception: Enter there creates BELOW.
+      if (caret === 0 && source !== "") return { beforeText: source, afterText: "", position: "before" };
       return {
         beforeText: source.slice(0, caret),
         afterText: source.slice(caret),
@@ -5876,14 +5877,18 @@
       // text creates the new item as its first child; collapsed parents and
       // childless items get a sibling below. Mid-text splits stay siblings.
       const resolvedSplit = resolveTaskItem(found.item) || found.item;
-      const intoChildren = plan.afterText === ""
+      const before = plan.position === "before";
+      const intoChildren = !before && plan.afterText === ""
         && !resolvedSplit.collapsed && (resolvedSplit.children || []).length > 0;
-      const newItem = task(plan.afterText, [], {
+      const newItem = task(before ? "" : plan.afterText, [], {
         createdInGroupId: found.group?.id || found.item.createdInGroupId,
         createdUnderTaskId: intoChildren ? resolvedSplit.id : (found.parent?.id || null),
       });
       if (intoChildren) {
         resolvedSplit.children.unshift(newItem);
+      } else if (before) {
+        // new empty sibling ABOVE; his original text is untouched
+        found.list.splice(found.index, 0, newItem);
       } else {
         found.item.text = plan.beforeText;
         found.list.splice(found.index + 1, 0, newItem);

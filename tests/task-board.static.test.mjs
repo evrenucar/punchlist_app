@@ -175,12 +175,18 @@ test("new tasks retain immutable creation context", async () => {
 test("caret-aware enter keeps start-of-text intact and splits mid-text", async () => {
   const api = await loadBoardApi();
 
-  // Enter at the start no longer pushes an empty row above (Evren 2026-07-19):
-  // the original keeps its text, the new empty item lands below
+  // Enter at the start of a NON-empty item pushes a fresh empty line ABOVE
+  // (Evren 2026-07-19 PM, reversing the AM call): original keeps its text
   assert.equal(JSON.stringify(api.getTaskSplitPlan("Alpha", 0)), JSON.stringify({
     beforeText: "Alpha",
     afterText: "",
-    position: "start",
+    position: "before",
+  }));
+  // a fully empty line is the exception: Enter there creates BELOW
+  assert.equal(JSON.stringify(api.getTaskSplitPlan("", 0)), JSON.stringify({
+    beforeText: "",
+    afterText: "",
+    position: "after",
   }));
   assert.equal(JSON.stringify(api.getTaskSplitPlan("Alpha", 2)), JSON.stringify({
     beforeText: "Al",
@@ -1255,6 +1261,20 @@ test("enter on a parent item: expanded gets a first child, collapsed gets a sibl
   const collapsedSplit = api.splitTaskAtOffset(collapsedParent.id, collapsedParent.text.length);
   const collapsedIndex = projects.tasks.findIndex((item) => item.id === collapsedParent.id);
   assert.equal(projects.tasks[collapsedIndex + 1].id, collapsedSplit.item.id, "caret-at-end split on a collapsed parent: sibling below");
+});
+
+test("enter at the start of a non-empty item inserts a fresh empty line above at the same depth", async () => {
+  const api = await loadBoardApi();
+  const projects = api.state.groups.find((group) => group.title === "Projects");
+  const target = projects.tasks.find((item) => item.text === "Plan a weekend trip");
+  const targetIndex = projects.tasks.findIndex((item) => item.id === target.id);
+
+  const split = api.splitTaskAtOffset(target.id, 0);
+  assert.equal(projects.tasks[targetIndex].id, split.item.id, "new empty item lands at the target's old slot (above)");
+  assert.equal(projects.tasks[targetIndex + 1].id, target.id, "original follows, untouched");
+  assert.equal(split.item.text, "", "the line above starts empty for him to type into");
+  assert.equal(target.text, "Plan a weekend trip", "his original text is never rewritten");
+  assert.equal(split.position, "before");
 });
 
 test("undo keeps the selection where the user was instead of jumping to the top", async () => {
