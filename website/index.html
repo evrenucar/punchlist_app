@@ -478,6 +478,12 @@
       /* Phones felt cramped at the 20px gutter; open the side margins so
          content breathes off both edges (Evren, 2026-07-19). */
       .wrap, .topbar-inner { padding-left: 30px; padding-right: 30px; }
+      /* the topbar row (brand + version + clock + toggle) overflowed the right
+         edge on narrow phones, which ate the right gutter and let the page
+         wiggle sideways (Evren). Drop the least-essential version chip and
+         tighten the gap so the row always fits. */
+      .topbar-inner { gap: 8px; }
+      .brand-ver { display: none; }
       /* Desktop hero/buttons read oversized on a phone (Evren: too big).
          Calm the display type and slim the chrome so the copy leads. */
       h1 { font-size: clamp(27px, 7vw, 32px); }
