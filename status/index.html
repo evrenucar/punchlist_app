@@ -336,7 +336,9 @@
   .msg.q-next { outline: 2px solid #7c3aed; outline-offset: 2px; }
   .msg a { color: var(--accent); word-break: break-all; }
   .msg-img {
-    display: block; max-width: 100%; border-radius: 8px; margin-top: 6px;
+    /* cap the height so a tall vertical shot does not fill the chat (Evren).
+       both maxes keep the aspect ratio; double-click still opens full size. */
+    display: block; max-width: 100%; max-height: 340px; width: auto; border-radius: 8px; margin-top: 6px;
     border: 1px solid var(--line); cursor: zoom-in;
     -webkit-user-drag: none; user-select: none;
   }
