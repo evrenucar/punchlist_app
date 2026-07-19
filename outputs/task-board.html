@@ -6808,7 +6808,7 @@
         const label = match[1] || match[3];
         const url = match[2] || match[3];
         const autoLink = match[3] ? ' data-auto-link="true"' : "";
-        html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Ctrl+Click to open"${autoLink}>${escapeHtml(label)}</a>`;
+        html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Opens in a new tab"${autoLink}>${escapeHtml(label)}</a>`;
         cursor = pattern.lastIndex;
       }
       return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
@@ -8101,12 +8101,15 @@
       });
       const link = event.target.closest("[data-task-link]");
       if (link) {
-        if (event.ctrlKey || event.metaKey) {
-          event.preventDefault();
-          window.open(link.href, "_blank", "noopener");
-        } else if (link.closest("[contenteditable='true']")) {
-          event.preventDefault();
-        }
+        // Evren's rule (2026-07-19): a tap on the link opens it. Mobile had no
+        // way to before, it needed Ctrl+Click that phones do not have. Tapping
+        // the text still edits and tapping the row elsewhere still selects,
+        // because those are different targets. Blur first so a soft keyboard
+        // that popped on press does not linger over the opened tab.
+        event.preventDefault();
+        document.activeElement?.blur?.();
+        window.open(link.href, "_blank", "noopener");
+        return;
       }
       const button = event.target.closest("[data-action]");
       if (!button || boardEl.contains(button)) return;
