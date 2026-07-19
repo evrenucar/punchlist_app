@@ -2663,6 +2663,9 @@
     let announcedReminders = new Set();
     let pendingGroupDelete = null;
     let focusModeGroupId = null;
+    // focus mode covers the board; its edits mark the board stale instead of
+    // re-rendering an invisible DOM per keystroke (one render on exit)
+    let boardStaleBehindFocus = false;
     let lastPushLoggedHistory = false;
     let showList = true;
     let showTimeline = false;
@@ -3938,7 +3941,11 @@
       if (options.save !== false) saveState();
       if (options.render !== false) {
         if (nextDone && isTaskHiddenFromActive(found.item, found.group)) {
+          // the row leaves for the Completed section: full render after the
+          // slide-away, the lifecycle sections move
           animateRowsAway([found.item.id], render);
+        } else if (taskIsLinkFree(found.item)) {
+          renderGroupInPlace(found.group.id);
         } else {
           render();
         }
@@ -4090,6 +4097,10 @@
       if (!sourceId || !targetId || sourceId === targetId) return;
       const source = findTask(sourceId);
       if (!source || isDescendant(source.item, targetId)) return;
+      // group comparison must happen while the source lookup still resolves
+      const sourceGroupId = source.group?.id || null;
+      const targetGroupId = position === "group" ? targetId : findTask(targetId)?.group?.id || null;
+      const scopedOk = sourceGroupId && sourceGroupId === targetGroupId && taskIsLinkFree(source.item);
       pushUndoState("move", `Moved "${shortText(resolveTaskItem(source.item)?.text)}"`);
       const moved = removeTask(sourceId);
       if (!moved) {
@@ -4105,7 +4116,8 @@
       multiSelectedNodes = [{ ...selectedNode }];
       selectionAnchorNode = { ...selectedNode };
       saveState();
-      render();
+      if (scopedOk) renderGroupInPlace(sourceGroupId);
+      else render();
     }
 
     function moveGroup(sourceId, targetId, position) {
@@ -4206,7 +4218,7 @@
       pushUndoState("collapse");
       found.item.collapsed = nextCollapsed;
       saveState();
-      render();
+      renderGroupInPlace(found.group.id);
       selectNode("task", id);
     }
 
@@ -4221,7 +4233,7 @@
       pushUndoState("collapse");
       group.collapsed = nextCollapsed;
       saveState();
-      render();
+      renderGroupInPlace(id);
       selectNode("group", id);
     }
 
@@ -4626,6 +4638,7 @@
 
     function applySwipeIndent(id, levels) {
       const step = levels > 0 ? indentTask : outdentTask;
+      const groupId = findTask(id)?.group?.id;
       let applied = 0;
       for (let i = 0; i < Math.abs(levels); i += 1) {
         if (!step(id, { pushUndo: applied === 0, save: false, render: false })) break;
@@ -4633,7 +4646,7 @@
       }
       if (applied) {
         saveState();
-        render();
+        renderGroupInPlace(groupId);
       }
       return applied;
     }
@@ -4722,7 +4735,7 @@
         group.collapsed = false;
         setSingleSelection({ kind: "task", id: item.id });
         saveState();
-        render();
+        renderGroupInPlace(group.id);
         return item;
       }
 
@@ -4747,7 +4760,10 @@
       }
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
-      render();
+      // writing into an alias's resolved children lands in ANOTHER group's
+      // subtree; only the plain same-group insert may scope
+      if (found.item.linkType || getLinkCount(resolved.id) > 0) render();
+      else renderGroupInPlace(found.group.id);
       return item;
     }
 
@@ -4769,7 +4785,7 @@
       newParent.collapsed = false;
       if (options.select !== false) setSingleSelection({ kind: "task", id });
       if (options.save !== false) saveState();
-      if (options.render !== false) render();
+      if (options.render !== false) renderGroupInPlace(found.group.id);
       return true;
     }
 
@@ -4783,7 +4799,7 @@
       parent.list.splice(parent.index + 1, 0, item);
       if (options.select !== false) setSingleSelection({ kind: "task", id });
       if (options.save !== false) saveState();
-      if (options.render !== false) render();
+      if (options.render !== false) renderGroupInPlace(found.group.id);
       return true;
     }
 
@@ -4814,6 +4830,12 @@
       const visibleOrder = getVisibleNodes().filter((node) => node.kind === "task").map((node) => node.id);
       roots.sort((a, b) => visibleOrder.indexOf(a.id) - visibleOrder.indexOf(b.id));
       const sequence = outdent ? [...roots].reverse() : roots;
+      // scope check BEFORE mutating: indent/outdent never change a task's
+      // group, so one shared link-free group means one article to rebuild
+      const rootGroups = new Set(roots.map((node) => findTask(node.id)?.group?.id));
+      const scopedGroup = rootGroups.size === 1 && roots.every((node) => taskIsLinkFree(findTask(node.id)?.item))
+        ? [...rootGroups][0]
+        : null;
       pushUndoState("move", `${outdent ? "Outdented" : "Indented"} ${roots.length} items`);
       let changed = false;
       sequence.forEach((node) => {
@@ -4829,7 +4851,8 @@
       multiSelectedNodes = nodes.map((node) => ({ ...node }));
       if (!nodes.some((node) => sameNode(node, selectedNode))) selectedNode = { ...nodes[0] };
       saveState();
-      render();
+      if (scopedGroup) renderGroupInPlace(scopedGroup);
+      else render();
       return true;
     }
 
@@ -4843,7 +4866,7 @@
       pushUndoState("move", `Moved "${shortText(resolveTaskItem(found.item)?.text)}"`);
       found.list.splice(to, 0, found.list.splice(found.index, 1)[0]);
       saveState();
-      render();
+      renderGroupInPlace(found.group.id);
       return true;
     }
 
@@ -4931,6 +4954,7 @@
         createdInGroupId: groupId,
         createdUnderTaskId: parentId,
       });
+      let scopedOk = true;
       if (parentId) {
         const parent = findTask(parentId);
         if (!parent) {
@@ -4945,6 +4969,8 @@
           parent.item.children.push(createLinkedTaskTree(item, "alias", groupId, parent.item.id));
         }
         parent.item.collapsed = false;
+        // an aliased parent mirrors the new child into other groups' subtrees
+        scopedOk = !parent.item.linkType && getLinkCount(resolvedParent.id) === 0;
       } else {
         const group = findGroup(groupId);
         if (!group) {
@@ -4955,7 +4981,8 @@
       }
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
-      render();
+      if (scopedOk) renderGroupInPlace(groupId);
+      else render();
       focusTaskText(item.id);
       return item;
     }
@@ -5291,7 +5318,9 @@
       }
       setSingleSelection({ kind: "task", id: target.id });
       saveState();
-      render();
+      // merged text fans out through any linked placement of either item
+      if (taskIsLinkFree(prevFound.item) && !getLinkCount(item.id)) renderGroupInPlace(found.group.id);
+      else render();
       return true;
     }
 
@@ -5497,7 +5526,9 @@
 
       setSingleSelection({ kind: "task", id: newItem.id });
       saveState();
-      render();
+      // the rewritten text of the split task shows in every linked placement
+      if (taskIsLinkFree(found.item)) renderGroupInPlace(found.group.id);
+      else render();
       focusTaskText(newItem.id, false);
       return { item: newItem, position: plan.position };
     }
@@ -5722,7 +5753,7 @@
       pushUndoState();
       group.color = color;
       saveState();
-      render();
+      renderGroupInPlace(id);
       selectNode("group", id);
       return true;
     }
@@ -6196,6 +6227,38 @@
       if (selectedNode) renderSelection();
     }
 
+    // Scoped render (grill Q23, 2026-07-19): rebuild ONE group's article
+    // instead of the whole board — a full rebuild cost 75ms at 4500 nodes,
+    // 4-5 dropped frames on every create/indent (the reported flash).
+    // Callers guarantee the operation touched only this group; anything the
+    // fast path cannot prove safe at runtime falls back to render().
+    function renderGroupInPlace(groupId) {
+      const index = state.groups.findIndex((group) => group.id === groupId);
+      const article = document.querySelector?.(`[data-group-card="${groupId}"]`);
+      const query = searchEl?.value?.trim().toLowerCase() || "";
+      // search re-filters globally; vm and hidden-board render nothing to swap
+      if (index < 0 || !article || boardEl.hidden || query) {
+        render();
+        return;
+      }
+      const wrap = document.createElement("div");
+      wrap.innerHTML = renderGroup(state.groups[index], "", index);
+      article.replaceWith(wrap.firstElementChild);
+      // the 1s maintenance loop diffs this; a stale value forces a redundant
+      // full render one second later and masks scoping bugs
+      lifecycleSignature = getLifecycleSignature();
+      if (selectedNode) renderSelection();
+    }
+
+    // A task placement is safe for scoped rendering only when nothing else
+    // mirrors it: not a linked copy itself, and no other group holds a
+    // placement of it (text/done/children/badges fan out through the links).
+    function taskIsLinkFree(item) {
+      if (!item || item.linkType) return false;
+      const resolved = resolveTaskItem(item);
+      return !resolved || getLinkCount(resolved.id) === 0;
+    }
+
     function escapeHtml(value) {
       return String(value || "")
         .replace(/&/g, "&amp;")
@@ -6355,6 +6418,7 @@
 
     function exitFocusMode() {
       stopFocusTimer();
+      flushPendingSave();
       focusModeTaskId = null;
       focusModeGroupId = null;
       if (focusModeEl) {
@@ -6363,7 +6427,12 @@
       }
       if (focusTaskEl) focusTaskEl.innerHTML = "";
       if (focusTimerEl) focusTimerEl.hidden = false;
-      renderSelection();
+      if (boardStaleBehindFocus) {
+        boardStaleBehindFocus = false;
+        render();
+      } else {
+        renderSelection();
+      }
     }
 
     function toggleFocusMode() {
@@ -6782,7 +6851,7 @@
       const item = found ? resolveTaskItem(found.item) : null;
       if (item) {
         setTaskCompleted(item.id, !item.done, new Date().toISOString(), { render: false });
-        render();
+        boardStaleBehindFocus = true;
         renderFocusMode();
       }
     });
@@ -6797,7 +6866,7 @@
         const item = found ? resolveTaskItem(found.item) : null;
         if (item) {
           setTaskCompleted(item.id, !item.done, new Date().toISOString(), { render: false });
-          render();
+          boardStaleBehindFocus = true;
           renderFocusMode();
           focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${item.id}"]`), false);
         }
@@ -6900,8 +6969,8 @@
         const group = findGroup(groupTitleEl.dataset.focusGroupTitle);
         if (group) {
           group.title = groupTitleEl.textContent.trim() || "Untitled group";
-          saveState();
-          render();
+          saveStateDebounced();
+          boardStaleBehindFocus = true;
         }
         return;
       }
@@ -6910,8 +6979,8 @@
       const found = findTask(target.dataset.focusTaskText);
       if (!found) return;
       resolveTaskItem(found.item).text = getMarkdownTextFromEditable(target);
-      saveState();
-      render();
+      saveStateDebounced();
+      boardStaleBehindFocus = true;
     });
 
     focusButtonEl?.addEventListener("click", toggleFocusMode);
@@ -8139,6 +8208,8 @@
       selectNode,
       addNodeToSelection,
       extendSelectionThrough,
+      renderGroupInPlace,
+      taskIsLinkFree,
       moveSelectedNode,
       moveSelectedNodes,
       moveTaskVisually,

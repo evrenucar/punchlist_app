@@ -1944,3 +1944,23 @@ test("boards past the 1 MB contents cap pull through the blobs API", async () =>
   assert.equal(calls.some((u) => u.includes("/git/blobs/bigsha")), true, "an empty-content oversized read falls back to the blob endpoint");
   assert.equal(api.state.groups.some((g) => g.title === "From the blob"), true, "the oversized board pulled and applied instead of erroring");
 });
+
+test("scoped render keeps behavior identical and falls back safely", async () => {
+  const api = await loadBoardApi();
+  const today = api.state.groups.find((group) => group.title === "Today");
+  const first = today.tasks[0];
+  const second = today.tasks[1];
+
+  api.selectNode({ kind: "task", id: second.id });
+  api.indentTask(second.id);
+  assert.equal(first.children.some((child) => child.id === second.id), true, "indent still mutates state through the scoped path");
+  api.outdentTask(second.id);
+  assert.equal(today.tasks.some((task) => task.id === second.id), true, "outdent restores through the scoped path");
+
+  api.renderGroupInPlace(today.id);
+  api.renderGroupInPlace("group-that-does-not-exist");
+
+  const linked = api.pasteTaskIds([first.id], { kind: "task", id: second.id }, "alias");
+  assert.equal(api.taskIsLinkFree(first), false, "an aliased original is never link-free");
+  assert.equal(api.taskIsLinkFree(second), true, "an untouched task is link-free");
+});
