@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,18 +18,24 @@ if (!template.includes("<!-- TASK_BOARD_STYLES -->") || !template.includes("<!--
 }
 
 // Version: major.minor come from APP_VERSION in the app (edit that constant,
-// or just say so, only for a milestone). The patch is automatic — the count
-// of commits that have ever touched the app source — so it climbs on its own
-// and nothing needs typing per build. It is a global build number, so it does
-// not reset at a minor bump (1.5.65 -> milestone -> 1.6.66).
+// or just say so, only for a milestone). The patch is automatic and RESETS at
+// each milestone: it is the count of app-source commits since the major.minor
+// last changed. So a bump to 1.6 restarts the patch at 1.6.0. execFileSync
+// (no shell) keeps the -G pattern intact on Windows cmd too.
+const appFiles = ["src/task-board.js", "src/task-board.css", "src/task-board.html"];
 const base = (script.match(/APP_VERSION\s*=\s*["'](\d+\.\d+)/) || [])[1];
 let patch = 0;
 try {
-  patch = parseInt(execSync(
-    "git rev-list --count HEAD -- src/task-board.js src/task-board.css src/task-board.html",
-    { cwd: root },
-  ).toString().trim(), 10) || 0;
-} catch { /* no git available: patch stays 0, still a valid version */ }
+  const git = (args) => execFileSync("git", args, { cwd: root }).toString().trim();
+  // the commit that set the current major.minor; before that bump is committed
+  // there is no anchor yet, which correctly leaves the patch at 0 (X.Y.0).
+  const anchor = base
+    ? git(["log", "-1", "--format=%H", "-G", `APP_VERSION.*"${base.replace(/\./g, "\\.")}`, "--", "src/task-board.js"])
+    : "";
+  if (anchor) {
+    patch = parseInt(git(["rev-list", "--count", `${anchor}..HEAD`, "--", ...appFiles]), 10) || 0;
+  }
+} catch { patch = 0; }
 const version = base ? `${base}.${patch}` : null;
 
 // stamp the computed version into the app itself so its topbar shows it
