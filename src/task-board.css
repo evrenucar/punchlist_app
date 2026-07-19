@@ -2172,7 +2172,15 @@
 
     @media (max-width: 640px) {
       main {
-        padding: 16px;
+        padding: 20px;
+      }
+
+      /* the header's 6px group-color border insets the left content, so the
+         right cluster ended up ~6px closer to the edge than the left, which
+         read as "no margin on the right" on a phone (Evren, iPhone 13 mini).
+         Pad the right to match the border, balancing the two sides. */
+      .group-header {
+        padding-right: 18px;
       }
 
       .topbar {
