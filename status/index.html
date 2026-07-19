@@ -236,6 +236,12 @@
     background: #7c3aed; color: #fff; border-radius: 10px; padding: 2px 9px;
     box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4); pointer-events: none;
   }
+  /* a stopped agent's trace: dimmed, dashed, stays until the next session */
+  .agent-chip.ghost {
+    background: transparent; color: var(--muted);
+    border: 1.5px dashed rgba(124, 58, 237, 0.55);
+    box-shadow: none; opacity: 0.8;
+  }
   .graph-divider { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; cursor: ns-resize; }
   .graph-divider:hover, .graph-divider.dragging { background: color-mix(in srgb, #7c3aed 30%, transparent); }
 
@@ -703,6 +709,13 @@
   const GRAPH_H_KEY = "punchlist-status-graph-height";
   const GRAPH_Z_KEY = "punchlist-status-graph-zoom";
   let agentsLive = [];
+  // Ghosts (Evren's card pick, 2026-07-19): a stopped agent leaves a dimmed
+  // chip with its name and sign-off time on the node it last worked, until
+  // the next agent session starts. Persisted so a page reload keeps them.
+  const GHOST_KEY = "punchlist-status-agent-ghosts";
+  let agentGhosts = {};
+  try { agentGhosts = JSON.parse(localStorage.getItem(GHOST_KEY) || "{}") || {}; } catch {}
+  function saveGhosts() { localStorage.setItem(GHOST_KEY, JSON.stringify(agentGhosts)); }
   let graphKey = "";
   let graphPan = { x: 30, y: 10 };
   let lastGraphInteract = 0;
@@ -756,7 +769,7 @@
       const anchor = trunk.find((n) => n.kind === "active" && n.task) || trunk.find((n) => n.task);
       graphPath = anchor ? [anchor.id] : [];
     }
-    const key = JSON.stringify([trunk.map((n) => [n.id, n.kind, (n.task?.children || []).length, n.text || n.task?.text]), graphPath, [...graphReveal], graphZoom, agentsLive]);
+    const key = JSON.stringify([trunk.map((n) => [n.id, n.kind, (n.task?.children || []).length, n.text || n.task?.text]), graphPath, [...graphReveal], graphZoom, agentsLive, agentGhosts]);
     if (!force && key === graphKey) return;
     graphKey = key;
     graphWorld.innerHTML = "";
@@ -918,6 +931,17 @@
         chip.style.top = (6 + index * 20) + "px";
         chip.textContent = agent.name + " · off-graph task";
       }
+      graphWorld.appendChild(chip);
+    });
+    Object.values(agentGhosts).forEach((ghost) => {
+      if (agentsLive.some((agent) => agent.name === ghost.name)) return;
+      const host = placed.concat(stairPlaced).find((p) => p.node.id === ghost.taskId);
+      if (!host) return;
+      const chip = document.createElement("div");
+      chip.className = "agent-chip ghost";
+      chip.textContent = ghost.name + " · left " + new Date(ghost.offlineAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      chip.style.left = (host.cx + 8) + "px";
+      chip.style.top = (host.cy - host.h / 2 - 10) + "px";
       graphWorld.appendChild(chip);
     });
     applyGraphPan(false);
@@ -1190,6 +1214,14 @@
       const fresh = await response.json();
       if (JSON.stringify(fresh) !== JSON.stringify(agentsLive)) {
         const hadAgents = agentsLive.length > 0;
+        // an agent that vanished leaves its ghost; one that returned clears it
+        agentsLive.forEach((agent) => {
+          if (!fresh.some((f) => f.name === agent.name)) {
+            agentGhosts[agent.name] = { name: agent.name, taskId: agent.taskId, offlineAt: Date.now() };
+          }
+        });
+        fresh.forEach((agent) => delete agentGhosts[agent.name]);
+        saveGhosts();
         agentsLive = fresh;
         renderGraph(true);
         if (hadAgents && fresh.length === 0) notify("Run complete", "The agent finished its current work", true);
@@ -1295,12 +1327,25 @@
     let match;
     while ((match = urlPattern.exec(text))) {
       if (match.index > last) container.appendChild(document.createTextNode(text.slice(last, match.index)));
+      // sentence punctuation after a URL belongs to the sentence, not the
+      // link (a trailing period 404'd Evren once); closing parens stay only
+      // when the URL itself opened one
+      let url = match[0];
+      let trimmed = "";
+      while (/[.,;:!?)\]]$/.test(url)) {
+        const ch = url.at(-1);
+        if (ch === ")" && (url.match(/\(/g) || []).length >= (url.match(/\)/g) || []).length) break;
+        if (ch === "]" && (url.match(/\[/g) || []).length >= (url.match(/\]/g) || []).length) break;
+        url = url.slice(0, -1);
+        trimmed = ch + trimmed;
+      }
       const link = document.createElement("a");
-      link.href = match[0];
-      link.textContent = match[0];
+      link.href = url;
+      link.textContent = url;
       link.target = "_blank";
       link.rel = "noopener";
       container.appendChild(link);
+      if (trimmed) container.appendChild(document.createTextNode(trimmed));
       last = match.index + match[0].length;
     }
     container.appendChild(document.createTextNode(text.slice(last)));
@@ -1333,6 +1378,18 @@
 
   function renderChat(lines) {
     const entries = lines.map((line) => { try { return JSON.parse(line); } catch { return null; } }).filter(Boolean);
+    // ghosts live "until the next session starts" — the SessionStart hook's
+    // system line is that signal
+    const lastSessionStart = entries.reduce((latest, e) =>
+      e.from === "system" && String(e.text).startsWith("New agent session started") && Date.parse(e.at) > latest
+        ? Date.parse(e.at) : latest, 0);
+    if (lastSessionStart) {
+      let dropped = false;
+      Object.values(agentGhosts).forEach((ghost) => {
+        if (ghost.offlineAt < lastSessionStart) { delete agentGhosts[ghost.name]; dropped = true; }
+      });
+      if (dropped) { saveGhosts(); renderGraph(true); }
+    }
     const answered = new Set(entries.filter((e) => e.answerTo).map((e) => e.answerTo));
     // card answers render under their question, not as loose messages (Evren)
     const answersBy = new Map();
