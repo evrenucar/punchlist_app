@@ -79,7 +79,100 @@
 </head>
 <body>
 <main>
-  <h1>Graph redesign — round 2: the tree, expanding downward</h1>
+  <h1>Graph redesign — round 3: the staircase, refined</h1>
+  <p class="sub">Your pick: F. Here it is refined, plus three close siblings that keep the step-down-per-depth idea and fix its one weakness (rightward drift) in different ways.</p>
+
+  <section>
+    <h2>F+ · The staircase, refined</h2>
+    <p class="verdict"><b>What changed from the sketch:</b> the trunk row doubles as a timeline (newest work joins at the RIGHT of done, so recency has a place), sibling stacks collapse behind a +N pill until you arrow into them, a blue dot marks anything added since your last visit, and every step carries its lane tag. The active path stays auto-expanded; everything else compacts itself.</p>
+    <div class="mock">
+      <div style="min-width:660px; font-size:12.5px">
+        <div style="display:flex; gap:8px; align-items:center">
+          <span class="tnode compact">3 done ▸</span><span class="tarrow">→</span>
+          <span class="tnode compact">ctx chip ✓</span><span class="tarrow">→</span>
+          <span class="tnode active">Graph redesign ▾ <span class="tag dev">dev</span></span>
+          <span class="tarrow" style="margin-left:110px">→</span>
+          <span class="tnode">Queue ▸ <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);vertical-align:middle"></span></span>
+        </div>
+        <div style="margin:8px 0 0 210px; border-left:2px solid var(--active); padding-left:12px">
+          <div class="tnode" style="margin-bottom:6px">rounds 1 + 2 sketched ✓</div>
+          <div class="tnode sel" style="margin-bottom:6px">round 3: staircase family ▾ <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);vertical-align:middle"></span></div>
+          <div style="margin-left:26px; border-left:2px solid var(--line); padding-left:12px">
+            <div class="tnode compact" style="margin-bottom:4px">F+ refined · F2 ledges · F3 switchback · F4 spine hybrid</div>
+            <div class="tnode compact">+2 more ▸ (arrow in to unfold)</div>
+          </div>
+        </div>
+      </div>
+      <p class="keys"><code>↓</code> deeper · <code>↑</code> shallower · <code>←→</code> siblings at this depth · <code>Enter</code> expand/compact · <code>J</code> jump to the board item · blue dot = new since your last look</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>F2 · Ledges — each depth is a full-width shelf</h2>
+    <p class="verdict"><b>Staircase without the drift.</b> Depth still steps DOWN, but each level is a full-width shelf under its parent instead of an indent, so nothing ever walks off the right edge. Children spread left to right along their shelf. <b>Tradeoff:</b> only one node's subtree can be open per shelf, or shelves fight.</p>
+    <div class="mock">
+      <div style="min-width:640px; font-size:12.5px">
+        <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px">
+          <span class="tnode compact">3 done ▸</span><span class="tarrow">→</span>
+          <span class="tnode active">Graph redesign ▾</span><span class="tarrow">→</span>
+          <span class="tnode compact">Queue ▸</span>
+        </div>
+        <div style="border-top:2px solid var(--active); padding-top:8px; display:flex; gap:8px">
+          <span class="tnode compact">rounds 1+2 ✓</span>
+          <span class="tnode sel">round 3 family ▾</span>
+          <span class="tnode compact">card ▸</span>
+        </div>
+        <div style="border-top:2px solid var(--line); margin-top:8px; padding-top:8px; display:flex; gap:8px; margin-left:60px">
+          <span class="tnode compact">F+ · F2 · F3 · F4</span>
+        </div>
+      </div>
+      <p class="keys"><code>↓↑</code> between shelves · <code>←→</code> along a shelf · <code>Enter</code> opens the shelf below</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>F3 · The switchback — the staircase zigzags</h2>
+    <p class="verdict"><b>Staircase that never leaves the screen.</b> Depth 1 steps down-right, depth 2 steps down-LEFT, and so on — a serpentine trail. Deep trees use vertical space only. <b>Tradeoff:</b> the reading direction alternates, which is novel; the rail keeps it followable.</p>
+    <div class="mock">
+      <div style="min-width:640px; font-size:12.5px">
+        <div style="display:flex; gap:8px"><span class="tnode compact">done ▸</span><span class="tarrow">→</span><span class="tnode active">Graph redesign ▾</span></div>
+        <div style="margin:6px 0 0 150px; border-left:2px solid var(--active); padding-left:12px">
+          <div class="tnode">round 3: staircase family ▾</div>
+        </div>
+        <div style="margin:6px 280px 0 40px; border-right:2px solid var(--line); padding-right:12px; text-align:right">
+          <div class="tnode sel" style="display:inline-block">F+ · F2 · F3 · F4 sketched ▾</div>
+        </div>
+        <div style="margin:6px 0 0 8px; border-left:2px solid var(--line); padding-left:12px">
+          <div class="tnode compact" style="display:inline-block">your pick lands as the build spec</div>
+        </div>
+      </div>
+      <p class="keys">same keys as F+ · the trail turns instead of drifting</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>F4 · Spine-staircase hybrid — A's timeline, F's steps</h2>
+    <p class="verdict"><b>Recency machine + staircase.</b> The vertical git-log spine from round 1 carries the sequence (newest on top, next under the glow), and expanding any spine row opens F's staircase to the RIGHT of that row. Verticality does double duty: time on the spine, depth in the steps. <b>Tradeoff:</b> two visual systems on one canvas; the strongest if you want "what just happened" and "how deep does it go" at once.</p>
+    <div class="mock">
+      <div style="display:flex; gap:26px; min-width:640px">
+        <div class="spine" style="flex:none; max-width:280px">
+          <div class="snode next">Queue: graph build<span class="when">next</span></div>
+          <div class="snode active">Graph redesign<span class="when">now</span></div>
+          <div class="snode done">ctx chip<span class="when">01:02</span></div>
+        </div>
+        <div style="flex:1; border-left:2px solid var(--active); padding-left:14px; font-size:12.5px">
+          <div class="tnode" style="margin-bottom:6px">rounds 1+2 ✓</div>
+          <div class="tnode sel" style="margin-bottom:6px">round 3 family ▾</div>
+          <div style="margin-left:24px; border-left:2px solid var(--line); padding-left:12px">
+            <div class="tnode compact">F+ · F2 · F3 · F4</div>
+          </div>
+        </div>
+      </div>
+      <p class="keys"><code>↑↓</code> the spine · <code>→</code> step into the staircase · <code>←</code> back to the spine</p>
+    </div>
+  </section>
+
+  <h1 style="margin-top:50px; font-size:18px">Round 2 — the tree, expanding downward</h1>
   <p class="sub">Your pick: "like tree but sub items should expand downwards." Three ways to do exactly that. Sequence still flows left to right; expanding any node unrolls its children DOWN, so verticality carries hierarchy. Round 1 stays below for reference.</p>
 
   <section>
