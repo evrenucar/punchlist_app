@@ -1157,7 +1157,10 @@
     });
     divider.addEventListener("pointermove", (event) => {
       if (!resize) return;
-      const h = Math.min(Math.round(window.innerHeight * 0.6), Math.max(160, resize.h + event.clientY - resize.y));
+      // cap was 0.6, so the graph could never fill the height even with the
+      // other panels closed (Evren: should be able to maximize it). Allow it
+      // to grow to nearly the whole display.
+      const h = Math.min(Math.round(window.innerHeight * 0.94), Math.max(160, resize.h + event.clientY - resize.y));
       graphPane.style.height = h + "px";
       lastGraphInteract = Date.now();
     });
