@@ -285,6 +285,7 @@
   }
   .msg-seen:hover, .msg-reply:hover { text-decoration: underline; opacity: 1; }
   .msg-seen.on { color: #246bfe; font-weight: 700; opacity: 1; }
+  .msg.q-next { outline: 2px solid #7c3aed; outline-offset: 2px; }
   .msg a { color: var(--accent); word-break: break-all; }
   .msg-img {
     display: block; max-width: 100%; border-radius: 8px; margin-top: 6px;
@@ -372,7 +373,7 @@
     </div>
     <aside class="chatpane" id="chat" hidden aria-label="Chat with the agent">
       <div class="chat-vdivider" id="chat-vdivider" title="Drag to resize the chat pane"></div>
-      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><button class="chat-gear" id="chat-gear" type="button" aria-label="Chat settings" aria-expanded="false">⚙</button><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
+      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><button class="chat-gear" id="chat-pause" type="button" title="Pause the agent: it finishes its current step, then holds until you write resume" aria-label="Pause the agent">⏸</button><button class="chat-gear" id="chat-stop" type="button" title="Stop the agent: it wraps up, logs its state, and goes offline" aria-label="Stop the agent">⏹</button><button class="chat-gear" id="chat-gear" type="button" aria-label="Chat settings" aria-expanded="false">⚙</button><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
       <div class="chat-settings" id="chat-settings" hidden>
         <label class="pref-row"><input type="checkbox" id="pref-notifications"> Desktop notifications (attention needed, run complete)</label>
         <button class="pref-warn" id="notif-grant" type="button" hidden>Notifications are blocked in this browser — click to allow</button>
@@ -1119,6 +1120,17 @@
     container.appendChild(document.createTextNode(text.slice(last)));
   }
 
+  function highlightNextQuestion(answeredAt) {
+    const cards = [...chatLog.querySelectorAll("[data-unanswered='1']")];
+    if (!cards.length) return;
+    // the next open question after the one just answered; answering out of
+    // order falls back to the nearest one above (his spec)
+    const next = cards.find((card) => card.dataset.questionAt > answeredAt) || cards.at(-1);
+    next.scrollIntoView({ behavior: "smooth", block: "center" });
+    next.classList.add("q-next");
+    setTimeout(() => next.classList.remove("q-next"), 1800);
+  }
+
   async function sendAnswer(answerTo, text) {
     try {
       await fetch("/chat", {
@@ -1155,7 +1167,12 @@
         div.appendChild(image);
       }
       if (entry.question && entry.from === "agent") {
+        // Evren's card spec (2026-07-17): picking an option must not fire the
+        // answer — he can still add a comment under it, or skip the options
+        // and write his own; answering highlights the next open question.
         const isAnswered = answered.has(entry.at);
+        div.dataset.questionAt = entry.at;
+        if (!isAnswered) div.dataset.unanswered = "1";
         const picks = questionPicks.get(entry.at) || new Set();
         const wrap = document.createElement("div");
         wrap.className = "q-options";
@@ -1165,25 +1182,21 @@
           button.className = "q-btn";
           button.textContent = option;
           button.disabled = isAnswered;
-          if (!isAnswered) {
-            if (entry.question.multi) {
-              button.setAttribute("aria-pressed", picks.has(option) ? "true" : "false");
-              button.addEventListener("click", () => {
-                picks.has(option) ? picks.delete(option) : picks.add(option);
-                questionPicks.set(entry.at, picks);
-                button.setAttribute("aria-pressed", picks.has(option) ? "true" : "false");
-              });
-            } else {
-              button.addEventListener("click", () => sendAnswer(entry.at, option));
-            }
-          }
+          button.setAttribute("aria-pressed", picks.has(option) ? "true" : "false");
+          if (!isAnswered) button.addEventListener("click", () => {
+            if (entry.question.multi) picks.has(option) ? picks.delete(option) : picks.add(option);
+            else if (picks.has(option)) picks.clear();
+            else { picks.clear(); picks.add(option); }
+            questionPicks.set(entry.at, picks);
+            [...wrap.querySelectorAll(".q-btn")].forEach((b) => b.setAttribute("aria-pressed", picks.has(b.textContent) ? "true" : "false"));
+          });
           wrap.appendChild(button);
         });
         div.appendChild(wrap);
-        if (!isAnswered && entry.question.multi) {
+        if (!isAnswered) {
           const note = document.createElement("input");
           note.className = "q-note";
-          note.placeholder = "Add a note (optional)";
+          note.placeholder = "Add a comment, or write your own answer";
           note.value = questionNotes.get(entry.at) || "";
           note.addEventListener("input", () => questionNotes.set(entry.at, note.value));
           div.appendChild(note);
@@ -1195,9 +1208,15 @@
           send.textContent = "Send answer";
           send.addEventListener("click", () => {
             const chosen = [...(questionPicks.get(entry.at) || [])];
-            if (!chosen.length) return;
             const noteText = (questionNotes.get(entry.at) || "").trim();
-            sendAnswer(entry.at, chosen.join("; ") + (noteText ? ". Note: " + noteText : ""));
+            if (!chosen.length && !noteText) return;
+            const text = chosen.length
+              ? chosen.join("; ") + (noteText ? ". Note: " + noteText : "")
+              : noteText;
+            sendAnswer(entry.at, text).then(() => highlightNextQuestion(entry.at));
+          });
+          note.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") { event.preventDefault(); send.click(); }
           });
           sendWrap.appendChild(send);
           div.appendChild(sendWrap);
@@ -1377,6 +1396,18 @@
     settingsPanel.hidden = !settingsPanel.hidden;
     gear.setAttribute("aria-expanded", settingsPanel.hidden ? "false" : "true");
   });
+
+  // Pause and stop are chat messages under the hood: the agent's file watcher
+  // wakes on them like any other message and obeys at its next tool boundary
+  // (a terminal agent cannot be interrupted mid-step from a web page).
+  async function sendControl(text) {
+    try {
+      await fetch("/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ from: "user", text }) });
+      await pollChat();
+    } catch {}
+  }
+  document.getElementById("chat-pause").addEventListener("click", () => sendControl("⏸ PAUSE — finish the current step, then hold all work until I write resume"));
+  document.getElementById("chat-stop").addEventListener("click", () => sendControl("⏹ STOP — wrap up now, log your state, and go offline"));
 
   async function loadPrefs() {
     try {
