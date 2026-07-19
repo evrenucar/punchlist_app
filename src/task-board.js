@@ -4181,6 +4181,20 @@
       return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
     }
 
+    // Focus mode never rendered a task's photos (Evren: photos don't show).
+    // Reuse the board's asset resolution; a pending asset just renders nothing
+    // here rather than a resize placeholder, since focus is read-only.
+    function renderFocusImages(item, cls) {
+      const imgs = item?.images || [];
+      if (!imgs.length || item.linkType) return "";
+      return imgs.map((img) => {
+        const src = getAssetSrc(img);
+        return src
+          ? `<img class="${cls}" src="${src}" alt="${escapeHtml(img.caption || "Image")}" draggable="false" decoding="sync">`
+          : "";
+      }).join("");
+    }
+
     function renderFocusChildren(tasks, depth = 0, group = null) {
       const visible = (tasks || []).filter((item) => !(group && isTaskHiddenFromActive(item, group)));
       if (!visible.length) return "";
@@ -4191,6 +4205,7 @@
         <li style="margin-left: ${depth * 18}px" class="${done ? "focus-child-done" : ""}">
           <button class="focus-child-check ${done ? "done" : ""}" type="button" data-focus-toggle="${resolved?.id || item.id}" aria-label="${done ? "Mark not done" : "Mark done"}">${done ? renderIcon("check") : ""}</button>
           <span class="focus-child-text" contenteditable="true" spellcheck="true" data-focus-task-text="${resolved?.id || item.id}">${renderInlineMarkdown(resolved?.text || item.text)}</span>
+          ${renderFocusImages(resolved || item, "focus-child-image")}
           ${renderFocusChildren(item.children || [], depth + 1, group)}
         </li>
       `;
@@ -4278,8 +4293,10 @@
       focusModeEl.classList.remove("group-focus");
       if (focusTimerEl) focusTimerEl.hidden = false;
       const item = resolveTaskItem(found.item);
+      const focusImagesHtml = renderFocusImages(item, "focus-mode__image");
       focusTaskEl.innerHTML = `
         <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${item.id}">${renderInlineMarkdown(item.text)}</div>
+        ${focusImagesHtml ? `<div class="focus-mode__images">${focusImagesHtml}</div>` : ""}
         <div class="focus-mode__children">${renderFocusChildren(item.children || [], 0, found.group)}</div>
       `;
       renderFocusTimer();
@@ -4921,8 +4938,16 @@
       if (event.key === "Tab") {
         event.preventDefault();
         event.stopPropagation();
-        if (event.shiftKey) outdentTask(id);
-        else indentTask(id);
+        if (event.shiftKey) {
+          // the focus root is the floor: outdenting a direct child of the
+          // focused task (task focus) or a top-level task (group focus) would
+          // lift the item out of the view and looked like losing it (Evren).
+          const found = findTask(id);
+          const atFocusFloor = focusModeGroupId ? !found?.parent : found?.parent?.id === focusModeTaskId;
+          if (!atFocusFloor) outdentTask(id);
+        } else {
+          indentTask(id);
+        }
         renderFocusMode();
         focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${id}"]`), false);
         return;

@@ -1824,6 +1824,31 @@
       box-shadow: 0 0 0 2px rgba(36, 107, 254, 0.25);
     }
 
+    .focus-child-image {
+      grid-column: 2;
+      display: block;
+      max-width: 100%;
+      max-height: 220px;
+      margin-top: 6px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+
+    .focus-mode__images {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .focus-mode__image {
+      max-width: min(480px, 92%);
+      max-height: 40vh;
+      object-fit: contain;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+    }
+
     .timeline {
       display: grid;
       gap: 16px;
