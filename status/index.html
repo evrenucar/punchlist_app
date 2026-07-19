@@ -362,6 +362,12 @@
     padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text);
   }
   .q-done { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .q-edit {
+    margin-left: 8px; font-size: 10px; color: var(--muted);
+    background: none; border: 1px solid var(--line); border-radius: 8px;
+    padding: 1px 7px; cursor: pointer;
+  }
+  .q-edit:hover { color: var(--text); border-color: var(--line-strong); }
   .chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
   .chat-attach { position: relative; padding: 8px 10px 0; border-top: 1px solid var(--line); }
   .chat-attach img { display: block; max-height: 80px; max-width: 60%; border: 1px solid var(--line); border-radius: 8px; }
@@ -1265,6 +1271,10 @@
 
   const questionPicks = new Map();
   const questionNotes = new Map();
+  // answers stay editable (Evren's pick, 2026-07-19): editing re-opens the
+  // card; the correction posts as a fresh answer message and the latest wins
+  const questionEditing = new Set();
+  let lastChatLines = [];
 
   // Lightbox for chat images: wheel zooms around the cursor, drag pans,
   // Esc or clicking the backdrop closes — same manners as the app's own.
@@ -1421,6 +1431,8 @@
         // answer — he can still add a comment under it, or skip the options
         // and write his own; answering highlights the next open question.
         const isAnswered = answered.has(entry.at);
+        const editing = questionEditing.has(entry.at);
+        const showForm = !isAnswered || editing;
         div.dataset.questionAt = entry.at;
         if (!isAnswered) div.dataset.unanswered = "1";
         const picks = questionPicks.get(entry.at) || new Set();
@@ -1431,9 +1443,9 @@
           button.type = "button";
           button.className = "q-btn";
           button.textContent = option;
-          button.disabled = isAnswered;
+          button.disabled = !showForm;
           button.setAttribute("aria-pressed", picks.has(option) ? "true" : "false");
-          if (!isAnswered) button.addEventListener("click", () => {
+          if (showForm) button.addEventListener("click", () => {
             if (entry.question.multi) picks.has(option) ? picks.delete(option) : picks.add(option);
             else if (picks.has(option)) picks.clear();
             else { picks.clear(); picks.add(option); }
@@ -1443,10 +1455,10 @@
           wrap.appendChild(button);
         });
         div.appendChild(wrap);
-        if (!isAnswered) {
+        if (showForm) {
           const note = document.createElement("input");
           note.className = "q-note";
-          note.placeholder = "Add a comment, or write your own answer";
+          note.placeholder = editing ? "Correct your answer" : "Add a comment, or write your own answer";
           note.value = questionNotes.get(entry.at) || "";
           note.addEventListener("input", () => questionNotes.set(entry.at, note.value));
           div.appendChild(note);
@@ -1455,7 +1467,7 @@
           const send = document.createElement("button");
           send.type = "button";
           send.className = "q-btn q-send";
-          send.textContent = "Send answer";
+          send.textContent = editing ? "Send correction" : "Send answer";
           send.addEventListener("click", () => {
             const chosen = [...(questionPicks.get(entry.at) || [])];
             const noteText = (questionNotes.get(entry.at) || "").trim();
@@ -1463,18 +1475,44 @@
             const text = chosen.length
               ? chosen.join("; ") + (noteText ? ". Note: " + noteText : "")
               : noteText;
+            questionEditing.delete(entry.at);
+            questionPicks.delete(entry.at);
+            questionNotes.delete(entry.at);
             sendAnswer(entry.at, text).then(() => highlightNextQuestion(entry.at));
           });
           note.addEventListener("keydown", (event) => {
             if (event.key === "Enter") { event.preventDefault(); send.click(); }
           });
           sendWrap.appendChild(send);
+          if (editing) {
+            const cancel = document.createElement("button");
+            cancel.type = "button";
+            cancel.className = "q-btn";
+            cancel.textContent = "Keep as is";
+            cancel.addEventListener("click", () => {
+              questionEditing.delete(entry.at);
+              renderChat(lastChatLines);
+            });
+            sendWrap.appendChild(cancel);
+          }
           div.appendChild(sendWrap);
         }
-        if (isAnswered) {
+        if (isAnswered && !editing) {
           const done = document.createElement("div");
           done.className = "q-done";
-          done.textContent = answersBy.has(entry.at) ? "answered · " + answersBy.get(entry.at) : "answered";
+          const count = entries.filter((e) => e.from === "user" && e.answerTo === entry.at).length;
+          done.textContent = (answersBy.has(entry.at) ? "answered · " + answersBy.get(entry.at) : "answered")
+            + (count > 1 ? " (edited)" : "");
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.className = "q-edit";
+          edit.textContent = "✎ edit";
+          edit.title = "Change this answer; the correction posts visibly and the agent adapts";
+          edit.addEventListener("click", () => {
+            questionEditing.add(entry.at);
+            renderChat(lastChatLines);
+          });
+          done.appendChild(edit);
           div.appendChild(done);
         }
       }
@@ -1529,6 +1567,7 @@
       const response = await fetch("/chat", { cache: "no-store" });
       if (!response.ok) return;
       const lines = (await response.text()).split("\n").filter(Boolean);
+      lastChatLines = lines;
       if (lines.length !== chatCount) {
         // never re-render the log out from under a card note he is typing in
         // (the rebuild was stealing his cursor); retry on the next tick
