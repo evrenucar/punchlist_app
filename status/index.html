@@ -248,9 +248,12 @@
   }
   .chat-close:hover { color: var(--text); }
   .chat-gear {
-    margin-left: auto; border: 0; background: none; color: var(--muted);
+    border: 0; background: none; color: var(--muted);
     font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 6px;
   }
+  /* the whole control cluster sits right as one tight group; margin-left auto
+     on the shared class was spreading each button apart (Evren's report) */
+  #chat-pause { margin-left: auto; }
   .chat-gear:hover, .chat-gear[aria-expanded="true"] { color: var(--text); }
   .chat-settings {
     flex: none; padding: 8px 14px 10px; border-bottom: 1px solid var(--line);
@@ -278,7 +281,8 @@
     color: var(--muted); font-size: 11.5px; text-align: center;
   }
   .msg time { display: block; margin-top: 2px; font-size: 10px; color: var(--muted); }
-  .msg-foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+  .msg-foot { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+  .msg-foot time { margin: 0 auto 0 0; }
   .msg-seen, .msg-reply {
     font: inherit; font-size: 12px; border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
     border-radius: 6px; background: transparent; color: var(--muted);
@@ -1232,11 +1236,11 @@
           div.appendChild(done);
         }
       }
-      if (entry.from !== "system" && entry.at) {
-        const time = document.createElement("time");
-        time.textContent = new Date(entry.at).toLocaleTimeString();
-        div.appendChild(time);
-      }
+      const timeEl = entry.from !== "system" && entry.at ? document.createElement("time") : null;
+      if (timeEl) timeEl.textContent = new Date(entry.at).toLocaleTimeString();
+      // user messages keep the time on its own line; agent messages fold it
+      // into the seen/reply row below (his note: wasted space)
+      if (timeEl && entry.from !== "agent") div.appendChild(timeEl);
       // Agent messages carry a private read-marker and a reply hook
       // (Evren's asks, 2026-07-17): "seen" flips gray to blue, for his eyes
       // only; "reply" quotes the message into the input.
@@ -1244,6 +1248,7 @@
         if (chatSeenMarks.has(entry.at)) div.classList.add("seen");
         const foot = document.createElement("div");
         foot.className = "msg-foot";
+        if (timeEl) foot.appendChild(timeEl);
         const seen = document.createElement("button");
         seen.type = "button";
         seen.className = "msg-seen" + (chatSeenMarks.has(entry.at) ? " on" : "");
