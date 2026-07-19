@@ -1158,6 +1158,16 @@
         -webkit-user-select: none;
         -webkit-touch-callout: none;
       }
+
+      /* Evren's pick (2026-07-19, via card): instant edit stays, but the text
+         only claims its content width — tapping the empty space right of it
+         selects the row without popping the keyboard. Editing restores the
+         full column so the caret has room. */
+      [data-task-text]:not(:focus) {
+        width: fit-content;
+        max-width: 100%;
+        min-width: 3em;
+      }
     }
 
     .task-row.swiping {
