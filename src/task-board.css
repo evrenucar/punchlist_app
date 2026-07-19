@@ -1644,6 +1644,18 @@
       border-radius: 8px;
     }
 
+    /* an asset whose bytes are still syncing in: hold a sized slot */
+    .image-pending {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 72px;
+      max-width: 100%;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+    }
+
     .image-handle {
       flex: 0 0 auto;
       width: 6px;

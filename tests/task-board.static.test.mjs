@@ -2155,6 +2155,98 @@ test("touch presses suppress the native HTML5 drag; the mouse keeps it", async (
   assert.equal(mouseStart.defaultPrevented, false, "a mouse drag still takes the native HTML5 path");
 });
 
+test("images offload to asset references and exports re-embed them losslessly", async () => {
+  const api = await loadBoardApi();
+  const task = api.state.groups[0].tasks[0];
+  const pixel = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+  task.images = [{ id: "img-em1", src: pixel, width: 200, caption: "kept" }];
+
+  const moved = api.offloadEmbeddedImages();
+  assert.equal(moved, 1, "the embedded image moved to the asset store");
+  const record = task.images[0];
+  assert.equal(record.src, undefined, "board state sheds the bytes");
+  assert.equal(typeof record.assetId, "string", "the reference stays");
+  assert.equal(api.getAssetSrc(record), pixel, "the cache resolves the reference");
+  assert.equal(api.assetIdsReferenced().has(record.assetId), true, "the asset counts as referenced");
+
+  const exported = api.getExportState();
+  const exportedImage = exported.groups[0].tasks[0].images[0];
+  assert.equal(exportedImage.src, pixel, "exports re-embed the bytes (lossless, old builds can read them)");
+  assert.equal(exportedImage.assetId, undefined, "exports drop the internal reference");
+  assert.equal(task.images[0].src, undefined, "the live board keeps the slim reference");
+
+  const payload = JSON.parse(api.getSyncPayload());
+  assert.equal(payload.state.groups[0].tasks[0].images[0].src, undefined, "sync payloads stay slim");
+});
+
+test("sync uploads asset files before the board and never re-uploads", async () => {
+  const calls = [];
+  const fetchMock = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || "GET" });
+    if ((options.method || "GET") === "PUT") {
+      return { ok: true, status: 200, json: async () => ({ content: { sha: "sha-after-put" } }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  const api = await loadBoardApi({ fetch: fetchMock, TextEncoder, TextDecoder, btoa, atob });
+  const task = api.state.groups[0].tasks[0];
+  const pixel = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+  task.images = [{ id: "img-up1", src: pixel, width: 200, caption: "" }];
+  api.offloadEmbeddedImages();
+  const assetId = task.images[0].assetId;
+
+  api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", dirty: true });
+  await api.syncNow("test");
+
+  const assetPut = calls.findIndex((call) => call.method === "PUT" && call.url.includes(`/contents/assets/${assetId}.webp`));
+  const boardPut = calls.findIndex((call) => call.method === "PUT" && call.url.includes("/contents/punchlist-board.json"));
+  assert.ok(assetPut >= 0, "the asset file uploads");
+  assert.ok(boardPut >= 0, "the board uploads");
+  assert.ok(assetPut < boardPut, "the asset lands before the board that references it");
+
+  calls.length = 0;
+  api.saveSyncConfig({ dirty: true, lastSha: null });
+  await api.syncNow("test");
+  assert.equal(calls.some((call) => call.url.includes("/contents/assets/")), false, "an uploaded asset never uploads twice");
+});
+
+test("a pulled board fetches the assets this device is missing", async () => {
+  const pixel = "UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==";
+  const remoteState = {
+    version: 2,
+    syncedAt: "2026-07-19T12:00:00.000Z",
+    state: {
+      groups: [{ id: "g-a", title: "From remote", collapsed: false, tasks: [
+        { id: "t-a", text: "has a picture", images: [{ id: "img-a", assetId: "asset-remote1", width: 200, caption: "" }], children: [] },
+      ] }],
+      history: [],
+      trash: [],
+    },
+  };
+  const boardBase64 = Buffer.from(JSON.stringify(remoteState), "utf8").toString("base64");
+  const fetchMock = async (url) => {
+    const href = String(url);
+    if (href.includes("/contents/punchlist-board.json")) {
+      return { ok: true, status: 200, json: async () => ({ sha: "remote-sha", size: 500, content: boardBase64 }) };
+    }
+    if (href.includes("/contents/assets?") || href.endsWith("/contents/assets")) {
+      return { ok: true, status: 200, json: async () => ([{ name: "asset-remote1.webp", sha: "blob-1", size: 64 }]) };
+    }
+    if (href.includes("/contents/assets/asset-remote1.webp")) {
+      return { ok: true, status: 200, json: async () => ({ content: pixel }) };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+  const api = await loadBoardApi({ fetch: fetchMock, TextEncoder, TextDecoder, btoa, atob });
+  api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "old", dirty: false });
+  await api.syncNow("test");
+
+  assert.equal(api.state.groups.some((group) => group.title === "From remote"), true, "the board pulled");
+  const image = api.state.groups.find((group) => group.title === "From remote").tasks[0].images[0];
+  assert.equal(image.assetId, "asset-remote1", "the reference survived normalization");
+  assert.equal(api.getAssetSrc(image), `data:image/webp;base64,${pixel}`, "the missing asset arrived with the right mime");
+});
+
 test("drag auto-scroll steps evenly and never shoves past the top", async () => {
   // The old loop Math.ceil'd a linear ramp into integer px/frame and kept
   // calling scrollBy against the scroller's top edge, which reads as jag on

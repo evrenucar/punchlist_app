@@ -1655,6 +1655,18 @@
       border-radius: 8px;
     }
 
+    /* an asset whose bytes are still syncing in: hold a sized slot */
+    .image-pending {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 72px;
+      max-width: 100%;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+    }
+
     .image-handle {
       flex: 0 0 auto;
       width: 6px;
@@ -2537,7 +2549,7 @@
     const STORAGE_KEY = "scheduling-task-management-board-v1" + (IS_DEMO ? "-demo" : "");
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1" + (IS_DEMO ? "-demo" : "");
     const SCHEMA_VERSION = 2;
-    const APP_VERSION = "1.3.0";
+    const APP_VERSION = "1.4.0";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";
     const DEFAULT_SETTINGS = Object.freeze({
@@ -2994,14 +3006,14 @@
       // identity holds the private key and contacts is the local trust book;
       // neither may ever land in a shared file. Device names stay: attribution
       // is the point of the roster.
-      return JSON.parse(JSON.stringify({
+      return embedImagesInExport(JSON.parse(JSON.stringify({
         ...state,
         settings: undefined,
         identity: undefined,
         contacts: undefined,
         groups,
         trash: state.settings.exportTrash ? state.trash : [],
-      }));
+      })));
     }
 
     function filterTasksForExport(tasks, includeCompleted) {
@@ -3067,6 +3079,9 @@
       selectedNode = getVisibleNodes()[0] || null;
       multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
       selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
+      // imported files carry embedded images (lossless exports); they move
+      // straight into the asset store like any other first run
+      if (assetsAvailable()) offloadEmbeddedImages();
       saveState();
       syncSettingsControls();
       render();
@@ -3223,6 +3238,11 @@
       return `https://api.github.com/repos/${repo}/git/blobs/${sha}`;
     }
 
+    function syncAssetUrl(name) {
+      const repo = String(syncConfig.repo || "").trim();
+      return `https://api.github.com/repos/${repo}/contents/assets${name ? `/${name}` : ""}`;
+    }
+
     function syncAuthHeaders() {
       return {
         Authorization: `Bearer ${syncConfig.token}`,
@@ -3279,8 +3299,15 @@
           applySyncedState(JSON.parse(decodeBase64Utf8(remote.content)));
           saveSyncConfig({ lastSha: remote.sha, dirty: false, lastSyncedAt: new Date().toISOString() });
           showToast("Pulled board changes from GitHub.");
+          // a not-yet-migrated device may push embedded images; offload them
+          // here and let the debounced push send the slim board back
+          if (assetsAvailable() && offloadEmbeddedImages()) saveState();
+          await pullMissingAssets(branch);
         } else if (action === "push" || action === "create") {
           const overwroteRemote = remote.exists && remote.sha !== (syncConfig.lastSha || null);
+          // asset files land before the board that references them, so a
+          // crash between the two never strands a device on broken references
+          await pushMissingAssets(branch);
           const put = await fetch(syncApiUrl(), {
             method: "PUT",
             headers: syncAuthHeaders(),
@@ -3308,6 +3335,233 @@
       }
     }
     // ---- end GitHub sync ---------------------------------------------------
+
+    // ---- asset store ---------------------------------------------------------
+    // Image bytes live OUTSIDE the board (grill Q21-Q23, 2026-07-19): immutable
+    // records in IndexedDB locally, one file each under assets/ in the sync
+    // repo, tiny {assetId} references in board state. Full eager parity: every
+    // device fetches every asset it is missing, exactly once (immutable = no
+    // conflicts). "assets", not "images": videos, files, STLs ride the same
+    // rails later. Where IndexedDB is unavailable (the vm test harness), images
+    // stay embedded in state exactly as before — nothing is ever lost.
+    const ASSET_DB_NAME = "punchlist-assets-v1";
+    const ASSET_MIME_EXT = { "image/webp": "webp", "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/svg+xml": "svg" };
+    const assetCache = new Map();
+    let assetDbPromise = null;
+
+    function assetsAvailable() {
+      return !IS_DEMO && typeof indexedDB !== "undefined";
+    }
+
+    function openAssetDb() {
+      if (!assetDbPromise) {
+        assetDbPromise = new Promise((resolve) => {
+          try {
+            const request = indexedDB.open(ASSET_DB_NAME, 1);
+            request.onupgradeneeded = () => request.result.createObjectStore("assets", { keyPath: "id" });
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => resolve(null);
+          } catch {
+            resolve(null);
+          }
+        });
+      }
+      return assetDbPromise;
+    }
+
+    async function idbPutAsset(record) {
+      const db = await openAssetDb();
+      if (!db) return false;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction("assets", "readwrite");
+          tx.objectStore("assets").put(record);
+          tx.oncomplete = () => resolve(true);
+          tx.onerror = () => resolve(false);
+        } catch {
+          resolve(false);
+        }
+      });
+    }
+
+    async function idbGetAllAssets() {
+      const db = await openAssetDb();
+      if (!db) return [];
+      return new Promise((resolve) => {
+        try {
+          const request = db.transaction("assets").objectStore("assets").getAll();
+          request.onsuccess = () => resolve(request.result || []);
+          request.onerror = () => resolve([]);
+        } catch {
+          resolve([]);
+        }
+      });
+    }
+
+    function storeAsset(id, src) {
+      assetCache.set(id, src);
+      if (assetsAvailable()) idbPutAsset({ id, src, createdAt: new Date().toISOString() });
+    }
+
+    // Resolves an image record to displayable bytes: embedded src (legacy or
+    // IndexedDB-less), else the cache. null = known asset, bytes not here yet.
+    function getAssetSrc(image) {
+      if (!image) return null;
+      if (typeof image.src === "string") return image.src;
+      return assetCache.get(image.assetId) || null;
+    }
+
+    function assetMime(src) {
+      const semicolon = String(src).indexOf(";");
+      return semicolon > 5 ? String(src).slice(5, semicolon) : "application/octet-stream";
+    }
+
+    function assetFileName(id, src) {
+      return `${id}.${ASSET_MIME_EXT[assetMime(src)] || "bin"}`;
+    }
+
+    function assetMimeFromName(name) {
+      const ext = String(name).split(".").pop();
+      const entry = Object.entries(ASSET_MIME_EXT).find(([, value]) => value === ext);
+      return entry ? entry[0] : "application/octet-stream";
+    }
+
+    function eachStateImage(visit) {
+      const visitTask = (item) => {
+        (item.images || []).forEach((image) => visit(image));
+        (item.children || []).forEach(visitTask);
+      };
+      state.groups.forEach((group) => group.tasks.forEach(visitTask));
+      (state.trash || []).forEach((record) => {
+        if (record?.item) visitTask(record.item);
+      });
+    }
+
+    function assetIdsReferenced() {
+      const ids = new Set();
+      eachStateImage((image) => {
+        if (typeof image.assetId === "string") ids.add(image.assetId);
+      });
+      return ids;
+    }
+
+    // Moves embedded data-URL images out of board state into the asset store.
+    // Runs at boot and after imports; the caller gates on assetsAvailable() so
+    // memory-only caches can never strand bytes across a reload.
+    function offloadEmbeddedImages() {
+      let moved = 0;
+      eachStateImage((image) => {
+        if (typeof image.src === "string" && image.src.startsWith("data:image/")) {
+          const assetId = createId("asset");
+          storeAsset(assetId, image.src);
+          image.assetId = assetId;
+          delete image.src;
+          moved += 1;
+        }
+      });
+      return moved;
+    }
+
+    // Exports must stay lossless and readable by older builds: re-embed every
+    // resolvable asset as src. An asset whose bytes have not arrived yet keeps
+    // its reference (sync delivers the bytes later) instead of vanishing.
+    function embedImagesInExport(exportState) {
+      const visitTask = (item) => {
+        (item.images || []).forEach((image) => {
+          if (typeof image.assetId !== "string") return;
+          const src = assetCache.get(image.assetId);
+          if (src) {
+            image.src = src;
+            delete image.assetId;
+          }
+        });
+        (item.children || []).forEach(visitTask);
+      };
+      (exportState.groups || []).forEach((group) => (group.tasks || []).forEach(visitTask));
+      (exportState.trash || []).forEach((record) => {
+        if (record?.item) visitTask(record.item);
+      });
+      return exportState;
+    }
+
+    async function initAssetStore() {
+      if (!assetsAvailable()) return;
+      const records = await idbGetAllAssets();
+      records.forEach((record) => assetCache.set(record.id, record.src));
+      const moved = offloadEmbeddedImages();
+      // persist WITHOUT marking sync dirty: flagging dirty here would make
+      // load-sync's local-wins shove this stale-content board over a newer
+      // remote. The slim board rides out with the next real edit's push.
+      if (moved) {
+        saveStateToLocalStorage();
+        render();
+      } else if (records.length) {
+        render();
+      }
+    }
+
+    // Push side of parity: every referenced asset the remote has never seen
+    // gets its own immutable file. uploadedAssets in the sync config remembers
+    // what is already up, so steady state costs zero extra API calls.
+    async function pushMissingAssets(branch) {
+      const uploaded = new Set(Array.isArray(syncConfig.uploadedAssets) ? syncConfig.uploadedAssets : []);
+      const missing = [...assetIdsReferenced()].filter((id) => !uploaded.has(id) && assetCache.has(id));
+      for (const id of missing) {
+        const src = assetCache.get(id);
+        const name = assetFileName(id, src);
+        const comma = src.indexOf(",");
+        const response = await fetch(`${syncAssetUrl(name)}`, {
+          method: "PUT",
+          headers: syncAuthHeaders(),
+          body: JSON.stringify({
+            message: `punchlist asset (${deviceDisplayName(deviceIdentity.id)})`,
+            content: src.slice(comma + 1),
+            branch,
+          }),
+        });
+        // 422 = the file already exists (another device beat us to it); the
+        // asset is immutable, so existing means converged
+        if (!response.ok && response.status !== 422) throw new Error(`GitHub answered ${response.status} uploading an image.`);
+        uploaded.add(id);
+        saveSyncConfig({ uploadedAssets: [...uploaded] });
+      }
+    }
+
+    // Pull side of parity: the pulled board may reference assets this device
+    // has never seen; fetch each one, biggest files via the blobs API.
+    async function pullMissingAssets(branch) {
+      // no assetsAvailable() gate: even without IndexedDB a cache-only pull is
+      // safe, the repo stays the source and bytes simply re-fetch next session
+      const missing = [...assetIdsReferenced()].filter((id) => !assetCache.has(id));
+      if (!missing.length) return;
+      const listing = await fetch(`${syncAssetUrl("")}?ref=${branch}`, { headers: syncAuthHeaders(), cache: "no-store" });
+      if (!listing.ok) return; // no assets folder yet; references resolve on a later pull
+      const entries = await listing.json();
+      const byId = new Map((Array.isArray(entries) ? entries : []).map((entry) => [String(entry.name).replace(/\.[^.]+$/, ""), entry]));
+      const uploaded = new Set(Array.isArray(syncConfig.uploadedAssets) ? syncConfig.uploadedAssets : []);
+      let fetched = 0;
+      for (const id of missing) {
+        const entry = byId.get(id);
+        if (!entry) continue;
+        let content = null;
+        if (Number(entry.size) <= 900000) {
+          const file = await fetch(`${syncAssetUrl(entry.name)}?ref=${branch}`, { headers: syncAuthHeaders(), cache: "no-store" });
+          if (file.ok) content = (await file.json()).content;
+        }
+        if (!content) {
+          const blob = await fetch(syncBlobUrl(entry.sha), { headers: syncAuthHeaders(), cache: "no-store" });
+          if (!blob.ok) continue;
+          content = (await blob.json()).content;
+        }
+        if (!content) continue;
+        storeAsset(id, `data:${assetMimeFromName(entry.name)};base64,${String(content).replace(/\s+/g, "")}`);
+        uploaded.add(id);
+        fetched += 1;
+      }
+      saveSyncConfig({ uploadedAssets: [...uploaded] });
+      if (fetched) render();
+    }
+    // ---- end asset store -----------------------------------------------------
 
     // ---- signing identity ----------------------------------------------------
     // One ECDSA keypair per user, not per device: it lives in board state, so
@@ -5813,10 +6067,10 @@
         : null;
       item.images = Array.isArray(item.images)
         ? item.images
-          .filter((img) => img && typeof img.src === "string" && img.src.startsWith("data:image/"))
+          .filter((img) => img && (typeof img.assetId === "string" || (typeof img.src === "string" && img.src.startsWith("data:image/"))))
           .map((img) => ({
             id: typeof img.id === "string" ? img.id : createId("img"),
-            src: img.src,
+            ...(typeof img.assetId === "string" ? { assetId: img.assetId } : { src: img.src }),
             width: Number(img.width) > 0 ? Math.round(Number(img.width)) : 260,
             caption: typeof img.caption === "string" ? img.caption : "",
           }))
@@ -5885,16 +6139,25 @@
         : "";
       const images = resolved?.images || [];
       const imagesHtml = images.length && !item.linkType
-        ? `<div class="task-images">${images.map((img) => `
+        ? `<div class="task-images">${images.map((img) => {
+          const src = getAssetSrc(img);
+          const width = Math.max(60, Number(img.width) || 260);
+          // bytes not local yet (asset still syncing in): a sized placeholder
+          // holds the slot so nothing jumps when the image lands
+          const body = src
+            ? `<img src="${src}" style="width: ${width}px" alt="Pasted image" draggable="false" decoding="sync">`
+            : `<span class="image-pending" style="width: ${width}px" title="Image is syncing in">…</span>`;
+          return `
             <span class="task-image ${isSelected("image", img.id) ? "selected" : ""}" data-node-kind="image" data-node-id="${img.id}" data-image-task="${resolved.id}" tabindex="0">
               <span class="task-image-frame">
                 <span class="image-handle" data-image-handle="left" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
-                <img src="${img.src}" style="width: ${Math.max(60, Number(img.width) || 260)}px" alt="Pasted image" draggable="false" decoding="sync">
+                ${body}
                 <span class="image-handle" data-image-handle="right" data-image-id="${img.id}" data-image-task="${resolved.id}" title="Drag to resize"></span>
                 <button class="image-remove" type="button" data-image-remove="${img.id}" data-image-task="${resolved.id}" title="Remove image" aria-label="Remove image">×</button>
               </span>
               <span class="image-caption ${img.caption ? "" : "empty"}" contenteditable="true" spellcheck="true" data-image-caption="${img.id}" data-image-task="${resolved.id}" aria-label="Image caption">${escapeHtml(img.caption || "")}</span>
-            </span>`).join("")}</div>`
+            </span>`;
+        }).join("")}</div>`
         : "";
 
       return `
@@ -6685,7 +6948,13 @@
         const item = resolveTaskItem(found.item);
         pushUndoState("board", "Pasted an image");
         item.images = Array.isArray(item.images) ? item.images : [];
-        item.images.push({ id: createId("img"), src, width: 260, caption: "" });
+        if (assetsAvailable()) {
+          const assetId = createId("asset");
+          storeAsset(assetId, src);
+          item.images.push({ id: createId("img"), assetId, width: 260, caption: "" });
+        } else {
+          item.images.push({ id: createId("img"), src, width: 260, caption: "" });
+        }
         saveState();
         render();
       }).catch(() => showToast("That image could not be read."));
@@ -8132,7 +8401,11 @@
 
     // Sync on load, when the tab regains focus (that's the moment a second
     // device's edits matter), and after edits via the debounce in saveState.
-    if (syncIsActive()) syncNow("load");
+    // The asset cache loads first: pushes need it to know what to upload, and
+    // boot migration must not race a pull.
+    initAssetStore().then(() => {
+      if (syncIsActive()) syncNow("load");
+    });
     window.addEventListener?.("focus", () => {
       if (syncIsActive()) syncNow("focus");
     });
@@ -8339,6 +8612,13 @@
       getSyncPayload,
       applySyncedState,
       syncIsActive,
+      getExportState,
+      storeAsset,
+      getAssetSrc,
+      assetIdsReferenced,
+      offloadEmbeddedImages,
+      embedImagesInExport,
+      assetFileName,
       saveSyncConfig,
       getDeviceIdentity: () => deviceIdentity,
       saveDeviceIdentity,
