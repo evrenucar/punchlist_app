@@ -415,6 +415,7 @@
         <label class="pref-row"><input type="checkbox" id="pref-notifications"> Desktop notifications (attention needed, run complete)</label>
         <button class="pref-warn" id="notif-grant" type="button" hidden>Notifications are blocked in this browser — click to allow</button>
         <label class="pref-row"><input type="checkbox" id="pref-fullauto"> Full auto mode — the agent keeps going through the queue on its own, asking only for big decisions</label>
+        <label class="pref-row"><input type="checkbox" id="pref-parallel"> Prefer parallelism — spawn named subagents (visible on the graph) when work splits cleanly</label>
       </div>
       <div class="chat-log" id="chat-log"></div>
       <div class="chat-hdivider" id="chat-hdivider" title="Drag to resize the input area"></div>
@@ -1564,6 +1565,7 @@
   const settingsPanel = document.getElementById("chat-settings");
   const prefNotifications = document.getElementById("pref-notifications");
   const prefFullAuto = document.getElementById("pref-fullauto");
+  const prefParallel = document.getElementById("pref-parallel");
 
   gear.addEventListener("click", () => {
     settingsPanel.hidden = !settingsPanel.hidden;
@@ -1607,6 +1609,7 @@
     } catch { prefs = {}; }
     prefNotifications.checked = Boolean(prefs.notifications);
     prefFullAuto.checked = Boolean(prefs.fullAuto);
+    prefParallel.checked = prefs.preferParallel !== false; // default on (his ask, 2026-07-19)
     updateNotifPerm();
   }
   async function savePrefs(patch) {
@@ -1624,6 +1627,7 @@
     updateNotifPerm();
   });
   prefFullAuto.addEventListener("change", () => savePrefs({ fullAuto: prefFullAuto.checked }));
+  prefParallel.addEventListener("change", () => savePrefs({ preferParallel: prefParallel.checked }));
   loadPrefs();
 
   function notify(title, body, always = false) {

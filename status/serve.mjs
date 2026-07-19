@@ -105,7 +105,7 @@ createServer(async (req, res) => {
     if (req.method === "POST" && pathname === "/prefs") {
       const incoming = JSON.parse(await readBody(req, 10_000));
       const current = JSON.parse(await readFile(prefsFile, "utf8").catch(() => "{}"));
-      for (const key of ["notifications", "fullAuto"]) {
+      for (const key of ["notifications", "fullAuto", "preferParallel"]) {
         if (typeof incoming[key] === "boolean") current[key] = incoming[key];
       }
       await writeFile(prefsFile, JSON.stringify(current, null, 2));
