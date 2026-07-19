@@ -172,13 +172,15 @@ test("new tasks retain immutable creation context", async () => {
   assert.ok(child.createdAt);
 });
 
-test("caret-aware enter inserts before or splits task text", async () => {
+test("caret-aware enter keeps start-of-text intact and splits mid-text", async () => {
   const api = await loadBoardApi();
 
+  // Enter at the start no longer pushes an empty row above (Evren 2026-07-19):
+  // the original keeps its text, the new empty item lands below
   assert.equal(JSON.stringify(api.getTaskSplitPlan("Alpha", 0)), JSON.stringify({
-    beforeText: "",
-    afterText: "Alpha",
-    position: "before",
+    beforeText: "Alpha",
+    afterText: "",
+    position: "start",
   }));
   assert.equal(JSON.stringify(api.getTaskSplitPlan("Alpha", 2)), JSON.stringify({
     beforeText: "Al",

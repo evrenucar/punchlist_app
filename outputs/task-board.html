@@ -3964,6 +3964,10 @@
       const deleteMode = options.deleteMode || resolveLifecyclePolicy(found.item, found.group, "deleteMode") || "trash";
       const retention = resolveLifecyclePolicy(found.item, found.group, "trashRetentionSeconds");
       if (options.pushUndo !== false) pushUndoState("delete", `Deleted "${shortText(resolved?.text || found.item.text)}"`);
+      // scope check while the lookup still resolves: a link anywhere in the
+      // subtree fans the delete into other groups' articles
+      const scopedGroupId = found.group?.id || null;
+      const scopedOk = scopedGroupId && subtreeIsLinkFree(found.item);
       const source = {
         groupId: found.group?.id || null,
         parentId: found.parent?.id || null,
@@ -3989,7 +3993,14 @@
         }
       }
       if (options.save !== false) saveState();
-      if (options.render !== false) render();
+      if (options.render !== false) {
+        if (scopedOk) {
+          renderGroupInPlace(scopedGroupId);
+          refreshLifecycleSections();
+        } else {
+          render();
+        }
+      }
       return record;
     }
 
@@ -4186,6 +4197,8 @@
     function deleteTaskAndSelectNeighbor(id, options = {}) {
       const found = findTask(id);
       if (!found) return false;
+      const scopedGroupId = found.group?.id || null;
+      const scopedOk = scopedGroupId && subtreeIsLinkFree(found.item);
       const node = { kind: "task", id };
       const target = getNeighborAfterDelete(node, getVisibleNodes(), collectDeletedNodeKeys([node]));
       pushUndoState("delete");
@@ -4203,7 +4216,12 @@
         selectionAnchorNode = null;
       }
       saveState();
-      render();
+      if (scopedOk) {
+        renderGroupInPlace(scopedGroupId);
+        refreshLifecycleSections();
+      } else {
+        render();
+      }
       return true;
     }
 
@@ -5452,10 +5470,14 @@
     function getTaskSplitPlan(text, offset) {
       const source = String(text || "");
       const caret = Math.max(0, Math.min(source.length, Number(offset) || 0));
+      // Enter at the very start creates an empty item BELOW and leaves the
+      // original intact (Evren 2026-07-19) — it used to push an empty row
+      // above and move his caret up into it
+      if (caret === 0) return { beforeText: source, afterText: "", position: "start" };
       return {
         beforeText: source.slice(0, caret),
         afterText: source.slice(caret),
-        position: caret === 0 ? "before" : "after",
+        position: "after",
       };
     }
 
@@ -5509,15 +5531,13 @@
       // text creates the new item as its first child; collapsed parents and
       // childless items get a sibling below. Mid-text splits stay siblings.
       const resolvedSplit = resolveTaskItem(found.item) || found.item;
-      const intoChildren = plan.position === "after" && plan.afterText === ""
+      const intoChildren = plan.afterText === ""
         && !resolvedSplit.collapsed && (resolvedSplit.children || []).length > 0;
-      const newItem = task(plan.position === "before" ? "" : plan.afterText, [], {
+      const newItem = task(plan.afterText, [], {
         createdInGroupId: found.group?.id || found.item.createdInGroupId,
         createdUnderTaskId: intoChildren ? resolvedSplit.id : (found.parent?.id || null),
       });
-      if (plan.position === "before") {
-        found.list.splice(found.index, 0, newItem);
-      } else if (intoChildren) {
+      if (intoChildren) {
         resolvedSplit.children.unshift(newItem);
       } else {
         found.item.text = plan.beforeText;
@@ -6257,6 +6277,29 @@
       if (!item || item.linkType) return false;
       const resolved = resolveTaskItem(item);
       return !resolved || getLinkCount(resolved.id) === 0;
+    }
+
+    function subtreeIsLinkFree(item) {
+      if (!item) return true;
+      if (item.linkType || getLinkCount(item.id) > 0) return false;
+      return (item.children || []).every(subtreeIsLinkFree);
+    }
+
+    // Deletes move rows into the Completed/Trash details at the board bottom;
+    // a scoped delete swaps those two sections alongside the group article.
+    function refreshLifecycleSections() {
+      const completed = document.querySelector?.("[data-completed-section]");
+      const trash = document.querySelector?.("[data-trash-section]");
+      if (!completed || !trash) return false;
+      const wrap = document.createElement("div");
+      wrap.innerHTML = renderLifecycleSections();
+      const freshCompleted = wrap.querySelector("[data-completed-section]");
+      const freshTrash = wrap.querySelector("[data-trash-section]");
+      freshCompleted.open = completed.open;
+      freshTrash.open = trash.open;
+      completed.replaceWith(freshCompleted);
+      trash.replaceWith(freshTrash);
+      return true;
     }
 
     function escapeHtml(value) {
