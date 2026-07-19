@@ -1771,17 +1771,27 @@
     }
 
     .focus-outline li {
-      display: block;
+      /* check in column 1, text in column 2, nested list spans a new row.
+         inline flow dropped the text below the box once it was too wide to
+         sit beside it on a phone (Evren: the box ends up on a separate row). */
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      column-gap: 8px;
+      align-items: start;
       padding: 3px 0;
+    }
+
+    .focus-outline li > .focus-outline {
+      grid-column: 1 / -1;
     }
 
     .focus-child-check {
       display: inline-grid;
       place-items: center;
-      vertical-align: middle;
+      /* nudge down to sit on the first text line, not the cap height */
+      margin-top: 5px;
       width: 17px;
       height: 17px;
-      margin-right: 8px;
       border: 1.5px solid var(--line-strong);
       border-radius: 5px;
       background: var(--surface);
@@ -2066,7 +2076,9 @@
     .focus-mode__group-title {
       min-height: 0;
       font-weight: 900;
-      font-size: clamp(26px, 4.5vw, 52px);
+      /* was clamp(26px,4.5vw,52px), which loomed over the list; Evren wanted
+         it about half. Smaller heading, the tasks lead. */
+      font-size: clamp(20px, 3.4vw, 34px);
     }
 
     .focus-mode.group-focus .focus-mode__children {
