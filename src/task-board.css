@@ -952,7 +952,10 @@
       border: 1px solid var(--group-border, var(--line));
       border-radius: 6px;
       background: transparent;
-      padding: 2px;
+      /* the 2px padding left a gap so the fill floated off-center inside the
+         border (Evren: color should reach the edges). Zero it so the swatch
+         fills right up to the border. */
+      padding: 0;
       cursor: pointer;
     }
 
@@ -962,7 +965,13 @@
 
     .color-picker::-webkit-color-swatch {
       border: 0;
-      border-radius: 4px;
+      border-radius: 5px;
+    }
+
+    /* Firefox draws the fill through a different pseudo-element */
+    .color-picker::-moz-color-swatch {
+      border: 0;
+      border-radius: 5px;
     }
 
     .task-list,
