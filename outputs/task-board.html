@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Punchlist</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -58,6 +58,10 @@
       font-family: var(--font);
       font-size: 15px;
       line-height: 1.45;
+      /* it is a web app, not a document: no pinch-zoom and no sideways
+         wiggle. pan-y keeps vertical scroll, kills the two-finger zoom the
+         viewport meta cannot fully block on iOS (Evren, phone re-test). */
+      touch-action: pan-y;
     }
 
     button,
@@ -764,6 +768,7 @@
       /* never a sideways pan: wide content clips instead of making the whole
          viewport pannable (it was disorienting and ate the swipe gesture) */
       overflow-x: hidden;
+      touch-action: pan-y;
       padding: 24px;
       scrollbar-width: thin;
       scrollbar-color: transparent transparent;
@@ -1157,6 +1162,21 @@
         user-select: none;
         -webkit-user-select: none;
         -webkit-touch-callout: none;
+      }
+
+      /* a long press on the row body OUTSIDE the text still summoned the iOS
+         magnifier at ~2s (his phone re-test); suppress the callout on the
+         whole row so hold-to-move stays clean. touch-callout inherits, so an
+         actively edited field explicitly restores the native magnifier. */
+      [data-task-row] {
+        -webkit-touch-callout: none;
+      }
+      [data-task-text]:focus,
+      [data-group-title]:focus,
+      [data-image-caption]:focus {
+        -webkit-touch-callout: default;
+        user-select: text;
+        -webkit-user-select: text;
       }
 
       /* Evren's pick (2026-07-19, via card): instant edit stays, but the text
