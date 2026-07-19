@@ -40,6 +40,8 @@ const routes = {
   "/ctx": { file: join(statusDir, "ctx.json"), type: "application/json" },
   // served (not file://) so its send-feedback button can POST /chat same-origin
   "/testplan": { file: join(statusDir, "..", "docs", "touch-test-plan.html"), type: "text/html; charset=utf-8" },
+  // codebase summary for Evren; agents refresh the file when the shape changes
+  "/codebase": { file: join(statusDir, "codebase.html"), type: "text/html; charset=utf-8" },
 };
 
 createServer(async (req, res) => {

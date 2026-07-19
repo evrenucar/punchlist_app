@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punchlist — codebase summary</title>
+<style>
+  :root {
+    --bg: #fafaf8; --ink: #1c1e21; --muted: #67707b; --line: #e3e2dd;
+    --surface: #ffffff; --accent: #246bfe; --code-bg: #f1f0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --ink: #e8e6e1; --muted: #98a0ab; --line: #2a2e35;
+      --surface: #1b1e24; --accent: #79b8ff; --code-bg: #22262d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.6 -apple-system, "Segoe UI", system-ui, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+  h1 { font-size: 1.7rem; margin: 0 0 4px; }
+  .updated { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
+  h2 { font-size: 1.2rem; margin: 36px 0 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+  p { margin: 10px 0; }
+  code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: 0.88em; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.92rem; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  td:first-child { white-space: nowrap; }
+  .num { text-align: right; white-space: nowrap; color: var(--muted); }
+  .flow { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 12px 0; overflow-x: auto; }
+  .flow pre { margin: 0; font-size: 0.85rem; line-height: 1.5; }
+  ul { padding-left: 22px; }
+  li { margin: 6px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Punchlist — how the codebase stands</h1>
+  <div class="updated">Snapshot of July 19, 2026 · 104 commits · refreshed by the agent when the shape changes</div>
+
+  <h2>The one-paragraph version</h2>
+  <p>The product is one HTML file. Three source files (<code>src/</code>) get inlined by a 30-line build script into <code>outputs/task-board.html</code>, which runs from a double-click with zero dependencies, zero network requests, and no server. Everything else in the repo exists to build it, test it, host it, or coordinate the humans and agents working on it.</p>
+
+  <h2>The numbers</h2>
+  <table>
+    <tr><th>File</th><th>What it is</th><th class="num">Lines</th></tr>
+    <tr><td><code>src/task-board.js</code></td><td>All app logic: outline editing, undo, drag, touch gestures, lifecycle, sync, signing, assets</td><td class="num">6,247</td></tr>
+    <tr><td><code>src/task-board.css</code></td><td>All styling, both themes, phone widths</td><td class="num">2,249</td></tr>
+    <tr><td><code>src/task-board.html</code></td><td>The shell the other two inline into</td><td class="num">297</td></tr>
+    <tr><td><code>scripts/build-task-board.mjs</code></td><td>The whole build system</td><td class="num">30</td></tr>
+    <tr><td><code>tests/task-board.static.test.mjs</code></td><td>109 tests, run with <code>node --test</code>, no framework</td><td class="num">2,306</td></tr>
+    <tr><td><code>status/index.html</code></td><td>This status board: wrapper, chat, graph, sync loop</td><td class="num">1,819</td></tr>
+    <tr><td><code>status/serve.mjs</code></td><td>The local server behind it, plain Node http</td><td class="num">137</td></tr>
+    <tr><td><code>status/</code> scripts</td><td>say, ask, heartbeat, board-write, ensure-server</td><td class="num">153</td></tr>
+  </table>
+  <p>Dependencies across the whole repo: zero. No package.json, no node_modules, no framework. That's a deliberate rule, not an accident.</p>
+
+  <h2>The three layers</h2>
+  <ul>
+    <li><strong>The app</strong> (<code>src/</code> → <code>outputs/</code>, <code>website/</code>): the product. Your board on the laptop and phone.</li>
+    <li><strong>The development interface</strong> (<code>status/</code>): this page's sibling at <a href="/">localhost:4173</a>. It embeds the real built app in an iframe seeded from <code>status-board.json</code>, and adds chat, the staircase graph, agent presence, and the braindump flow. It never copies app code: the whole coupling is three DOM hooks and a small API the app exposes, guarded by a test.</li>
+    <li><strong>The website</strong> (<code>website/</code>): the landing page, the build notes, and a fresh copy of the app. Pushing main deploys it to GitHub Pages.</li>
+  </ul>
+
+  <h2>Where your data lives</h2>
+  <div class="flow"><pre>
+your board   → localStorage  key scheduling-task-management-board-v1  (text, ~KB now)
+your images  → IndexedDB     punchlist-assets-v1                      (bytes, since v1.4.0)
+sync         → private GitHub repo: punchlist-board.json + assets/&lt;id&gt;.webp, one file per image
+device name  → its own localStorage key, never syncs
+sync token   → its own localStorage key, never lands in any export or sync payload
+signing key  → inside board state, syncs to YOUR devices only, stripped from every export
+  </pre></div>
+  <p>Since v1.4.0 (July 19) the board file itself carries no image bytes: each image is an immutable record in IndexedDB plus one file in the sync repo's <code>assets/</code> folder. Push uploads what the remote is missing before the board that references it; pull downloads what your device is missing; nothing transfers twice. Exports re-embed everything, so a backup file is still complete on its own.</p>
+
+  <h2>Rules the code holds itself to</h2>
+  <ul>
+    <li>Task IDs are immutable and never encode position. Aliases, shortcuts, trash restore, and scheduling all depend on that.</li>
+    <li>Where a task IS and where it was CREATED are different facts; moving never rewrites creation metadata.</li>
+    <li>Exports strip <code>settings</code>, <code>identity</code>, <code>contacts</code>. A test fails the build if the private key ever leaks into an export.</li>
+    <li>Disabled features render zero UI. Timeline, reminders, and policy overrides are invisible until switched on.</li>
+    <li>Renders are scoped since July 19: editing swaps one task's subtree in the DOM (8–21ms) instead of rebuilding the board (75–150ms). Full renders remain only for operations that fan out, like linked copies.</li>
+    <li>Every behavior change ships with a regression test, a full suite run, a rebuild, and a real-browser check at phone and desktop widths.</li>
+  </ul>
+
+  <h2>Recent structural changes (July 19)</h2>
+  <ul>
+    <li><strong>Assets v1.4.0</strong>: image bytes out of the board, described above. Retires the 1MB sync read cap and the ~5MB localStorage ceiling.</li>
+    <li><strong>Touch gesture hardening</strong>: a press wipes stale gesture state (the intermittent dead-toggles ghost), native OS drag is suppressed on touch, auto-scroll got a gentle ramp with an edge clamp.</li>
+    <li><strong>The wrapper stopped reloading</strong>: agent board edits now apply inside the running board through <code>applyExternalState</code>; selection and scroll survive.</li>
+  </ul>
+
+  <h2>Where to read more</h2>
+  <ul>
+    <li><code>docs/AGENT_HANDOFF.md</code> — full current state, the hard-won traps, the open queue.</li>
+    <li><code>docs/DIRECTIONS.md</code> — ranked directions and the mobile audit plan.</li>
+    <li><code>docs/IDENTITY.md</code> — the signing design.</li>
+    <li><a href="https://evrenucar.github.io/punchlist_app/notes.html">The build notes</a> — one entry per working session, written for you.</li>
+  </ul>
+</main>
+</body>
+</html>
