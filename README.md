@@ -1,12 +1,22 @@
 # Punchlist
 
-Punchlist is a lightweight, local-first task organizer for capturing, structuring, scheduling, and completing work. The distributable app is a single static HTML file that opens directly in a browser; it has no database, required server, runtime dependencies, or account. (Repository name predates the branding.)
+A day planner that lives in one HTML file. No account, no server, no install, no network requests. Nested outline, day timeline, focus timing, and Markdown export, all offline.
 
-## Open the app
+**[Try it now](https://evrenucar.github.io/punchlist_app/)** · [Open the app](https://evrenucar.github.io/punchlist_app/task-board.html) · [Build notes](https://evrenucar.github.io/punchlist_app/notes.html)
 
-Open [`outputs/task-board.html`](outputs/task-board.html) in a browser.
+![The Punchlist board with an example outline](docs/screenshot.png)
 
-Board data is saved in that browser's local storage. Use JSON export for a lossless backup and Markdown copy/export for portable task outlines. Different browsers do not share local storage; Settings → Sync can keep devices on one board through a private GitHub repository and a fine-grained token.
+## What it is
+
+The whole app is one 340 KB HTML file you can open straight from disk. Tasks save to your browser and export losslessly to JSON or clean Markdown. Nothing leaves the machine unless you turn on GitHub sync. The name is a construction term: the punch list is the last set of fixes before a building is handed over, worked down to zero. (The repository name predates the Punchlist branding.)
+
+## Run it
+
+- **Hosted:** open the [live app](https://evrenucar.github.io/punchlist_app/task-board.html); it runs at that URL and saves to that browser's local storage.
+- **Local:** download [`outputs/task-board.html`](outputs/task-board.html) and open it from disk, offline, zero requests, even if the site disappears.
+- **Share across devices:** point your phone and laptop at one private GitHub repo under Settings → Sync; every change lands there as a commit.
+
+Different browsers do not share storage. Use JSON export for a lossless backup and Markdown for portable outlines.
 
 ## Features
 
