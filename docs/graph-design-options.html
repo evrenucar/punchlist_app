@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph redesign — four directions</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --active: #7c3aed;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 Inter, ui-sans-serif, system-ui, sans-serif; padding: 24px 16px 60px; }
+  main { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 26px; }
+  section { margin-bottom: 40px; }
+  h2 { font-size: 16px; margin: 0 0 2px; }
+  .verdict { font-size: 12.5px; color: var(--muted); margin: 0 0 12px; max-width: 70ch; }
+  .verdict b { color: var(--text); }
+  .mock { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 18px; overflow-x: auto; }
+  .tag { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; border-radius: 4px; padding: 1px 5px; margin-left: 6px; }
+  .tag.app { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+  .tag.dev { background: color-mix(in srgb, #eab308 22%, transparent); color: #a16207; }
+  .keys { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  .keys code { background: color-mix(in srgb, var(--muted) 14%, transparent); border-radius: 4px; padding: 0 5px; }
+
+  /* A — the spine */
+  .spine { position: relative; padding-left: 26px; max-width: 460px; }
+  .spine::before { content: ""; position: absolute; left: 9px; top: 6px; bottom: 6px; width: 2px; background: var(--line); }
+  .snode { position: relative; margin: 8px 0; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  .snode::before { content: ""; position: absolute; left: -22px; top: 13px; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+  .snode.next::before { background: var(--accent); }
+  .snode.active { border-color: var(--active); box-shadow: 0 0 0 1px var(--active); }
+  .snode.active::before { background: var(--active); box-shadow: 0 0 8px var(--active); }
+  .snode.done { opacity: 0.55; }
+  .snode.done::before { background: var(--done); }
+  .snode .when { float: right; font-size: 10.5px; color: var(--muted); }
+  .skids { margin: 6px 0 0 14px; border-left: 2px solid var(--line); padding-left: 10px; font-size: 12.5px; color: var(--muted); }
+  .skids div::before { content: "↳ "; }
+
+  /* B — the tree */
+  .tree { display: flex; align-items: center; gap: 34px; min-width: 640px; }
+  .tcol { display: flex; flex-direction: column; gap: 10px; }
+  .tnode { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 6px 10px; font-size: 12.5px; position: relative; }
+  .tnode.compact { color: var(--muted); font-size: 11px; padding: 3px 8px; }
+  .tnode.active { border-color: var(--active); box-shadow: 0 0 0 1px var(--active); }
+  .tnode.sel { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tarrow { color: var(--muted); font-size: 18px; }
+
+  /* C — the lanes */
+  .lanes { min-width: 640px; }
+  .lane { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; }
+  .lane + .lane { border-top: 1px dashed var(--line); }
+  .lanelabel { flex: none; width: 60px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding-top: 8px; }
+  .batch { flex: none; width: 150px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 6px 8px; font-size: 12px; }
+  .batch.active { border-color: var(--active); box-shadow: 0 0 0 1px var(--active); }
+  .batch.done { opacity: 0.55; }
+  .chip { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+  .chip::before { content: "· "; }
+
+  /* D — outline cards */
+  .canvas { position: relative; height: 300px; min-width: 640px; background:
+    linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 40px,
+    linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 40px 100%;
+    background-color: var(--bg); border-radius: 8px; overflow: hidden; }
+  .card { position: absolute; width: 200px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 8px 10px; font-size: 12.5px; box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
+  .card.active { border-color: var(--active); box-shadow: 0 0 0 1px var(--active), 0 4px 14px rgba(0,0,0,0.1); }
+  .card .row { font-size: 11px; color: var(--muted); padding-left: 10px; }
+  .card .row::before { content: "▸ "; font-size: 9px; }
+  .card .row.open::before { content: "▾ "; }
+  .card .row .sub2 { padding-left: 14px; display: block; }
+  svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Graph redesign — four directions</h1>
+  <p class="sub">Sketches with real items from this week. Every option keeps your three requirements: arrow-key browsing, expand/compact per node like the task board, and granular children. They differ in what the LAYOUT itself tells you. Patterns borrowed from: git commit graphs (A), mind-map/org trees (B), CI pipeline views (C), Obsidian-style canvas (D).</p>
+
+  <section>
+    <h2>A · The spine — time runs down, like a git log</h2>
+    <p class="verdict"><b>Nails:</b> "what was added last" (always the top) and "what's next" (right under the glow). Verticality IS the layout. <b>Tradeoff:</b> parallel work shows as interleaved rows, not side-by-side branches.</p>
+    <div class="mock">
+      <div class="spine">
+        <div class="snode next">Pause + stop buttons<span class="tag dev">dev</span><span class="when">next</span></div>
+        <div class="snode active">Graph redesign alternatives<span class="tag dev">dev</span><span class="when">now · Claude</span>
+          <div class="skids"><div>four sketched directions</div><div>card for your pick</div></div>
+        </div>
+        <div class="snode done">ctx chip with real numbers<span class="tag dev">dev</span><span class="when">01:02</span></div>
+        <div class="snode done">Typing 13ms → 0.2ms<span class="tag app">app</span><span class="when">00:44</span></div>
+        <div class="snode done">Question cards per your spec<span class="tag dev">dev</span><span class="when">00:41</span></div>
+      </div>
+      <p class="keys"><code>↑↓</code> walk the spine · <code>→</code> expand children inline · <code>←</code> compact · <code>Enter</code> jump to the board item</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>B · The tree — the active item is the trunk, children fan out</h2>
+    <p class="verdict"><b>Nails:</b> granularity — every node opens into its real subtree, exactly like the task board rotated sideways. <b>Tradeoff:</b> recency is a side-channel (a "new" dot), not the layout itself.</p>
+    <div class="mock">
+      <div class="tree">
+        <div class="tcol">
+          <div class="tnode compact">done · typing perf</div>
+          <div class="tnode compact">done · ctx chip</div>
+        </div>
+        <div class="tarrow">→</div>
+        <div class="tcol"><div class="tnode active">Graph redesign<br><span style="font-size:10px;color:var(--muted)">now · Claude</span></div></div>
+        <div class="tarrow">→</div>
+        <div class="tcol">
+          <div class="tnode sel">four directions sketched</div>
+          <div class="tnode">your pick lands as spec</div>
+          <div class="tnode compact">+2 compacted · → expands</div>
+        </div>
+      </div>
+      <p class="keys"><code>←→</code> climb/descend the hierarchy · <code>↑↓</code> siblings · <code>Enter</code> expand/compact — the task board's exact grammar</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>C · The lanes — app and dev interface as swimlanes, time flows right</h2>
+    <p class="verdict"><b>Nails:</b> "which layer is moving" at a glance; batches stay granular inside expandable cards. <b>Tradeoff:</b> weakest verticality — lanes are horizontal by nature.</p>
+    <div class="mock">
+      <div class="lanes">
+        <div class="lane">
+          <div class="lanelabel">app</div>
+          <div class="batch done">Touch batch 2<span class="chip">drag select · 1.5s hold</span></div>
+          <div class="batch done">Perf batch<span class="chip">typing 0.2ms · flash fix</span></div>
+        </div>
+        <div class="lane">
+          <div class="lanelabel">dev</div>
+          <div class="batch done">Chat batch<span class="chip">drafts · seen · reply</span></div>
+          <div class="batch active">Graph redesign<span class="chip">4 directions · your pick</span><span class="chip">card open</span></div>
+        </div>
+      </div>
+      <p class="keys"><code>↑↓</code> switch lanes · <code>←→</code> walk time · <code>Enter</code> expand a batch into its children</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>D · Outline cards on a canvas — the task board, scattered in 2D</h2>
+    <p class="verdict"><b>Nails:</b> "similar to the taskboard but on a 2D graph" most literally — each card IS a mini outline with working chevrons. <b>Tradeoff:</b> the most build effort, and free placement needs either manual arranging or an auto-layout opinion.</p>
+    <div class="mock">
+      <div class="canvas">
+        <svg class="wires"><path d="M 210 70 C 260 70, 260 150, 310 150" fill="none" stroke="var(--active)" stroke-width="2"/><path d="M 210 60 C 280 40, 330 40, 380 55" fill="none" stroke="var(--line)" stroke-width="1.5"/></svg>
+        <div class="card done" style="left:12px; top:30px; opacity:0.6">Perf batch ✓<div class="row">typing 0.2ms</div></div>
+        <div class="card active" style="left:310px; top:120px">Graph redesign<div class="row open">four directions<span class="sub2">spine · tree · lanes · canvas</span></div><div class="row">your pick → spec</div></div>
+        <div class="card" style="left:390px; top:28px">Queue<div class="row">history attribution card</div><div class="row">multi-agent robustness</div></div>
+      </div>
+      <p class="keys"><code>↑↓←→</code> nearest card in that direction · chevrons expand rows in place · drag to arrange, positions remembered</p>
+    </div>
+  </section>
+
+  <p class="sub">Mixes are legal: A's spine as the main view with B's tree grammar inside an expanded node is the likeliest hybrid. Answer on the card in chat, or write your own.</p>
+</main>
+</body>
+</html>
