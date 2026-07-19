@@ -199,6 +199,17 @@
   .gnode.done .gtext::before { content: "✓ "; color: var(--done); font-weight: 700; }
   .gnode.bucket { border-style: dashed; color: var(--muted); background: var(--bg); }
   .gnode.idle { border-style: dashed; color: var(--muted); background: var(--bg); cursor: default; }
+  .gnode.pill { border-style: dashed; color: var(--muted); background: var(--bg); font-size: 11px; text-align: center; }
+  .gnode.gmore { cursor: pointer; }
+  .gnode.gmore:hover { color: var(--text); border-color: var(--line-strong); }
+  .gnode.path-sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .gnew {
+    position: absolute; top: -4px; right: -4px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--accent); border: 2px solid var(--surface);
+  }
+  .grail { position: absolute; width: 2px; background: var(--line-strong); border-radius: 1px; }
+  .grail.hot { background: #7c3aed; }
+  .graph-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .gnode.active {
     border-color: #7c3aed; border-left-color: #7c3aed;
     background: color-mix(in srgb, #7c3aed 12%, var(--surface));
@@ -690,195 +701,188 @@
   // so zooming in shows MORE text per block rather than bigger letters.
   let graphZoom = Math.min(2, Math.max(0.6, Number(localStorage.getItem(GRAPH_Z_KEY)) || 1));
 
-  function nodeOf(task, kind) {
-    const kids = task.children || [];
-    return {
-      id: task.id, text: task.text || "(untitled)", kind, by: task.by || "",
-      lane: task.lane === "dev" ? "dev" : "app",
-      stubs: kids.slice(0, 24).map((c) => ({ text: c.text, done: Boolean(c.done) })),
-      more: Math.max(0, kids.length - 24),
-    };
-  }
+  // ---- F+ staircase (Evren's pick, 2026-07-19) ------------------------------
+  // The trunk is the timeline: compacted older done, the last three done, the
+  // glowing active, then queue and friction buckets, left to right. ONE
+  // staircase hangs under the selected trunk node: each level lists that path
+  // node's children (capped behind a +N pill), the open path steps down-right.
+  const GRAPH_SEEN_KEY = "punchlist-status-graph-lastvisit";
+  let graphLastVisit = Number(localStorage.getItem(GRAPH_SEEN_KEY)) || 0;
+  let graphPath = [];        // [trunkId, childId, …] — the open staircase path
+  const graphReveal = new Set(); // parents whose "+N more" pill was opened
 
-  function buildGraphModel(state) {
-    const cols = [];
-    const branch = [];
+  function laneOf(t) { return t && t.lane === "dev" ? "dev" : "app"; }
+
+  function trunkOf(state) {
     const inbox = state.groups.find((g) => g.id === "group-inbox");
-    if (!inbox) return { cols, branch };
+    if (!inbox) return [];
+    const trunk = [];
+    const holder = inbox.tasks.find((t) => t.id === "task-agent-completed");
+    const done = (holder ? holder.children : []).filter((t) => t.completedAt)
+      .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1));
+    if (done.length > 3) trunk.push({ id: "gpill-done", kind: "pill", text: (done.length - 3) + " more done", task: null });
+    done.slice(-3).forEach((t) => trunk.push({ id: t.id, kind: "done", task: t }));
     const actives = [];
     walkTasks(state.groups, (t) => { if (t.active && !t.done) actives.push(t); });
-    const activeIds = new Set(actives.map((t) => t.id));
-    const holder = inbox.tasks.find((t) => t.id === "task-agent-completed");
-    // Everything completed rides the main line; the side branch is reserved
-    // for true forks (Evren 2026-07-18: unrelated items were stacking under
-    // whatever happened to be active).
-    (holder ? holder.children : []).filter((t) => t.completedAt)
-      .sort((a, b) => (a.completedAt < b.completedAt ? -1 : 1)).slice(-5)
-      .forEach((t) => cols.push([nodeOf(t, "done")]));
-    cols.push(actives.length ? actives.map((t) => nodeOf(t, "active"))
-      : [{ id: null, text: "idle — nothing active", kind: "idle", by: "", stubs: [], more: 0 }]);
-    // Branch = ONLY items explicitly spawned under an active item
-    // (createdUnderTaskId). The inserted flag no longer routes here — agents
-    // set it on every priority insertion, related or not, and the graph was
-    // attaching everything to the active node.
+    if (actives.length) actives.forEach((t) => trunk.push({ id: t.id, kind: "active", task: t }));
+    else trunk.push({ id: "gidle", kind: "idle", text: "idle — nothing active", task: null });
     inbox.tasks.filter((t) => !t.done && t.id !== "task-agent-completed" && !t.active)
-      .forEach((t) => {
-        if (t.createdUnderTaskId && activeIds.has(t.createdUnderTaskId)) branch.push(nodeOf(t, "queue"));
-        else cols.push([nodeOf(t, "queue")]);
-      });
+      .forEach((t) => trunk.push({ id: t.id, kind: "queue", task: t }));
     const dirA = state.groups.find((g) => g.id === "group-dir-a");
     const friction = dirA && dirA.tasks.find((t) => (t.text || "").startsWith("Friction list"));
-    let expandedFork = false;
     (friction ? friction.children : []).filter((p) => /^P\d/.test(p.text || "")).forEach((level) => {
       const open = (level.children || []).filter((c) => !c.done);
-      if (!open.length) return;
-      if (!expandedFork) { cols.push(open.map((c) => nodeOf(c, "queue"))); expandedFork = true; }
-      else cols.push([{ id: level.id, text: level.text + " — " + open.length + " open", kind: "bucket", by: level.by || "", lane: "app", stubs: open.slice(0, 24).map((c) => ({ text: c.text, done: false })), more: Math.max(0, open.length - 24) }]);
+      if (open.length) trunk.push({ id: level.id, kind: "bucket", text: (level.text || "") + " — " + open.length + " open", task: level });
     });
-    return { cols, branch };
+    return trunk;
   }
 
   function renderGraph(force) {
     if (graphPane.hidden) return;
     const state = readBoardState();
     if (!state) return;
-    const model = buildGraphModel(state);
-    const cols = model.cols;
-    const branch = model.branch;
-    const key = JSON.stringify(model) + "|" + JSON.stringify(agentsLive);
+    const trunk = trunkOf(state);
+    if (!graphPath.length || !trunk.some((n) => n.id === graphPath[0])) {
+      const anchor = trunk.find((n) => n.kind === "active" && n.task) || trunk.find((n) => n.task);
+      graphPath = anchor ? [anchor.id] : [];
+    }
+    const key = JSON.stringify([trunk.map((n) => [n.id, n.kind, (n.task?.children || []).length, n.text || n.task?.text]), graphPath, [...graphReveal], graphZoom, agentsLive]);
     if (!force && key === graphKey) return;
     graphKey = key;
     graphWorld.innerHTML = "";
     activeNodeCenter = null;
     const Z = graphZoom;
-    const NODE_W = Math.round(200 * Z), COL_STEP = Math.round(270 * Z), GAP = Math.round(18 * Z);
-    const MID = Math.max(120, (graphPane.clientHeight - 6) / 2);
-    // near max zoom everything shows: no clamps, no "+N more" (Evren's spec)
+    const NODE_W = Math.round(210 * Z);
+    const STEP_X = Math.round(34 * Z);
+    const GAP_X = Math.round(46 * Z);
+    const GAP_Y = Math.round(10 * Z);
     const maxZoom = Z >= 1.8;
-    const stubBudget = maxZoom ? Infinity : Z < 0.75 ? 0 : Math.max(1, Math.round(3 * Z));
+    const clampLines = maxZoom ? "unset" : String(Math.max(1, Math.round(3 * Z)));
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.classList.add("graph-links");
     graphWorld.appendChild(svg);
-    function buildNodeEl(node) {
+
+    const isNew = (t) => t && t.createdAt && Date.parse(t.createdAt) > graphLastVisit;
+
+    function nodeEl(kind, task, textOverride, onPath) {
       const el = document.createElement("div");
-      el.className = "gnode " + node.kind + (node.by === "user" ? " by-user" : node.by === "agent" ? " by-agent" : "");
+      el.className = "gnode " + kind
+        + (task?.by === "user" ? " by-user" : task?.by === "agent" ? " by-agent" : "")
+        + (onPath ? " path-sel" : "");
       el.style.width = NODE_W + "px";
-      if (node.id) el.dataset.taskId = node.id;
+      if (task) el.dataset.taskId = task.id;
       const text = document.createElement("div");
       text.className = "gtext";
-      text.style.webkitLineClamp = maxZoom ? "unset" : String(Math.max(1, Math.round(3 * Z)));
-      text.textContent = node.text;
+      text.style.webkitLineClamp = clampLines;
+      text.textContent = textOverride || task?.text || "(untitled)";
       el.appendChild(text);
-      const visible = Math.min(node.stubs.length, stubBudget);
-      node.stubs.slice(0, visible).forEach((stub) => {
-        const s = document.createElement("div");
-        s.className = "gstub" + (stub.done ? " done" : "");
-        s.textContent = (stub.done ? "✓ " : "↳ ") + stub.text;
-        el.appendChild(s);
-      });
-      const hiddenCount = node.stubs.length - visible + node.more;
-      if (hiddenCount > 0 && stubBudget > 0) {
-        const s = document.createElement("div");
-        s.className = "gstub";
-        s.textContent = "↳ +" + hiddenCount + " more";
-        el.appendChild(s);
+      if (isNew(task)) {
+        const dot = document.createElement("span");
+        dot.className = "gnew";
+        dot.title = "new since your last look at the graph";
+        el.appendChild(dot);
       }
-      if (node.kind !== "idle") {
+      if (task && kind !== "idle" && kind !== "pill") {
         const tag = document.createElement("div");
-        tag.className = "gtag " + node.lane;
-        tag.textContent = node.lane === "dev" ? "development interface" : "app";
+        tag.className = "gtag " + laneOf(task);
+        tag.textContent = laneOf(task) === "dev" ? "development interface" : "app";
         el.appendChild(tag);
       }
       graphWorld.appendChild(el);
       return el;
     }
+
+    // trunk row: the timeline
     const placed = [];
-    cols.forEach((col, i) => {
-      const x = 30 + i * COL_STEP;
-      const els = col.map((node) => {
-        const el = buildNodeEl(node);
-        el.style.left = x + "px";
-        return { node, el };
-      });
-      let total = els.reduce((sum, p) => sum + p.el.offsetHeight, 0) + (els.length - 1) * GAP;
-      let y = Math.max(12, MID - total / 2);
-      els.forEach((p) => {
-        p.el.style.top = y + "px";
-        p.cx = x; p.cy = y + p.el.offsetHeight / 2; p.h = p.el.offsetHeight;
-        if (p.node.kind === "active" && !activeNodeCenter) activeNodeCenter = { x: x + NODE_W / 2, y: p.cy };
-        y += p.el.offsetHeight + GAP;
-      });
-      placed.push(els);
+    let x = 30;
+    const trunkY = 16;
+    trunk.forEach((node) => {
+      const el = nodeEl(node.kind, node.task, node.text, false);
+      el.style.left = x + "px";
+      el.style.top = trunkY + "px";
+      const h = el.offsetHeight;
+      const p = { node, el, cx: x, cy: trunkY + h / 2, h };
+      if (node.kind === "active" && !activeNodeCenter) activeNodeCenter = { x: x + NODE_W / 2, y: p.cy };
+      placed.push(p);
+      x += NODE_W + GAP_X;
     });
-    let maxY = 0;
-    placed.flat().forEach((p) => { maxY = Math.max(maxY, p.cy + p.h / 2); });
-    const worldW = 30 + cols.length * COL_STEP + 60;
-    const worldH = maxY + 40;
+    for (let i = 0; i < placed.length - 1; i++) {
+      const f = placed[i], t = placed[i + 1];
+      const hot = f.node.kind === "active" || t.node.kind === "active";
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", `M ${f.cx + NODE_W} ${f.cy} C ${f.cx + NODE_W + 18} ${f.cy}, ${t.cx - 18} ${t.cy}, ${t.cx} ${t.cy}`);
+      path.setAttribute("fill", "none");
+      // style, not attribute: SVG presentation attributes can't resolve var()
+      path.style.stroke = hot ? "#7c3aed" : "var(--line-strong)";
+      path.setAttribute("stroke-width", hot ? "2.5" : "1.5");
+      svg.appendChild(path);
+    }
+
+    // the staircase: one open path under the selected trunk node, each depth
+    // level a vertical sibling stack, stepping down and right
+    let maxY = trunkY + Math.max(0, ...placed.map((p) => p.h));
+    let maxX = x;
+    const stairPlaced = [];
+    const rootP = placed.find((p) => p.node.id === graphPath[0]);
+    if (rootP && rootP.node.task) {
+      let levelParent = rootP.node.task;
+      let levelX = rootP.cx + STEP_X;
+      let yCursor = trunkY + rootP.h + Math.round(16 * Z);
+      for (let depth = 0; depth < 12; depth++) {
+        const kids = levelParent.children || [];
+        if (!kids.length) break;
+        const pathChildId = graphPath[depth + 1] || null;
+        const cap = maxZoom || graphReveal.has(levelParent.id) ? Infinity : 3;
+        const shown = [];
+        kids.forEach((k) => { if (k.id === pathChildId || shown.length < cap) shown.push(k); });
+        const hidden = kids.length - shown.length;
+        const railTop = yCursor - 4;
+        shown.forEach((k) => {
+          const el = nodeEl(k.done ? "done" : "step", k, null, k.id === pathChildId);
+          el.style.left = levelX + "px";
+          el.style.top = yCursor + "px";
+          const h = el.offsetHeight;
+          stairPlaced.push({ node: { id: k.id }, el, cx: levelX, cy: yCursor + h / 2, h });
+          yCursor += h + GAP_Y;
+        });
+        if (hidden > 0) {
+          const pill = document.createElement("div");
+          pill.className = "gnode pill gmore";
+          pill.style.width = NODE_W + "px";
+          pill.style.left = levelX + "px";
+          pill.style.top = yCursor + "px";
+          pill.textContent = "+" + hidden + " more";
+          pill.dataset.reveal = levelParent.id;
+          graphWorld.appendChild(pill);
+          yCursor += pill.offsetHeight + GAP_Y;
+        }
+        const rail = document.createElement("div");
+        rail.className = "grail" + (depth === 0 ? " hot" : "");
+        rail.style.left = (levelX - Math.round(12 * Z)) + "px";
+        rail.style.top = railTop + "px";
+        rail.style.height = Math.max(8, yCursor - railTop - GAP_Y + 4) + "px";
+        graphWorld.appendChild(rail);
+        maxY = Math.max(maxY, yCursor);
+        maxX = Math.max(maxX, levelX + NODE_W);
+        const next = kids.find((k) => k.id === pathChildId);
+        if (!next) break;
+        levelParent = next;
+        levelX += STEP_X;
+      }
+    }
+
+    const worldW = Math.max(maxX + 60, graphViewport.clientWidth || 0);
+    const worldH = maxY + 50;
     graphWorld.style.width = worldW + "px";
     graphWorld.style.height = worldH + "px";
     svg.setAttribute("width", worldW);
     svg.setAttribute("height", worldH);
-    for (let i = 0; i < placed.length - 1; i++) {
-      const from = placed[i], to = placed[i + 1];
-      const pairs = from.length === 1 ? to.map((t) => [from[0], t])
-        : to.length === 1 ? from.map((f) => [f, to[0]])
-        : from.map((f, k) => [f, to[Math.min(k, to.length - 1)]]);
-      pairs.forEach(([f, t]) => {
-        const hot = f.node.kind === "active" || t.node.kind === "active";
-        const x1 = f.cx + NODE_W, y1 = f.cy, x2 = t.cx, y2 = t.cy;
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", `M ${x1} ${y1} C ${x1 + 34} ${y1}, ${x2 - 34} ${y2}, ${x2} ${y2}`);
-        path.setAttribute("fill", "none");
-        // style, not attribute: SVG presentation attributes can't resolve var()
-        path.style.stroke = hot ? "#7c3aed" : "var(--line-strong)";
-        path.setAttribute("stroke-width", hot ? "2.5" : "1.5");
-        svg.appendChild(path);
-      });
-    }
-    // Open branch below the main line (Evren's spec, 2026-07-17): inserted
-    // items hang off the active node's right SIDE, run as their own row, and
-    // just end — no merge back.
-    // ponytail: one branch row today; when multiple branches can collide, the
-    // left-most one moves a row down (his stacking rule) — implement then.
-    const branchPlaced = [];
-    // the branch hangs off the active node, or the idle node when nothing runs
-    const activePlaced = placed.flat().find((p) => p.node.kind === "active")
-      || placed.flat().find((p) => p.node.kind === "idle");
-    if (branch.length && activePlaced) {
-      const startX = activePlaced.cx + NODE_W + Math.round(44 * Z);
-      const branchTop = activePlaced.cy + activePlaced.h / 2 + Math.round(56 * Z);
-      let prev = null;
-      branch.forEach((node, index) => {
-        const el = buildNodeEl(node);
-        const bx = startX + index * COL_STEP;
-        el.style.left = bx + "px";
-        el.style.top = branchTop + "px";
-        const cy = branchTop + el.offsetHeight / 2;
-        const x1 = index === 0 ? activePlaced.cx + NODE_W : prev.bx + NODE_W;
-        const y1 = index === 0 ? activePlaced.cy + activePlaced.h / 4 : prev.cy;
-        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-        path.setAttribute("d", `M ${x1} ${y1} C ${x1 + 30} ${y1}, ${bx - 30} ${cy}, ${bx} ${cy}`);
-        path.setAttribute("fill", "none");
-        path.style.stroke = "#7c3aed";
-        path.setAttribute("stroke-width", "2.5");
-        svg.appendChild(path);
-        prev = { bx, cy };
-        branchPlaced.push({ node, el, cx: bx, cy, h: el.offsetHeight });
-      });
-      const branchBottom = Math.max(...branchPlaced.map((p) => p.cy + p.h / 2)) + 40;
-      const branchRight = startX + branch.length * COL_STEP + 60;
-      const newW = Math.max(parseInt(graphWorld.style.width) || 0, branchRight);
-      const newH = Math.max(parseInt(graphWorld.style.height) || 0, branchBottom);
-      graphWorld.style.width = newW + "px";
-      graphWorld.style.height = newH + "px";
-      svg.setAttribute("width", newW);
-      svg.setAttribute("height", newH);
-    }
+
     agentsLive.forEach((agent, index) => {
       const chip = document.createElement("div");
       chip.className = "agent-chip";
       chip.textContent = agent.name;
-      const host = placed.flat().concat(branchPlaced).find((p) => p.node.id === agent.taskId);
+      const host = placed.concat(stairPlaced).find((p) => p.node.id === agent.taskId);
       if (host) {
         chip.style.left = (host.cx + 8 + index * 4) + "px";
         chip.style.top = (host.cy - host.h / 2 - 10) + "px";
@@ -912,7 +916,14 @@
     document.getElementById("activebar").hidden = open;
     document.getElementById("graph-toggle").setAttribute("aria-pressed", open ? "true" : "false");
     localStorage.setItem(GRAPH_OPEN_KEY, open ? "1" : "0");
-    if (open) { renderGraph(true); centerGraphOnActive(false); }
+    if (open) {
+      // blue dots mark everything added since the PREVIOUS open
+      graphLastVisit = Number(localStorage.getItem(GRAPH_SEEN_KEY)) || 0;
+      localStorage.setItem(GRAPH_SEEN_KEY, String(Date.now()));
+      renderGraph(true);
+      centerGraphOnActive(false);
+      graphViewport.focus({ preventScroll: true });
+    }
   }
   document.getElementById("graph-toggle").addEventListener("click", () => setGraphOpen(graphPane.hidden));
 
@@ -941,11 +952,79 @@
     graphViewport.addEventListener("pointerup", () => {
       if (drag && !drag.moved) {
         const node = drag.target.closest(".gnode");
-        if (node && node.dataset.taskId) jumpToTask(node.dataset.taskId);
+        if (node && node.dataset.reveal) {
+          graphReveal.add(node.dataset.reveal);
+          renderGraph(true);
+        } else if (node && node.dataset.taskId) {
+          // clicking a trunk node also opens ITS staircase
+          const state = readBoardState();
+          if (state && trunkOf(state).some((n) => n.id === node.dataset.taskId)) {
+            graphPath = [node.dataset.taskId];
+            renderGraph(true);
+          }
+          jumpToTask(node.dataset.taskId);
+        }
       }
       drag = null;
       graphViewport.classList.remove("dragging");
       lastGraphInteract = Date.now();
+    });
+
+    // F+ keyboard walk: ←→ siblings at the current depth, ↓ deeper, ↑ back,
+    // Enter expand/compact, J jump to the board item.
+    graphViewport.tabIndex = 0;
+    graphViewport.addEventListener("keydown", (event) => {
+      if (graphPane.hidden || !graphPath.length) return;
+      const state = readBoardState();
+      if (!state) return;
+      const trunk = trunkOf(state);
+      const pathTasks = () => {
+        const root = trunk.find((n) => n.id === graphPath[0]);
+        const arr = root && root.task ? [root.task] : [];
+        for (let i = 1; i < graphPath.length; i++) {
+          const next = arr[i - 1] && (arr[i - 1].children || []).find((k) => k.id === graphPath[i]);
+          if (!next) break;
+          arr.push(next);
+        }
+        return arr;
+      };
+      const depth = graphPath.length - 1;
+      let handled = true;
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        const dir = event.key === "ArrowRight" ? 1 : -1;
+        if (depth === 0) {
+          const withTask = trunk.filter((n) => n.task);
+          const i = withTask.findIndex((n) => n.id === graphPath[0]);
+          const next = withTask[Math.min(withTask.length - 1, Math.max(0, i + dir))];
+          if (next) graphPath = [next.id];
+        } else {
+          const tasks = pathTasks();
+          const sibs = (tasks[depth - 1]?.children) || [];
+          const i = sibs.findIndex((k) => k.id === graphPath[depth]);
+          const next = sibs[Math.min(sibs.length - 1, Math.max(0, i + dir))];
+          if (next) {
+            graphPath = [...graphPath.slice(0, depth), next.id];
+            graphReveal.add(tasks[depth - 1].id);
+          }
+        }
+      } else if (event.key === "ArrowDown") {
+        const cur = pathTasks()[depth];
+        if (cur && (cur.children || []).length) graphPath = [...graphPath, cur.children[0].id];
+      } else if (event.key === "ArrowUp") {
+        if (depth > 0) graphPath = graphPath.slice(0, -1);
+      } else if (event.key === "Enter") {
+        const cur = pathTasks()[depth];
+        if (cur && (cur.children || []).length) graphPath = [...graphPath, cur.children[0].id];
+      } else if (event.key.toLowerCase() === "j") {
+        jumpToTask(graphPath[depth]);
+      } else {
+        handled = false;
+      }
+      if (handled) {
+        event.preventDefault();
+        renderGraph(true);
+        lastGraphInteract = Date.now();
+      }
     });
     let wheelQueued = false;
     graphViewport.addEventListener("wheel", (event) => {
