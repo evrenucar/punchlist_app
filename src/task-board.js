@@ -3,11 +3,18 @@
     const IS_DEMO = typeof location !== "undefined" && /[?&]demo\b/.test(location.search || "");
     const STORAGE_KEY = "scheduling-task-management-board-v1" + (IS_DEMO ? "-demo" : "");
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1" + (IS_DEMO ? "-demo" : "");
+    // Same detection style as IS_DEMO: only a copy opened from disk (file://)
+    // ever checks for updates. The hosted site, its ?demo iframe, and the
+    // claude.ai artifact all serve over http(s) and must never phone home.
+    const IS_LOCAL_FILE = typeof location !== "undefined" && location.protocol === "file:";
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
     const APP_VERSION = "1.5.0";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
+    const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
+    const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
+    const UPDATE_NOTES_URL = "https://evrenucar.github.io/punchlist_app/notes.html";
     const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";
     const DEFAULT_SETTINGS = Object.freeze({
       dailyPlanning: false,
@@ -27,6 +34,7 @@
       sidebarCollapsed: false,
       sidebarWidth: 280,
       username: "",
+      checkForUpdates: true,
     });
     const AUTO_SCROLL_EDGE_PX = 96;
     const MAX_AUTO_SCROLL_SPEED = 18;
@@ -115,6 +123,9 @@
     const syncTokenEl = document.querySelector("[data-sync-token]");
     const syncNowEl = document.querySelector("[data-sync-now]");
     const syncStatusEl = document.querySelector("[data-sync-status]");
+    const updatesSectionEl = document.querySelector("[data-updates-section]");
+    const checkUpdatesEl = document.querySelector("[data-check-updates]");
+    const updateVersionEl = document.querySelector("[data-update-version]");
     const lightboxEl = document.querySelector("[data-lightbox]");
     const lightboxImgEl = document.querySelector("[data-lightbox-img]");
     const toastEl = document.querySelector("[data-toast]");
@@ -161,6 +172,9 @@
     // GitHub sync keeps its config (token included) in its own localStorage
     // key so board and settings exports can never leak it.
     const SYNC_STORAGE_KEY = STORAGE_KEY + "-sync";
+    // The dismissed-version marker lives in its own key (like the sync config)
+    // so it can never ride along in a board or settings export.
+    const UPDATE_DISMISS_KEY = STORAGE_KEY + "-update-dismissed";
     let syncConfig = loadSyncConfig();
     let syncApplying = false;
     let syncBusy = false;
@@ -3992,19 +4006,97 @@
       `;
     }
 
-    function showToast(message) {
+    function hideToast() {
       if (!toastEl) return;
-      toastEl.textContent = message;
+      toastEl.classList.remove("visible");
+      toastEl.classList.remove("toast--rich");
+      toastEl.hidden = true;
+      if (toastTimer !== null && typeof window.clearTimeout === "function") window.clearTimeout(toastTimer);
+      toastTimer = null;
+    }
+
+    function flashToast(durationMs) {
+      if (!toastEl) return;
       toastEl.hidden = false;
       toastEl.classList.add("visible");
       if (toastTimer !== null && typeof window.clearTimeout === "function") window.clearTimeout(toastTimer);
-      if (typeof window.setTimeout === "function") {
-        toastTimer = window.setTimeout(() => {
-          toastEl.classList.remove("visible");
-          toastEl.hidden = true;
-          toastTimer = null;
-        }, 4200);
+      if (typeof window.setTimeout === "function") toastTimer = window.setTimeout(hideToast, durationMs);
+    }
+
+    function showToast(message) {
+      if (!toastEl) return;
+      toastEl.classList.remove("toast--rich");
+      toastEl.textContent = message;
+      flashToast(4200);
+    }
+
+    // Numeric semver compare: 1 if a>b, -1 if a<b, 0 if equal. A leading "v" and
+    // short or non-numeric parts are tolerated; missing parts count as zero.
+    function compareVersions(a, b) {
+      const parse = (v) => String(v).replace(/^v/i, "").split(".").map((n) => parseInt(n, 10) || 0);
+      const pa = parse(a);
+      const pb = parse(b);
+      for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+        const diff = (pa[i] || 0) - (pb[i] || 0);
+        if (diff) return diff > 0 ? 1 : -1;
       }
+      return 0;
+    }
+
+    // Only a downloaded copy checks, only when the setting is on, never in demo.
+    function updateChecksEnabled() {
+      return IS_LOCAL_FILE && !IS_DEMO && state.settings.checkForUpdates !== false;
+    }
+
+    // Fire-and-forget on load: one GitHub Releases request, silent on any
+    // failure (offline, rate limit, bad JSON). Never blocks or alarms.
+    async function checkForUpdate() {
+      if (!updateChecksEnabled() || typeof fetch !== "function") return;
+      try {
+        const response = await fetch(UPDATE_RELEASE_API, { cache: "no-store" });
+        if (!response.ok) return;
+        const release = await response.json();
+        const latest = String(release?.tag_name || "").trim();
+        if (!latest || compareVersions(latest, APP_VERSION) <= 0) return;
+        const dismissed = localStorage.getItem(UPDATE_DISMISS_KEY) || "";
+        if (dismissed && compareVersions(latest, dismissed) <= 0) return;
+        showUpdateToast(latest, String(release?.html_url || UPDATE_RELEASES_PAGE));
+      } catch {
+        // offline, blocked, rate-limited, or malformed: skip in silence.
+      }
+    }
+
+    // Reuses the toast element and its show/fade; the rich variant just carries
+    // links and an X. Guarded so the DOM-less vm harness is a safe no-op.
+    function showUpdateToast(latest, releaseUrl) {
+      if (!toastEl || typeof document.createElement !== "function") return;
+      toastEl.textContent = "";
+      toastEl.classList.add("toast--rich");
+      const message = document.createElement("span");
+      message.textContent = `A newer version of Punchlist is available (${latest}).`;
+      const actions = document.createElement("span");
+      actions.className = "toast-actions";
+      const linkTo = (href, text) => {
+        const link = document.createElement("a");
+        link.className = "toast-action";
+        link.href = href;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = text;
+        return link;
+      };
+      actions.append(linkTo(releaseUrl, `Get ${latest}`), linkTo(UPDATE_NOTES_URL, "What changed"));
+      const dismiss = document.createElement("button");
+      dismiss.type = "button";
+      dismiss.className = "toast-dismiss";
+      dismiss.setAttribute("aria-label", "Dismiss");
+      dismiss.textContent = "×";
+      dismiss.addEventListener("click", () => {
+        localStorage.setItem(UPDATE_DISMISS_KEY, latest);
+        hideToast();
+      });
+      toastEl.append(message, actions, dismiss);
+      flashToast(12000);
     }
 
     function checkDueReminders(now = Date.now()) {
@@ -5096,6 +5188,9 @@
       if (syncFieldsEl) syncFieldsEl.hidden = !syncConfig.enabled;
       if (syncRepoEl) syncRepoEl.value = String(syncConfig.repo || "");
       if (syncTokenEl) syncTokenEl.value = String(syncConfig.token || "");
+      if (checkUpdatesEl) checkUpdatesEl.checked = settings.checkForUpdates !== false;
+      if (updateVersionEl) updateVersionEl.textContent = `This copy is v${APP_VERSION}.`;
+      if (updatesSectionEl) updatesSectionEl.hidden = IS_DEMO;
     }
 
     function updateSettings(patch) {
@@ -5161,6 +5256,8 @@
       if (syncIsActive()) syncNow("config");
     });
     syncNowEl?.addEventListener("click", () => syncNow("manual"));
+
+    checkUpdatesEl?.addEventListener("change", () => updateSettings({ checkForUpdates: checkUpdatesEl.checked }));
 
     const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
     feedbackEl?.addEventListener("click", () => {
@@ -6005,6 +6102,9 @@
     // always wins over a freshly generated one (see createSigningIdentity).
     ensureSigningIdentity().catch(() => {});
 
+    // Fire-and-forget update check (downloaded copy only; see checkForUpdate).
+    checkForUpdate();
+
     // Sync on load, when the tab regains focus (that's the moment a second
     // device's edits matter), and after edits via the debounce in saveState.
     // The asset cache loads first: pushes need it to know what to upload, and
@@ -6219,6 +6319,9 @@
       applySyncedState,
       applyExternalState,
       syncIsActive,
+      compareVersions,
+      updateChecksEnabled,
+      checkForUpdate,
       getExportState,
       storeAsset,
       getAssetSrc,

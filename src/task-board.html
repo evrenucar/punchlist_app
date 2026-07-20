@@ -177,6 +177,16 @@
                 <div data-sync-devices title="Devices that have saved to this board, per the synced roster"></div>
               </div>
             </details>
+            <details class="settings-section" data-updates-section>
+              <summary>Updates</summary>
+              <label class="settings-row" title="A copy opened from disk checks GitHub for a newer release on load. Turn this off to cut it off from any update check.">
+                Check for updates
+                <input type="checkbox" data-check-updates>
+              </label>
+              <p class="sync-status" data-update-version></p>
+              <p class="sync-status">Only a copy opened from your disk checks. When on, the only network call is one request to api.github.com to read the latest release. Nothing else leaves this machine.</p>
+              <p class="sync-status"><a href="https://evrenucar.github.io/punchlist_app/updating.html" target="_blank" rel="noopener">How to update a downloaded copy</a></p>
+            </details>
             <label class="settings-row" title="Reveal optional policy controls on groups and tasks">
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
@@ -216,6 +226,7 @@
             <p><strong>Clipboard.</strong> Ctrl+C copies selected tasks as clean Markdown. Pasting inside the board places a linked copy by default; change this in Settings. Ctrl+X then paste moves tasks. Pasting Markdown from outside creates new tasks.</p>
             <p><strong>Linked copies.</strong> A linked copy is one task shown in two places: edit or complete either one and both update. A shortcut is a small pointer that jumps to the original instead. Ctrl+Shift+V pastes a real, unlinked copy no matter what the paste setting says.</p>
             <p><strong>Your data.</strong> Everything stays in this browser. Use Export JSON for a lossless backup and Import JSON to load it elsewhere.</p>
+            <p><strong>Updates.</strong> A copy you download and open from disk can check GitHub for a newer release; the hosted app is always current. See <a href="https://evrenucar.github.io/punchlist_app/updating.html" target="_blank" rel="noopener">how to update a downloaded copy</a>.</p>
             <p><strong>Reminders.</strong> Alerts and browser notifications only fire while this page is open.</p>
             <p><strong>Touch.</strong> Press and hold a task or timeline block, then drag it.</p>
           </div>

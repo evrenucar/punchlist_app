@@ -2045,6 +2045,52 @@
       transform: translateX(-50%) translateY(0);
     }
 
+    /* The update notice reuses the toast; it just needs to be clickable and lay
+       its links out in a row. */
+    .toast--rich {
+      pointer-events: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 10px;
+      font-weight: 600;
+      text-align: left;
+    }
+
+    .toast-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toast-action {
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      padding: 2px 10px;
+      color: var(--text);
+      text-decoration: none;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .toast-action:hover,
+    .toast-action:focus-visible {
+      border-color: var(--ink);
+    }
+
+    .toast-dismiss {
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 18px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 2px;
+    }
+
+    .toast-dismiss:hover {
+      color: var(--text);
+    }
+
     .focus-mode {
       position: fixed;
       inset: 0;

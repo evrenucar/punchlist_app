@@ -1755,6 +1755,60 @@ test("demo mode isolates storage and always seeds; real key untouched", async ()
   assert.match(html, /startDemoDriver/);
 });
 
+test("update check: numeric version compare, and only a downloaded copy checks", async () => {
+  const api = await loadBoardApi();
+  assert.equal(api.compareVersions("1.5.4", "1.5.3"), 1);
+  assert.equal(api.compareVersions("1.5.3", "1.5.4"), -1);
+  assert.equal(api.compareVersions("v1.5.4", "1.5.4"), 0, "a leading v is ignored");
+  assert.equal(api.compareVersions("1.10.0", "1.9.9"), 1, "numeric, not string, compare");
+  assert.equal(api.compareVersions("2.0", "1.9.9"), 1);
+  assert.equal(api.compareVersions("1.5", "1.5.0"), 0, "missing parts count as zero");
+
+  // Hosted copy (served over http/https, no file:// protocol): never checks.
+  const hostedCalls = [];
+  const hosted = await loadBoardApi({
+    location: { protocol: "https:" },
+    fetch: async (url) => { hostedCalls.push(String(url)); return { ok: false, status: 404, json: async () => ({}) }; },
+  });
+  assert.equal(hosted.updateChecksEnabled(), false, "the hosted copy never checks");
+  await hosted.checkForUpdate();
+  assert.equal(hostedCalls.length, 0, "the hosted copy makes no network call");
+
+  // Demo mode, even from a file url: never checks.
+  const demoCalls = [];
+  const demo = await loadBoardApi({
+    location: { protocol: "file:", search: "?demo" },
+    fetch: async (url) => { demoCalls.push(String(url)); return { ok: false, status: 404, json: async () => ({}) }; },
+  });
+  assert.equal(demo.IS_DEMO, true);
+  assert.equal(demo.updateChecksEnabled(), false, "demo mode never checks");
+  await demo.checkForUpdate();
+  assert.equal(demoCalls.length, 0, "demo mode makes no network call");
+
+  // Downloaded copy with the setting on: exactly one request to the releases API.
+  const localCalls = [];
+  const local = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async (url) => { localCalls.push(String(url)); return { ok: true, status: 200, json: async () => ({ tag_name: "v" + api.APP_VERSION }) }; },
+  });
+  assert.equal(local.updateChecksEnabled(), true, "a downloaded copy with the setting on checks");
+  localCalls.length = 0; // ignore the fire-and-forget boot call
+  await local.checkForUpdate();
+  assert.equal(localCalls.length, 1, "a downloaded copy makes exactly one request");
+  assert.match(localCalls[0], /api\.github\.com\/repos\/evrenucar\/punchlist_app\/releases\/latest/);
+
+  // Turning the setting off cuts the local file off entirely.
+  local.updateSettings({ checkForUpdates: false });
+  assert.equal(local.updateChecksEnabled(), false);
+  localCalls.length = 0;
+  await local.checkForUpdate();
+  assert.equal(localCalls.length, 0, "with the setting off, no check ever runs");
+
+  const html = await readBoard();
+  assert.match(html, /data-updates-section/);
+  assert.match(html, /data-check-updates/);
+});
+
 test("github sync: decision table and utf8 base64 roundtrip", async () => {
   const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
 
@@ -1868,6 +1922,8 @@ test("exports carry a signature but never the private key or contact book", asyn
   assert.doesNotMatch(exported, /"d"\s*:/, "JWK private member never lands in an export");
   assert.equal(exported.includes("contacts"), false, "the local trust book never lands in an export");
   assert.equal(exported.includes("trusted-friend"), false);
+  assert.equal(exported.includes("checkForUpdates"), false, "the update setting stays out of board exports");
+  assert.equal(exported.includes("update-dismissed"), false, "the dismissed-version marker never lands in an export");
 
   const payload = JSON.parse(exported);
   assert.equal(payload.sender.fingerprint, identity.fingerprint);
