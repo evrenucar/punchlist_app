@@ -17,7 +17,7 @@ The whole app is one 340 KB HTML file you can open straight from disk. Tasks sav
 ## Run it
 
 - **Hosted:** open the [live app](https://evrenucar.github.io/punchlist_app/task-board.html); it runs at that URL and saves to that browser's local storage.
-- **Local:** download [`outputs/task-board.html`](outputs/task-board.html) and open it from disk, offline, zero requests, even if the site disappears.
+- **Local:** download [`outputs/task-board.html`](outputs/task-board.html) and open it from disk, offline, zero requests, even if the site disappears. To move a downloaded copy to a newer build without losing your board, see [Updating your downloaded Punchlist](https://evrenucar.github.io/punchlist_app/updating.html) ([`website/updating.html`](website/updating.html)).
 - **Share across devices:** point your phone and laptop at one private GitHub repo under Settings → Sync; every change lands there as a commit.
 
 Different browsers do not share storage. Use JSON export for a lossless backup and Markdown for portable outlines.

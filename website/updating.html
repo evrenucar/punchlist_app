@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Updating your downloaded Punchlist</title>
+  <meta name="description" content="How to update a downloaded copy of Punchlist to a newer build without losing your saved board.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --surface: #ffffff;
+      --surface-2: #eef4f1;
+      --ink: #202422;
+      --muted: #65716b;
+      --line: #d8ded8;
+      --accent: #246bfe;
+      --accent-soft: #e9f0ff;
+      --g-red: #c92a2a;
+      --g-green: #2f6f4e;
+      --shadow: 0 18px 48px rgba(26, 38, 33, 0.10);
+      --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151716;
+        --surface: #202321;
+        --surface-2: #292d2a;
+        --ink: #f1f4ef;
+        --muted: #a8b2aa;
+        --line: #3a403c;
+        --accent-soft: #1f315f;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    a { color: var(--accent); }
+
+    .wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 10px 20px;
+    }
+
+    .brand-mark {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #191b1a;
+      color: #fff;
+      transform: rotate(-4deg);
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      background: var(--g-red);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .brand-mark { background: #f1f4ef; color: #191b1a; }
+    }
+
+    .brand-name {
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+
+    .topbar .page-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .topbar .back {
+      margin-left: auto;
+      font-size: 14px;
+    }
+
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      margin: 40px 0 6px;
+    }
+
+    .lede {
+      color: var(--muted);
+      margin: 0 0 28px;
+    }
+
+    article {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 26px 28px 30px;
+      margin: 0 0 28px;
+    }
+
+    article h3 {
+      font-size: 16px;
+      margin: 26px 0 8px;
+    }
+
+    article h3:first-child { margin-top: 0; }
+
+    article p { margin: 0 0 12px; }
+    article ul, article ol { margin: 0 0 12px; padding-left: 22px; }
+    article li { margin: 0 0 8px; }
+
+    code {
+      font-family: var(--mono);
+      font-size: 13px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 10px 14px;
+      margin: 0 0 12px;
+      font-size: 15px;
+    }
+
+    .callout.warn { border-left-color: var(--g-red); }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
+      </div>
+      <div class="brand-name">Punchlist</div>
+      <div class="page-name">updating</div>
+      <a class="back" href="index.html">Back to the site</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>Updating your downloaded Punchlist</h1>
+    <p class="lede">Punchlist is a single HTML file. If you downloaded it and open it from your own disk, here is how to move to a newer build without losing your board.</p>
+
+    <article>
+      <h3>How your board is stored</h3>
+      <p>Punchlist keeps your board in the browser's local storage, tied to the exact location and the way you open the file. Same folder, same filename, opened the same way (the same double-click, shortcut, or bookmark) means the same saved board. Change the folder or the filename and the browser treats it as a new place, so it opens with an empty board. Nothing is deleted in that case; the old board is still attached to the old location.</p>
+      <p>So the whole trick to updating in place is simple: put the new file where the old one was, under the same name, and open it the way you always do.</p>
+
+      <h3>Update in five steps</h3>
+      <ol>
+        <li>Find your current file and note two things: the folder it sits in, and its exact filename (for example <code>task-board.html</code>). You will reuse both.</li>
+        <li>Back it up first (details below). Open your current board and click <code>Export JSON</code> to save a copy of your data somewhere safe.</li>
+        <li>Open the <a href="https://github.com/evrenucar/punchlist_app/releases">GitHub Releases page</a> and download the newest build.</li>
+        <li>Put the new file in the same folder as the old one, under the same filename, replacing it. If your browser saved it under a different name (like <code>task-board(1).html</code>), rename it to match the old file exactly before you replace it.</li>
+        <li>Open it the same way you always have (same double-click from that folder, same shortcut, or same bookmark). Your saved board is there, now running the newer build.</li>
+      </ol>
+      <div class="callout">If the new file opens empty, you almost certainly opened it from a different folder or under a different name. Your board is not gone. Move or rename the file back to the old location and open it again, or use the import step below.</div>
+
+      <h3>Safety net: Export JSON and Import JSON</h3>
+      <p>The JSON export is a full, lossless copy of your board. It is worth doing before you replace anything, and it always works even if the file path changes.</p>
+      <ol>
+        <li>Before updating, open your current board and click <code>Export JSON</code>. Save the file somewhere outside the app's folder.</li>
+        <li>If the updated file looks wrong or empty, open it and click <code>Import JSON</code>, then pick the file you just saved. Your board comes back.</li>
+      </ol>
+
+      <h3>Using the hosted version instead</h3>
+      <p>The hosted app at <a href="https://evrenucar.github.io/punchlist_app/">evrenucar.github.io/punchlist_app</a> is always the latest build automatically. If you use it there, none of this applies; there is nothing to update.</p>
+    </article>
+
+    <footer>
+      <p>This page is part of Punchlist. It loads nothing from third parties and runs no scripts.</p>
+    </footer>
+  </div>
+</body>
+</html>
