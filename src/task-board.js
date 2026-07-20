@@ -5190,7 +5190,10 @@
       if (syncTokenEl) syncTokenEl.value = String(syncConfig.token || "");
       if (checkUpdatesEl) checkUpdatesEl.checked = settings.checkForUpdates !== false;
       if (updateVersionEl) updateVersionEl.textContent = `This copy is v${APP_VERSION}.`;
-      if (updatesSectionEl) updatesSectionEl.hidden = IS_DEMO;
+      // Only a downloaded (file://) copy can go stale, so only it gets the
+      // Updates box. On the hosted app there is nothing to check or turn off, so
+      // showing an inert toggle there is dead UI — hide the whole section.
+      if (updatesSectionEl) updatesSectionEl.hidden = IS_DEMO || !IS_LOCAL_FILE;
     }
 
     function updateSettings(patch) {

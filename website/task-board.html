@@ -2739,7 +2739,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.5";
+    const APP_VERSION = "1.5.6";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -7919,7 +7919,10 @@
       if (syncTokenEl) syncTokenEl.value = String(syncConfig.token || "");
       if (checkUpdatesEl) checkUpdatesEl.checked = settings.checkForUpdates !== false;
       if (updateVersionEl) updateVersionEl.textContent = `This copy is v${APP_VERSION}.`;
-      if (updatesSectionEl) updatesSectionEl.hidden = IS_DEMO;
+      // Only a downloaded (file://) copy can go stale, so only it gets the
+      // Updates box. On the hosted app there is nothing to check or turn off, so
+      // showing an inert toggle there is dead UI — hide the whole section.
+      if (updatesSectionEl) updatesSectionEl.hidden = IS_DEMO || !IS_LOCAL_FILE;
     }
 
     function updateSettings(patch) {
