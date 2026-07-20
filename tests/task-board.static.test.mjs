@@ -310,6 +310,37 @@ test("completion retention supports seconds and restores tasks", async () => {
   assert.equal(item.completedAt, null);
 });
 
+test("expand chevron is hidden when a task's only children are completed-and-hidden", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((g) => g.id === "group-projects");
+  const parent = group.tasks.find((t) => t.children && t.children.length > 0);
+  parent.collapsed = false;
+  api.state.settings.completionRetentionSeconds = 10;
+  // Every child completed long ago, so isTaskHiddenFromActive hides them all.
+  for (const child of parent.children) {
+    child.done = true;
+    child.completedAt = "2020-01-01T00:00:00.000Z";
+    child.children = [];
+  }
+  const html = api.renderTask(parent, group.id, "");
+  // A toggle over nothing must not render a chevron or an empty child list.
+  assert.ok(html.includes(`class="chevron hidden" type="button" data-action="toggle-task" data-task-id="${parent.id}"`));
+  assert.equal(/child-list/.test(html), false);
+});
+
+test("expand chevron shows when a task has a visible child", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((g) => g.id === "group-projects");
+  const parent = group.tasks.find((t) => t.children && t.children.length > 0);
+  parent.collapsed = false;
+  // Guarantee one child is visible so the chevron has something to reveal.
+  parent.children[0].done = false;
+  parent.children[0].completedAt = null;
+  const html = api.renderTask(parent, group.id, "");
+  assert.ok(html.includes(`class="chevron " type="button" data-action="toggle-task" data-task-id="${parent.id}"`));
+  assert.match(html, /child-list/);
+});
+
 test("task and group lifecycle overrides take precedence over global settings", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-projects");

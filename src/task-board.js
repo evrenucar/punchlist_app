@@ -3632,10 +3632,17 @@
       if (!taskMatchesFilter(item, query)) return "";
       const resolved = resolveTaskItem(item);
       const children = item.linkType === "reference" ? [] : (item.children || []);
-      const hasChildren = children.length > 0;
+      // Only children that will actually render count. A chevron over children
+      // that are all completed-and-hidden (or filtered out) reveals an empty
+      // list on toggle — the "toggle reveals nothing" bug. Base the twisty on
+      // what a toggle would truly show, matching renderTask's own skip rules.
+      const visibleChildren = children.filter(
+        (child) => !isTaskHiddenFromActive(child, group) && taskMatchesFilter(child, query)
+      );
+      const hasChildren = visibleChildren.length > 0;
       const expanded = hasChildren && (!item.collapsed || Boolean(query));
       const childHtml = expanded
-        ? `<ul class="child-list">${children.map((child) => renderTask(child, groupId, query)).join("")}</ul>`
+        ? `<ul class="child-list">${visibleChildren.map((child) => renderTask(child, groupId, query)).join("")}</ul>`
         : "";
       const dropChild = hasChildren
         ? `<div class="drop-zone child" data-drop-target="${item.id}" data-position="child" aria-hidden="true"></div>`
@@ -6191,6 +6198,7 @@
       isReminderDue,
       getDueReminders,
       checkDueReminders,
+      renderTask,
       renderTaskDetailsPanel,
       renderGroupDetailsPanel,
       renderDetailsPanel,
