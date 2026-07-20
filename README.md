@@ -2,7 +2,11 @@
 
 A day planner that lives in one HTML file. No account, no server, no install, no network requests. Nested outline, day timeline, focus timing, and Markdown export, all offline.
 
-**[Try it now](https://evrenucar.github.io/punchlist_app/)** · [Open the app](https://evrenucar.github.io/punchlist_app/task-board.html) · [Build notes](https://evrenucar.github.io/punchlist_app/notes.html)
+### Website: https://evrenucar.github.io/punchlist_app/
+
+Start here. The landing page explains what Punchlist is and runs the real app as a live demo you can type into.
+
+Secondary links: [open the app directly](https://evrenucar.github.io/punchlist_app/task-board.html) and [build notes](https://evrenucar.github.io/punchlist_app/notes.html).
 
 ![The Punchlist board with an example outline](docs/screenshot.png)
 
