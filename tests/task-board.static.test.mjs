@@ -341,6 +341,20 @@ test("expand chevron shows when a task has a visible child", async () => {
   assert.match(html, /child-list/);
 });
 
+test("focus outline respects collapse and hides the chevron on leaves", async () => {
+  const api = await loadBoardApi();
+  const parent = { id: "ffp", text: "parent", collapsed: false, children: [{ id: "ffc", text: "child", children: [] }] };
+  const leaf = { id: "ffl", text: "leaf", children: [] };
+  let html = api.renderFocusChildren([parent, leaf], 0, null);
+  assert.ok(html.includes('data-focus-task-text="ffc"'), "expanded parent shows its child");
+  assert.ok(html.includes('data-focus-chevron="ffp" aria-label="Collapse" aria-expanded="true"'), "parent chevron reads expanded");
+  assert.ok(html.includes('class="focus-child-chevron hidden"'), "a leaf has no visible chevron");
+  parent.collapsed = true;
+  html = api.renderFocusChildren([parent, leaf], 0, null);
+  assert.ok(!html.includes('data-focus-task-text="ffc"'), "collapsed parent hides its child");
+  assert.ok(html.includes('data-focus-chevron="ffp" aria-label="Expand" aria-expanded="false"'), "parent chevron reads collapsed");
+});
+
 test("task and group lifecycle overrides take precedence over global settings", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-projects");

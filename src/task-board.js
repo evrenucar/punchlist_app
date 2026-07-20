@@ -121,6 +121,7 @@
     const focusModeEl = document.querySelector("[data-focus-mode]");
     const focusButtonEl = document.querySelector("[data-focus-button]");
     const focusExitEl = document.querySelector("[data-focus-exit]");
+    const focusFoldEl = document.querySelector("[data-focus-fold]");
     const focusTaskEl = document.querySelector("[data-focus-task]");
     const focusTimerEl = document.querySelector("[data-focus-timer]");
     const focusClockEl = document.querySelector("[data-focus-clock]");
@@ -4212,12 +4213,21 @@
       const items = visible.map((item) => {
         const resolved = resolveTaskItem(item);
         const done = Boolean(resolved?.done);
+        // chevron + collapse mirror the main board: base it on VISIBLE children
+        // (the same skip rules), respect item.collapsed (so focus inherits the
+        // board's fold state), and only recurse when expanded.
+        const kids = item.linkType === "reference" ? [] : (item.children || []);
+        const visibleKids = kids.filter((k) => !(group && isTaskHiddenFromActive(k, group)));
+        const hasKids = visibleKids.length > 0;
+        const expanded = hasKids && !item.collapsed;
+        const id = resolved?.id || item.id;
         return `
         <li style="margin-left: ${depth * 18}px" class="${done ? "focus-child-done" : ""}">
-          <button class="focus-child-check ${done ? "done" : ""}" type="button" data-focus-toggle="${resolved?.id || item.id}" aria-label="${done ? "Mark not done" : "Mark done"}">${done ? renderIcon("check") : ""}</button>
-          <span class="focus-child-text" contenteditable="true" spellcheck="true" data-focus-task-text="${resolved?.id || item.id}">${renderInlineMarkdown(resolved?.text || item.text)}</span>
+          <button class="focus-child-chevron ${hasKids ? "" : "hidden"}" type="button" data-focus-chevron="${item.id}" aria-label="${expanded ? "Collapse" : "Expand"}" aria-expanded="${expanded ? "true" : "false"}">${renderIcon("chevron")}</button>
+          <button class="focus-child-check ${done ? "done" : ""}" type="button" data-focus-toggle="${id}" aria-label="${done ? "Mark not done" : "Mark done"}">${done ? renderIcon("check") : ""}</button>
+          <span class="focus-child-text" contenteditable="true" spellcheck="true" data-focus-task-text="${id}">${renderInlineMarkdown(resolved?.text || item.text)}</span>
           ${renderFocusImages(resolved || item, "focus-child-image")}
-          ${renderFocusChildren(item.children || [], depth + 1, group)}
+          ${expanded ? renderFocusChildren(item.children || [], depth + 1, group) : ""}
         </li>
       `;
       }).join("");
@@ -4358,6 +4368,33 @@
       } else {
         renderSelection();
       }
+    }
+
+    function focusFoldAll() {
+      const roots = focusModeGroupId
+        ? (findGroup(focusModeGroupId)?.tasks || [])
+        : (findTask(focusModeTaskId)?.item.children || []);
+      // one button, both directions: collapse everything if anything is open,
+      // otherwise expand everything back out.
+      let anyExpanded = false;
+      const scan = (list) => list.forEach((t) => {
+        if ((t.children || []).length) {
+          if (!t.collapsed) anyExpanded = true;
+          scan(t.children);
+        }
+      });
+      scan(roots);
+      const collapse = anyExpanded;
+      const apply = (list) => list.forEach((t) => {
+        if ((t.children || []).length) {
+          t.collapsed = collapse;
+          apply(t.children);
+        }
+      });
+      apply(roots);
+      boardStaleBehindFocus = true;
+      saveState();
+      renderFocusMode();
     }
 
     function toggleFocusMode() {
@@ -4858,6 +4895,17 @@
     });
 
     focusTaskEl?.addEventListener("click", (event) => {
+      const chevron = event.target.closest("[data-focus-chevron]");
+      if (chevron) {
+        const found = findTask(chevron.dataset.focusChevron);
+        if (found) {
+          found.item.collapsed = !found.item.collapsed;
+          boardStaleBehindFocus = true;
+          saveState();
+          renderFocusMode();
+        }
+        return;
+      }
       const toggle = event.target.closest("[data-focus-toggle]");
       if (!toggle) return;
       const found = findTask(toggle.dataset.focusToggle);
@@ -5006,6 +5054,7 @@
 
     focusButtonEl?.addEventListener("click", toggleFocusMode);
     focusExitEl?.addEventListener("click", exitFocusMode);
+    focusFoldEl?.addEventListener("click", focusFoldAll);
     window.addEventListener?.("beforeunload", () => stopFocusTimer());
     function syncSettingsControls() {
       const settings = state.settings;

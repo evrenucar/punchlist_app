@@ -1760,18 +1760,52 @@
     }
 
     .focus-outline li {
-      /* check in column 1, text in column 2, nested list spans a new row.
-         inline flow dropped the text below the box once it was too wide to
-         sit beside it on a phone (Evren: the box ends up on a separate row). */
+      /* chevron in column 1, check in column 2, text in column 3, nested list
+         spans a new row. inline flow dropped the text below the box once it was
+         too wide to sit beside it on a phone (Evren: box ends on a separate row). */
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      column-gap: 8px;
+      grid-template-columns: auto auto minmax(0, 1fr);
+      column-gap: 6px;
       align-items: start;
       padding: 3px 0;
     }
 
     .focus-outline li > .focus-outline {
       grid-column: 1 / -1;
+    }
+
+    .focus-child-chevron {
+      display: inline-grid;
+      place-items: center;
+      /* nudge down to sit on the first text line, matching the checkbox */
+      margin-top: 3px;
+      width: 20px;
+      height: 20px;
+      border: 0;
+      border-radius: 5px;
+      background: none;
+      color: var(--muted);
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .focus-child-chevron svg {
+      width: 15px;
+      height: 15px;
+      stroke-width: 2;
+    }
+
+    .focus-child-chevron:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .focus-child-chevron[aria-expanded="false"] svg {
+      transform: rotate(-90deg);
+    }
+
+    .focus-child-chevron.hidden {
+      visibility: hidden;
     }
 
     .focus-child-check {
