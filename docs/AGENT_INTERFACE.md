@@ -31,6 +31,18 @@ At session start, open the wrapper as a normal (non-isolated) tab in the agent-c
 - Agent_Active (`group-inbox`) holds actionable items only. New priority items go immediately AFTER the current active item, with `inserted: true`. Finished items: `done` + `completedAt`, `active: false`, moved UNDER `task-agent-completed` at the TOP (latest first). Finished `inserted` items stay visible as gray nodes on their branch.
 - Every piece of work gets a board item — nothing happens off-graph. Work arriving via terminal counts the same as chat or board input.
 
+## Node authoring convention (Evren's ask, 2026-07-20 — the graph is only as honest as its nodes)
+
+Half of "the graph doesn't reflect intent and state" is authoring, not layout. Rules for every agent, every session:
+
+1. **Mark active the moment work starts.** Set `active: true` on the board item BEFORE the first tool call of that work, not after. One active item per agent at a time; clear it (`active: false`) the moment you move on. A beat without an active node, or an active node nobody is beating on, both read as lies.
+2. **Decompose visibly.** Multi-part work gets children on its board item, one child per real subtask, added when you start (not retroactively). The parent→children fan IS the intent display; a monolithic node hides everything.
+3. **Close promptly.** The moment something ships: `done: true`, `completedAt`, `completedBy: "agent"`, `active: false`, move under `task-agent-completed` (top). Never batch closures at session end; stale open nodes make the queue unreadable.
+4. **Front-load node text.** The first line is what the graph shows; lead with the point ("Sync 409 fixed: re-GET sha and retry" not "Investigated the issue where…").
+5. **Position is priority.** Top of a group (and of a sub-group) is highest priority. Work the queues top-down, and insert new items at their true rank, not the bottom. To-do-group items must not rot un-attended: sweep them without being re-told.
+6. **He restated it? You probably have it.** Search the board JSON for a matching item before reacting to a restated request; answer with the item's ID and status instead of acting confused or creating a duplicate.
+7. **Every node maps to a board item.** Heartbeat `taskId`s must be real board item IDs so the chip pins to a node. Duration and authorship ride the item (`focusSeconds` machinery in the app; `completedBy`/history on the board), so keep IDs stable.
+
 ## Braindump and intake
 
 Private until the Intake button posts `"Braindump intake requested"` into chat. Top of the braindump = highest priority. On intake: view any embedded images FIRST, fetch links when context matters, classify each item's lane (card when unsure), check whether it was mentioned before and NAME the duplicate in the summary, triage in STAGED quiet-writes a few seconds apart (the button glows "Intaking braindump…" until the group empties), preserve his task objects (move, never retype), never silently delete non-empty leftovers, and post a placement summary in chat.
