@@ -221,6 +221,10 @@
   }
   .gjump:hover { text-decoration: underline; }
   .graph-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .graph-viewswitch { position: absolute; top: 6px; right: 8px; z-index: 6; display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 7px; padding: 2px; }
+  .graph-viewswitch button { font: inherit; font-size: 11px; padding: 3px 8px; border: 0; border-radius: 5px; background: none; color: var(--muted); cursor: pointer; }
+  .graph-viewswitch button:hover { color: var(--text); }
+  .graph-viewswitch button.active { background: var(--accent); color: #fff; font-weight: 700; }
   .gnode.active {
     border-color: #7c3aed; border-left-color: #7c3aed;
     background: color-mix(in srgb, #7c3aed 12%, var(--surface));
@@ -420,6 +424,12 @@
   <div class="graphpane" id="graphpane" hidden>
     <div class="graph-viewport" id="graph-viewport">
       <div class="graph-world" id="graph-world"></div>
+      <div class="graph-viewswitch" id="graph-viewswitch">
+        <button type="button" data-graphview="force">Force</button>
+        <button type="button" data-graphview="tree">Tree</button>
+        <button type="button" data-graphview="lanes">Lanes</button>
+        <button type="button" data-graphview="staircase">Stairs</button>
+      </div>
     </div>
     <div class="graph-divider" id="graph-divider" title="Drag to resize"></div>
   </div>
@@ -509,7 +519,7 @@
   }
 
   function mark(word) {
-    stamp.textContent = word + " " + new Date().toLocaleTimeString();
+    stamp.textContent = word + " " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
 
   // ---- In-frame decoration -------------------------------------------------
@@ -754,6 +764,11 @@
   const GRAPH_SEEN_KEY = "punchlist-status-graph-lastvisit";
   let graphLastVisit = Number(localStorage.getItem(GRAPH_SEEN_KEY)) || 0;
   let graphPath = [];        // [trunkId, childId, …] — the open staircase path
+  // Layout views (Evren 2026-07-20): every node is a board item; force is the
+  // default, tree/lanes/staircase are toggles. Staircase stays as a safe fallback.
+  const GRAPH_VIEW_KEY = "punchlist-status-graph-view";
+  let graphView = localStorage.getItem(GRAPH_VIEW_KEY) || "force";
+  let graphSelId = null;     // selected node id in the layout views
   const graphReveal = new Set(); // parents whose "+N more" pill was opened
 
   function laneOf(t) { return t && t.lane === "dev" ? "dev" : "app"; }
@@ -782,10 +797,533 @@
     return trunk;
   }
 
+  // ---- Layout views (force/tree/lanes) over one board-item model ------------
+  // A top-level twin of renderGraph's own nodeEl (which is scoped inside it),
+  // reading nodeCtx so the layout views reuse the exact same encoders (author
+  // colour, active glow, done tick, new dot, lane tag, jump). Kept separate to
+  // avoid refactoring the working staircase renderer mid-change.
+  var nodeCtx = { NODE_W: 210, clampLines: "3", isNew: function () { return false; } };
+  function nodeEl(kind, task, textOverride, onPath) {
+    var el = document.createElement("div");
+    el.className = "gnode " + kind
+      + (task && task.by === "user" ? " by-user" : task && task.by === "agent" ? " by-agent" : "")
+      + (kind === "done" && task && task.completedBy === "agent" ? " agent-done" : "")
+      + (onPath ? " path-sel" : "");
+    el.style.width = nodeCtx.NODE_W + "px";
+    if (task) el.dataset.taskId = task.id;
+    var text = document.createElement("div");
+    text.className = "gtext";
+    text.style.webkitLineClamp = nodeCtx.clampLines;
+    text.textContent = textOverride || (task && task.text) || "(untitled)";
+    el.appendChild(text);
+    if (nodeCtx.isNew(task)) {
+      var dot = document.createElement("span");
+      dot.className = "gnew";
+      dot.title = "new since your last look at the graph";
+      el.appendChild(dot);
+    }
+    if (kind === "done" && task && task.completedAt) {
+      var when = document.createElement("span");
+      when.className = "gwhen";
+      when.textContent = new Date(task.completedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      el.appendChild(when);
+    }
+    if (task && kind !== "idle" && kind !== "pill") {
+      var tag = document.createElement("div");
+      tag.className = "gtag " + laneOf(task);
+      tag.textContent = laneOf(task) === "dev" ? "development interface" : "app";
+      el.appendChild(tag);
+    }
+    if (task && onPath) {
+      var jump = document.createElement("button");
+      jump.className = "gjump";
+      jump.type = "button";
+      jump.textContent = "↗";
+      jump.title = "Open this item on the board (or press J)";
+      jump.dataset.jump = task.id;
+      el.appendChild(jump);
+    }
+    graphWorld.appendChild(el);
+    return el;
+  }
+
+  // buildGraphModel turns the board into a general node+edge graph: every node is
+  // a real board item (id + task), so a click can jump to it. Roots are the trunk
+  // (recent done, actives, queue, friction); children are exposed fully, no pills.
+  function buildGraphModel(state) {
+    var nodes = [], roots = [];
+    var pushNode = function (id, parentId, order, kind, task, text) {
+      var ts = task ? (Date.parse(task.completedAt || task.createdAt || "") || 0) : 0;
+      nodes.push({ id: id, parentId: parentId, order: order, kind: kind, ts: ts, task: task || null, text: text || (task ? task.text : "") });
+    };
+    var recurse = function (task, parentId) {
+      (task.children || []).forEach(function (c, i) {
+        pushNode(c.id, parentId, i, c.done ? "done" : "step", c);
+        recurse(c, c.id);
+      });
+    };
+    trunkOf(state).forEach(function (n, i) {
+      roots.push(n.id);
+      pushNode(n.id, null, i, n.kind, n.task, n.text);
+      if (n.task) recurse(n.task, n.id);
+    });
+    return { nodes: nodes, roots: roots };
+  }
+
+  function setGraphView(v) {
+    graphView = v;
+    localStorage.setItem(GRAPH_VIEW_KEY, v);
+    var btns = document.querySelectorAll("#graph-viewswitch button");
+    for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("active", btns[i].dataset.graphview === v);
+    graphKey = "";
+    renderGraph(true);
+    centerGraphOnActive(false);
+  }
+
+  function renderGraphLayout(state, force) {
+    var model = buildGraphModel(state);
+    var Z = graphZoom;
+    var NODE_W = Math.round(210 * Z), NODE_H = Math.round(80 * Z);
+    var opts = { nodeW: NODE_W, nodeH: NODE_H, gapX: Math.round(46 * Z), gapY: Math.round(18 * Z) };
+    var layoutFn = graphView === "tree" ? layoutTree : graphView === "lanes" ? layoutLanes : layoutForce;
+    var key = JSON.stringify([graphView, model.nodes.map(function (n) { return [n.id, n.kind, n.parentId, (n.task && n.task.text || n.text || "").slice(0, 24), n.task && n.task.active]; }), graphZoom, graphSelId, agentsLive, agentGhosts, graphLastVisit]);
+    if (!force && key === graphKey) return;
+    graphKey = key;
+    graphWorld.innerHTML = "";
+    activeNodeCenter = null;
+    var SVGNS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(SVGNS, "svg");
+    svg.classList.add("graph-links");
+    graphWorld.appendChild(svg);
+    var laid = layoutFn(model, opts);
+    var pos = laid.pos || {};
+    nodeCtx = { NODE_W: NODE_W, clampLines: (Z >= 1.8 ? "unset" : String(Math.max(1, Math.round(3 * Z)))), isNew: function (t) { return t && t.createdAt && Date.parse(t.createdAt) > graphLastVisit; } };
+    var placed = {};
+    model.nodes.forEach(function (n) {
+      var p = pos[n.id];
+      if (!p) return;
+      var kind = n.kind === "active" ? "active" : (n.done || n.kind === "done") ? "done" : (n.kind === "bucket" || n.kind === "friction") ? "bucket" : n.kind === "queue" ? "queue" : "step";
+      var el = nodeEl(kind, n.task, n.text, n.id === graphSelId);
+      el.style.left = p.x + "px";
+      el.style.top = p.y + "px";
+      var h = el.offsetHeight;
+      placed[n.id] = { cx: p.x + NODE_W / 2, cy: p.y + h / 2, x: p.x, y: p.y, h: h };
+      if (kind === "active" && !activeNodeCenter) activeNodeCenter = { x: p.x + NODE_W / 2, y: p.y + h / 2 };
+    });
+    var maxX = 0, maxY = 0;
+    model.nodes.forEach(function (n) {
+      var c = placed[n.id];
+      if (!c) return;
+      if (c.x + NODE_W > maxX) maxX = c.x + NODE_W;
+      if (c.y + c.h > maxY) maxY = c.y + c.h;
+      if (n.parentId && placed[n.parentId]) {
+        var f = placed[n.parentId], t = c;
+        var hot = n.kind === "active" || (n.task && n.task.active);
+        var path = document.createElementNS(SVGNS, "path");
+        var mx = (f.cx + t.cx) / 2;
+        path.setAttribute("d", "M " + f.cx + " " + f.cy + " C " + mx + " " + f.cy + ", " + mx + " " + t.cy + ", " + t.cx + " " + t.cy);
+        path.setAttribute("fill", "none");
+        path.style.stroke = hot ? "#7c3aed" : "var(--line-strong)";
+        path.setAttribute("stroke-width", hot ? "2.5" : "1.5");
+        svg.appendChild(path);
+      }
+    });
+    var worldW = Math.max(maxX + 60, graphViewport.clientWidth || 0);
+    var worldH = Math.max(maxY + 50, 120);
+    graphWorld.style.width = worldW + "px";
+    graphWorld.style.height = worldH + "px";
+    svg.setAttribute("width", worldW);
+    svg.setAttribute("height", worldH);
+    agentsLive.forEach(function (agent, index) {
+      var chip = document.createElement("div");
+      chip.className = "agent-chip";
+      chip.textContent = agent.name;
+      var host = placed[agent.taskId];
+      if (host) { chip.style.left = (host.x + 8 + index * 4) + "px"; chip.style.top = (host.y - 10) + "px"; }
+      else { chip.style.left = "8px"; chip.style.top = (6 + index * 20) + "px"; chip.textContent = agent.name + " · off-graph task"; }
+      graphWorld.appendChild(chip);
+    });
+    Object.values(agentGhosts).forEach(function (ghost) {
+      if (agentsLive.some(function (a) { return a.name === ghost.name; })) return;
+      var host = placed[ghost.taskId];
+      if (!host) return;
+      var chip = document.createElement("div");
+      chip.className = "agent-chip ghost";
+      chip.textContent = ghost.name + " · left " + new Date(ghost.offlineAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      chip.style.left = (host.x + 8) + "px";
+      chip.style.top = (host.y - 10) + "px";
+      graphWorld.appendChild(chip);
+    });
+    applyGraphPan(false);
+  }
+
+
+  function layoutForce(model, opts) {
+    var nodes = (model && model.nodes) || [];
+    var n = nodes.length;
+
+    // Empty model -> nothing to place.
+    if (n === 0) return { pos: {}, width: 0, height: 0 };
+
+    var nodeW = opts.nodeW, nodeH = opts.nodeH, gapX = opts.gapX;
+
+    // ---- tunables (all deterministic constants) --------------------------------
+    var ITER = 300;                 // fixed iteration budget, then freeze
+    var EPS = 1e-6;                 // softening: guards divide-by-zero when nodes coincide
+    var rest = nodeW + gapX;        // spring rest length ~ box + gap
+    var kSpring = 0.08;             // spring stiffness (parent<->child)
+    var kRepel = rest * rest;       // repulsion strength (softened inverse-square)
+    var kCenter = 0.01;             // weak pull toward the middle
+    var damping = 0.85;             // velocity decay each step (bleeds off energy -> settles)
+    var dt = 0.9;                   // integration step
+    var maxStep = rest;             // clamp per-iteration travel -> never explodes to Infinity
+    var GOLDEN = 2.399963229728653; // golden angle (radians) for the deterministic seed spiral
+
+    // ---- deterministic spiral seed (NO randomness) -----------------------------
+    var idx = {};
+    var px = new Array(n), py = new Array(n);
+    var vx = new Array(n), vy = new Array(n);
+    for (var i = 0; i < n; i++) {
+      idx[nodes[i].id] = i;
+      var ang = i * GOLDEN;
+      var rad = nodeW * Math.sqrt(i);   // i=0 seeds exactly at the origin (the "middle")
+      px[i] = Math.cos(ang) * rad;
+      py[i] = Math.sin(ang) * rad;
+      vx[i] = 0; vy[i] = 0;
+    }
+
+    // ---- edges: every non-root node linked to its parent -----------------------
+    var eChild = [], eParent = [];
+    for (var i = 0; i < n; i++) {
+      var pid = nodes[i].parentId;
+      if (pid !== null && pid !== undefined) {
+        var p = idx[pid];
+        if (p !== undefined) { eChild.push(i); eParent.push(p); }
+      }
+    }
+    var m = eChild.length;
+
+    var fx = new Array(n), fy = new Array(n);
+
+    // ---- settle: fixed iterations, velocity-Verlet-style w/ damping ------------
+    for (var it = 0; it < ITER; it++) {
+      for (var i = 0; i < n; i++) { fx[i] = 0; fy[i] = 0; }
+
+      // All-pairs repulsion, softened inverse-square. Deterministic i<j order.
+      for (var a = 0; a < n; a++) {
+        var pax = px[a], pay = py[a];
+        var fax = fx[a], fay = fy[a];
+        for (var b = a + 1; b < n; b++) {
+          var dx = pax - px[b];
+          var dy = pay - py[b];
+          var d2 = dx * dx + dy * dy + EPS;   // +EPS: two coincident nodes never divide by 0
+          var d = Math.sqrt(d2);
+          var f = kRepel / d2;                // inverse-square magnitude
+          var ux = dx / d, uy = dy / d;
+          var fxr = f * ux, fyr = f * uy;
+          fax += fxr; fay += fyr;
+          fx[b] -= fxr; fy[b] -= fyr;
+        }
+        fx[a] = fax; fy[a] = fay;
+      }
+
+      // Springs pull each parent/child pair toward the rest length.
+      for (var e = 0; e < m; e++) {
+        var c = eChild[e], p = eParent[e];
+        var dx = px[c] - px[p];
+        var dy = py[c] - py[p];
+        var d = Math.sqrt(dx * dx + dy * dy + EPS);
+        var f = kSpring * (d - rest);         // attractive when stretched, repulsive when compressed
+        var ux = dx / d, uy = dy / d;
+        var fxs = f * ux, fys = f * uy;
+        fx[c] -= fxs; fy[c] -= fys;
+        fx[p] += fxs; fy[p] += fys;
+      }
+
+      // Weak centering toward the origin (the middle).
+      for (var i = 0; i < n; i++) {
+        fx[i] -= kCenter * px[i];
+        fy[i] -= kCenter * py[i];
+      }
+
+      // Integrate with damping; clamp the step so nothing ever blows up.
+      for (var i = 0; i < n; i++) {
+        var nvx = (vx[i] + fx[i] * dt) * damping;
+        var nvy = (vy[i] + fy[i] * dt) * damping;
+        vx[i] = nvx; vy[i] = nvy;
+        var sx = nvx * dt, sy = nvy * dt;
+        var sl = Math.sqrt(sx * sx + sy * sy);
+        if (sl > maxStep) { var s = maxStep / sl; sx *= s; sy *= s; }
+        px[i] += sx; py[i] += sy;
+      }
+    }
+
+    // ---- freeze: to top-left corners, translate so min x,y = 0, add margin -----
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    var tlx = new Array(n), tly = new Array(n);
+    for (var i = 0; i < n; i++) {
+      var x = px[i] - nodeW / 2;   // physics used centers; boxes anchor at top-left
+      var y = py[i] - nodeH / 2;
+      tlx[i] = x; tly[i] = y;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + nodeW > maxX) maxX = x + nodeW;
+      if (y + nodeH > maxY) maxY = y + nodeH;
+    }
+
+    var pos = {};
+    for (var i = 0; i < n; i++) {
+      pos[nodes[i].id] = { x: tlx[i] - minX, y: tly[i] - minY };
+    }
+
+    return {
+      pos: pos,
+      width: (maxX - minX) + nodeW,   // bounds + one-box margin
+      height: (maxY - minY) + nodeH
+    };
+  }
+
+  function layoutTree(model, opts) {
+    var nodes = (model && model.nodes) || [];
+    if (!nodes.length) return { pos: {}, width: 0, height: 0 };
+
+    var o = opts || {};
+    var nodeW = o.nodeW || 0, nodeH = o.nodeH || 0, gapX = o.gapX || 0, gapY = o.gapY || 0;
+    var stepX = nodeW + gapX;
+    var stepY = nodeH + gapY;
+
+    // Index nodes by id, keep original array index for stable tie-breaking.
+    var byId = {};
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (n && n.id != null && !byId.hasOwnProperty(n.id)) byId[n.id] = { node: n, idx: i };
+    }
+
+    // Build children lists (only for parents that actually exist).
+    var childrenOf = {};
+    for (var j = 0; j < nodes.length; j++) {
+      var nd = nodes[j];
+      if (!nd || nd.id == null) continue;
+      var pid = nd.parentId;
+      if (pid == null || !byId.hasOwnProperty(pid)) continue;
+      (childrenOf[pid] || (childrenOf[pid] = [])).push(nd.id);
+    }
+    // Sort each sibling group by `order`, tie-break by original array index (deterministic).
+    for (var key in childrenOf) {
+      if (!childrenOf.hasOwnProperty(key)) continue;
+      childrenOf[key].sort(function (a, b) {
+        var na = byId[a], nb = byId[b];
+        var oa = na.node.order || 0, ob = nb.node.order || 0;
+        if (oa !== ob) return oa - ob;
+        return na.idx - nb.idx;
+      });
+    }
+
+    // Roots in display order (prefer model.roots; else derive from null parentId).
+    var roots;
+    if (model.roots && model.roots.length) {
+      roots = [];
+      for (var r = 0; r < model.roots.length; r++) {
+        if (byId.hasOwnProperty(model.roots[r])) roots.push(model.roots[r]);
+      }
+    } else {
+      roots = [];
+      for (var s = 0; s < nodes.length; s++) {
+        if (nodes[s] && nodes[s].parentId == null && byId.hasOwnProperty(nodes[s].id)) {
+          roots.push(nodes[s].id);
+        }
+      }
+    }
+
+    // Depth per node + one flat post-order list across all roots. Built iteratively so
+    // very deep trees can't overflow the stack. Children are emitted before their parent,
+    // and left sibling subtrees before right ones, so leaves come out top-to-bottom.
+    var depth = {};
+    var seen = {};
+    var post = [];
+    for (var ri = 0; ri < roots.length; ri++) {
+      var root = roots[ri];
+      if (seen[root]) continue;
+      depth[root] = 0;
+      var stack = [root];
+      var order = [];
+      while (stack.length) {
+        var id = stack.pop();
+        if (seen[id]) continue;      // cycle / double-parent guard
+        seen[id] = true;
+        order.push(id);
+        var kids = childrenOf[id];
+        if (kids) {
+          for (var k = 0; k < kids.length; k++) {
+            var cid = kids[k];
+            if (!seen[cid]) {
+              depth[cid] = depth[id] + 1;
+              stack.push(cid);
+            }
+          }
+        }
+      }
+      // `order` is a preorder with children pushed left-to-right (so popped right-to-left);
+      // reversing it yields post-order with left-before-right sibling ordering.
+      for (var m = order.length - 1; m >= 0; m--) post.push(order[m]);
+    }
+
+    // Assign positions in post-order. Each leaf takes the next free vertical slot; an
+    // internal node is vertically centered over the top-left span of its first and last
+    // child. Because a whole left subtree is emitted before any right sibling, sibling
+    // subtrees occupy disjoint contiguous slot ranges -> they can never overlap.
+    var pos = {};
+    var cursor = 0;
+    var maxDepth = 0;
+    var maxBottom = 0;
+    for (var p = 0; p < post.length; p++) {
+      var pid2 = post[p];
+      var kids2 = childrenOf[pid2];
+      var y;
+      if (!kids2 || kids2.length === 0) {
+        y = cursor;
+        cursor += stepY;
+      } else {
+        var firstY = pos[kids2[0]].y;
+        var lastY = pos[kids2[kids2.length - 1]].y;
+        y = (firstY + lastY) / 2;
+      }
+      var d = depth[pid2] || 0;
+      if (d > maxDepth) maxDepth = d;
+      pos[pid2] = { x: d * stepX, y: y };
+      var bottom = y + nodeH;
+      if (bottom > maxBottom) maxBottom = bottom;
+    }
+
+    return {
+      pos: pos,
+      width: post.length ? maxDepth * stepX + nodeW : 0,
+      height: maxBottom
+    };
+  }
+
+  function layoutLanes(model, opts) {
+    var num = function (v, d) { return (typeof v === 'number' && isFinite(v)) ? v : d; };
+    var o = opts || {};
+    var nodeW = num(o.nodeW, 120), nodeH = num(o.nodeH, 40);
+    var gapX = num(o.gapX, 24), gapY = num(o.gapY, 16);
+
+    var nodes = (model && model.nodes) || [];
+    if (!nodes.length) return { pos: {}, width: 0, height: 0 };
+
+    // id -> node, id -> original array index (deterministic tiebreak seed)
+    var byId = {}, idx = {}, i, n;
+    for (i = 0; i < nodes.length; i++) { n = nodes[i]; byId[n.id] = n; idx[n.id] = i; }
+
+    // children keyed by parentId, sorted by (order, index) so "first child" is stable
+    var kids = {};
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      var pp = n.parentId;
+      if (pp !== null && pp !== undefined && byId.hasOwnProperty(pp)) {
+        (kids[pp] || (kids[pp] = [])).push(n.id);
+      }
+    }
+    var cmpSib = function (a, b) {
+      var na = byId[a], nb = byId[b], oa = num(na.order, 0), ob = num(nb.order, 0);
+      return oa !== ob ? oa - ob : idx[a] - idx[b];
+    };
+    var firstChildOf = {}, k;
+    for (k in kids) if (kids.hasOwnProperty(k)) { kids[k].sort(cmpSib); firstChildOf[k] = kids[k][0]; }
+
+    // Roots in display order (declared), then any stray null-parent node as a safety net.
+    // depth is set at enqueue time (a node's parent is always emitted before it), giving
+    // the fallback a breadth-first flavour so sibling branches stay on distinct lanes.
+    var declared = (model && model.roots) || [];
+    var seen = {}, ready = [], depth = {};
+    var pushReady = function (id, d) { if (byId.hasOwnProperty(id) && !seen[id]) { seen[id] = 1; depth[id] = d; ready.push(id); } };
+    for (i = 0; i < declared.length; i++) pushReady(declared[i], 0);
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      if (n.parentId === null || n.parentId === undefined || !byId.hasOwnProperty(n.parentId)) pushReady(n.id, 0);
+    }
+
+    // Stable global rank: declared-root order first, then array order. Final tiebreak.
+    var rank = {}, r = 0;
+    for (i = 0; i < declared.length; i++) if (byId.hasOwnProperty(declared[i]) && !(declared[i] in rank)) rank[declared[i]] = r++;
+    for (i = 0; i < nodes.length; i++) if (!(nodes[i].id in rank)) rank[nodes[i].id] = r++;
+
+    // Frontier ordering = time/progress: ts, then depth, then sibling order, then stable rank.
+    // Because a node only enters the frontier after its parent is emitted, this is a
+    // topological (parent-before-child) order that uses ts when it varies and degrades
+    // to a deterministic breadth-first / topological order when ts is constant.
+    var frontierLess = function (a, b) {
+      var na = byId[a], nb = byId[b], ta = num(na.ts, 0), tb = num(nb.ts, 0);
+      if (ta !== tb) return ta < tb;
+      if (depth[a] !== depth[b]) return depth[a] < depth[b];
+      var oa = num(na.order, 0), ob = num(nb.order, 0);
+      if (oa !== ob) return oa < ob;
+      return rank[a] < rank[b];
+    };
+
+    var pos = {}, placed = {}, lane = {};
+    var activeLanes = [];                 // laneIndex -> occupying id, or null when free
+    var firstFree = function () {
+      for (var j = 0; j < activeLanes.length; j++) if (activeLanes[j] === null) return j;
+      return activeLanes.length;
+    };
+
+    var col = 0, maxCol = 0, maxLane = 0;
+
+    while (ready.length) {
+      // pop the frontier's minimum (single left-to-right pass, no global optimization)
+      var best = 0;
+      for (i = 1; i < ready.length; i++) if (frontierLess(ready[i], ready[best])) best = i;
+      var id = ready[best];
+      ready.splice(best, 1);
+      n = byId[id];
+      var p = n.parentId;
+
+      // Lane: continue parent's lane iff first child; otherwise open the lowest free lane.
+      var myLane;
+      if (p !== null && p !== undefined && byId.hasOwnProperty(p) && firstChildOf[p] === id && lane.hasOwnProperty(p)) {
+        myLane = lane[p];
+      } else {
+        myLane = firstFree();
+      }
+      lane[id] = myLane;
+      while (activeLanes.length <= myLane) activeLanes.push(null);
+      activeLanes[myLane] = id;
+
+      pos[id] = { x: col * (nodeW + gapX), y: myLane * (nodeH + gapY) };
+      placed[id] = 1;
+      if (col > maxCol) maxCol = col;
+      if (myLane > maxLane) maxLane = myLane;
+      col++;
+
+      // A leaf has no descendants: free its lane so a later branch can reuse it.
+      var ch = kids[id];
+      if (!ch || !ch.length) activeLanes[myLane] = null;
+      else for (i = 0; i < ch.length; i++) pushReady(ch[i], depth[id] + 1);
+    }
+
+    // Safety net: place anything unreachable (e.g. malformed input) without NaN.
+    for (i = 0; i < nodes.length; i++) {
+      n = nodes[i];
+      if (!placed[n.id]) {
+        pos[n.id] = { x: col * (nodeW + gapX), y: 0 };
+        if (col > maxCol) maxCol = col;
+        col++; placed[n.id] = 1;
+      }
+    }
+
+    return {
+      pos: pos,
+      width: maxCol * (nodeW + gapX) + nodeW,
+      height: maxLane * (nodeH + gapY) + nodeH
+    };
+  }
+
   function renderGraph(force) {
     if (graphPane.hidden) return;
     const state = readBoardState();
     if (!state) return;
+    if (graphView !== "staircase") { renderGraphLayout(state, force); return; }
     const trunk = trunkOf(state);
     if (!graphPath.length || !trunk.some((n) => n.id === graphPath[0])) {
       const anchor = trunk.find((n) => n.kind === "active" && n.task) || trunk.find((n) => n.task);
@@ -1007,6 +1545,7 @@
   (() => {
     const height = Number(localStorage.getItem(GRAPH_H_KEY));
     if (height >= 160) graphPane.style.height = height + "px";
+    document.querySelectorAll("#graph-viewswitch button").forEach((b) => b.classList.toggle("active", b.dataset.graphview === graphView));
     if (localStorage.getItem(GRAPH_OPEN_KEY) === "1") setGraphOpen(true);
   })();
 
@@ -1028,10 +1567,18 @@
     });
     graphViewport.addEventListener("pointerup", () => {
       if (drag && !drag.moved) {
+        const viewBtn = drag.target.closest("[data-graphview]");
         const jump = drag.target.closest(".gjump");
         const node = drag.target.closest(".gnode");
-        if (jump) {
+        if (viewBtn) {
+          setGraphView(viewBtn.dataset.graphview);
+        } else if (jump) {
           jumpToTask(jump.dataset.jump);
+        } else if (graphView !== "staircase") {
+          if (node && node.dataset.taskId) {
+            graphSelId = graphSelId === node.dataset.taskId ? null : node.dataset.taskId;
+            renderGraph(true);
+          }
         } else if (node && node.dataset.reveal) {
           graphReveal.add(node.dataset.reveal);
           renderGraph(true);
@@ -1216,7 +1763,7 @@
     chip.classList.toggle("max", used > 85);
     chip.classList.toggle("stale", stale);
     chip.title = stale
-      ? "Last known context use — the agent session is not reporting (as of " + new Date(at).toLocaleTimeString() + ")"
+      ? "Last known context use — the agent session is not reporting (as of " + new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ")"
       : "Real context usage from the agent's terminal session";
     chip.hidden = false;
   }
