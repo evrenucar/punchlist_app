@@ -45,6 +45,11 @@ const routes = {
   // mobile-behavior guide: one card per gesture with a comment box that POSTs
   // /chat same-origin (like /testplan). Keep in step with the app's touch spec.
   "/mobile-guide": { file: join(statusDir, "mobile-guide.html"), type: "text/html; charset=utf-8" },
+  // interactive review pages: clickable answers + notes that POST /chat, all
+  // generated from status/review-harness.template.html by build-review-pages.mjs
+  "/focus-grill": { file: join(statusDir, "focus-grill.html"), type: "text/html; charset=utf-8" },
+  "/update-overview": { file: join(statusDir, "update-overview.html"), type: "text/html; charset=utf-8" },
+  "/graph-options": { file: join(statusDir, "graph-options.html"), type: "text/html; charset=utf-8" },
 };
 
 createServer(async (req, res) => {

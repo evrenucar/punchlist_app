@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punchlist review</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px 16px 72px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+  .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 18px; }
+  h2 { font-size: 13px; margin: 26px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+  .item {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; margin: 8px 0;
+  }
+  .item.noted { border-color: var(--accent); }
+  .item h3 { font-size: 15px; margin: 0 0 3px; }
+  .item p { margin: 0 0 8px; color: var(--muted); font-size: 13.5px; }
+  .answers { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 9px; }
+  .chip {
+    font: inherit; font-size: 12.5px; line-height: 1.3; padding: 5px 11px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+    color: var(--text); cursor: pointer; text-align: left;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.picked { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .sketch { margin: 2px 0 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .sketch svg { display: block; width: 100%; height: auto; max-width: 340px; color: var(--muted); }
+  .fb {
+    width: 100%; font: inherit; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+    color: var(--text); padding: 8px 10px; resize: vertical; min-height: 36px;
+  }
+  .fb::placeholder { color: var(--muted); opacity: 0.7; }
+  .sendbar { display: flex; gap: 10px; align-items: center; margin-top: 26px; flex-wrap: wrap;
+    position: sticky; bottom: 0; background: var(--bg); padding: 14px 0 4px; }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.reset {
+    font: inherit; font-size: 12px; padding: 6px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <p class="sub" id="intro"></p>
+  <p class="progress" id="progress"></p>
+  <div id="content"></div>
+  <div class="sendbar">
+    <button class="send" id="send">Send</button>
+    <button class="reset" id="reset">Clear</button>
+    <span class="sendmsg" id="sendmsg"></span>
+  </div>
+</main>
+<script>
+  const SPEC = {"title":"Status board graph: pick a direction","intro":"Today's graph hides branches and crams time and tree depth onto one line. Pick the direction to fix it.","sendLabel":"Send my graph picks","chatPrefix":"Graph redesign:","storageKey":"punchlist-graph-options-v1","sections":[{"heading":"The problem","items":[{"id":"problem-today","title":"What hurts most today","body":"The graph is a single horizontal staircase. Siblings hide behind +N pills, one axis carries both time and tree depth, and state barely shows.","answers":{"options":["Hidden branches behind the +N pills","One axis carrying both time and tree depth","Weak state and intent signals","All three, about equally"]},"placeholder":"Anything else about today's graph that bugs you?"}]},{"heading":"Three layouts","items":[{"id":"layout-a-force","title":"Layout A: local force graph (the Obsidian look)","body":"Nodes float and links pull them into a web. Handles merges, but it jitters and lands differently each render, which is rough for a board you scan by keyboard.","sketch":"<svg viewBox='0 0 320 150'><g stroke='#888' stroke-width='1'><line x1='160' y1='75' x2='90' y2='40'/><line x1='160' y1='75' x2='230' y2='45'/><line x1='160' y1='75' x2='120' y2='115'/><line x1='160' y1='75' x2='215' y2='110'/><line x1='230' y1='45' x2='285' y2='80'/><line x1='90' y1='40' x2='55' y2='95'/><line x1='215' y1='110' x2='285' y2='80'/></g><g fill='currentColor'><circle cx='160' cy='75' r='9'/><circle cx='90' cy='40' r='6'/><circle cx='230' cy='45' r='6'/><circle cx='120' cy='115' r='6'/><circle cx='215' cy='110' r='6'/><circle cx='285' cy='80' r='5'/><circle cx='55' cy='95' r='5'/></g></svg>","answers":{"options":["Keep it as an optional explore toggle for later","Not for me, skip it"]},"placeholder":"When would you actually want the organic view?"},{"id":"layout-b-tree","title":"Layout B: tidy exposed tree","body":"Root on the left, depth to the right, every sibling shown so the +N pills die. Deterministic, roughly 50 lines of vanilla, and arrow keys map to parent, child, and siblings.","sketch":"<svg viewBox='0 0 320 150'><g stroke='#888' stroke-width='1'><line x1='30' y1='75' x2='120' y2='30'/><line x1='30' y1='75' x2='120' y2='75'/><line x1='30' y1='75' x2='120' y2='120'/><line x1='120' y1='30' x2='215' y2='20'/><line x1='120' y1='30' x2='215' y2='50'/><line x1='120' y1='75' x2='215' y2='80'/><line x1='120' y1='120' x2='215' y2='105'/><line x1='120' y1='120' x2='215' y2='135'/><line x1='215' y1='50' x2='295' y2='50'/></g><g fill='currentColor'><circle cx='30' cy='75' r='8'/><circle cx='120' cy='30' r='6'/><circle cx='120' cy='75' r='6'/><circle cx='120' cy='120' r='6'/><circle cx='215' cy='20' r='5'/><circle cx='215' cy='50' r='5'/><circle cx='215' cy='80' r='5'/><circle cx='215' cy='105' r='5'/><circle cx='215' cy='135' r='5'/><circle cx='295' cy='50' r='4'/></g></svg>","answers":{"options":["Make this the default, yes","Yes, but I want to tweak it first","No, don't go this way"]},"placeholder":"If you want tweaks, what would you change?"},{"id":"layout-c-lanes","title":"Layout C: timeline swimlanes (git-lane hybrid)","body":"X is time. Each subagent gets a lane that opens on spawn and closes on merge, and each node fans its children into a small sub-tree. Highest ceiling for live parallel work, but the most code, and it only pays once subagents are routine.","sketch":"<svg viewBox='0 0 320 150'><g stroke='#888' stroke-width='1' stroke-dasharray='3 3'><line x1='20' y1='45' x2='300' y2='45'/><line x1='20' y1='105' x2='300' y2='105'/></g><g stroke='currentColor' stroke-width='2' fill='none'><line x1='30' y1='45' x2='290' y2='45'/><path d='M110 45 Q140 45 150 105'/><line x1='150' y1='105' x2='230' y2='105'/><path d='M230 105 Q252 105 260 45'/></g><g fill='currentColor'><circle cx='30' cy='45' r='5'/><circle cx='110' cy='45' r='5'/><circle cx='200' cy='45' r='5'/><circle cx='290' cy='45' r='5'/><circle cx='150' cy='105' r='5'/><circle cx='230' cy='105' r='5'/></g><g fill='#888' font-size='10'><text x='20' y='32'>main</text><text x='150' y='128'>subagent</text></g></svg>","answers":{"options":["Wait until subagents are common, then build it","Build it now","Skip it"]},"placeholder":"What would make subagents common enough to justify C?"}]},{"heading":"State and intent","items":[{"id":"node-encodings","title":"What each node should encode","body":"Beyond position, a node can carry visual signals. Pick every one you want.","answers":{"multi":true,"options":["State as color","Active node glows or pulses","Author badge: you vs a subagent","Done nodes always dim","Age cue on older nodes","Focus mode dims nodes far from the active one"]},"placeholder":"Any encoding missing, or any you would drop?"},{"id":"authoring-convention","title":"The authoring-convention half","body":"Half of showing state is data, not layout. Agents have to mark a node active when they start, split work into clear children, and close nodes promptly.","answers":{"options":["Yes, write a tightened authoring convention","Yes, but keep it lightweight","No, layout changes are enough for now"]},"placeholder":"Which authoring habits matter most to enforce?"}]},{"heading":"Recommendation","items":[{"id":"recommendation","title":"The recommendation","body":"Ship Layout B now as the default so branching is fully exposed. Grow into Layout C once parallel subagents are routine. Keep Layout A as an optional toggle.","answers":{"options":["Go with it: ship B now, grow to C","I want a different plan"]},"placeholder":"If different, what is your plan?"}]}]};
+  const KEY = SPEC.storageKey;
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+  store.notes = store.notes || {};
+  store.picks = store.picks || {};
+
+  document.title = "Punchlist — " + SPEC.title;
+  document.getElementById("title").textContent = SPEC.title;
+  document.getElementById("intro").textContent = SPEC.intro;
+  document.getElementById("send").textContent = SPEC.sendLabel;
+
+  const root = document.getElementById("content");
+  const allIds = [];
+
+  function persist() { localStorage.setItem(KEY, JSON.stringify(store)); }
+  function hasInput(id) {
+    return (store.picks[id] && store.picks[id].length) || (store.notes[id] && store.notes[id].trim());
+  }
+  function paintCard(card, id) { card.classList.toggle("noted", Boolean(hasInput(id))); }
+  function paintProgress() {
+    const n = allIds.filter(hasInput).length;
+    document.getElementById("progress").textContent =
+      n ? n + " of " + allIds.length + " answered" : "Click the answers that fit and add notes, then send";
+  }
+
+  for (const section of SPEC.sections) {
+    const h2 = document.createElement("h2");
+    h2.textContent = section.heading;
+    root.appendChild(h2);
+    for (const item of section.items) {
+      allIds.push(item.id);
+      const card = document.createElement("div");
+      card.className = "item";
+      card.dataset.id = item.id;
+
+      const h3 = document.createElement("h3");
+      h3.textContent = item.title;
+      card.appendChild(h3);
+
+      if (item.body) {
+        const p = document.createElement("p");
+        p.textContent = item.body;
+        card.appendChild(p);
+      }
+      if (item.sketch) {
+        const s = document.createElement("div");
+        s.className = "sketch";
+        s.innerHTML = item.sketch;
+        card.appendChild(s);
+      }
+      if (item.answers && Array.isArray(item.answers.options)) {
+        const multi = Boolean(item.answers.multi);
+        const wrap = document.createElement("div");
+        wrap.className = "answers";
+        for (const opt of item.answers.options) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "chip";
+          b.textContent = opt;
+          if ((store.picks[item.id] || []).includes(opt)) b.classList.add("picked");
+          b.addEventListener("click", () => {
+            let cur = store.picks[item.id] || [];
+            if (multi) cur = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
+            else cur = cur.includes(opt) ? [] : [opt];
+            store.picks[item.id] = cur;
+            if (!cur.length) delete store.picks[item.id];
+            persist();
+            const picked = store.picks[item.id] || [];
+            [...wrap.children].forEach((c) => c.classList.toggle("picked", picked.includes(c.textContent)));
+            paintCard(card, item.id);
+            paintProgress();
+          });
+          wrap.appendChild(b);
+        }
+        card.appendChild(wrap);
+      }
+
+      const ta = document.createElement("textarea");
+      ta.className = "fb";
+      ta.dataset.fb = item.id;
+      ta.placeholder = item.placeholder || "Add a note (optional)";
+      ta.value = store.notes[item.id] || "";
+      ta.addEventListener("input", () => {
+        if (ta.value.trim()) store.notes[item.id] = ta.value;
+        else delete store.notes[item.id];
+        persist();
+        paintCard(card, item.id);
+        paintProgress();
+      });
+      card.appendChild(ta);
+
+      paintCard(card, item.id);
+      root.appendChild(card);
+    }
+  }
+  paintProgress();
+
+  document.getElementById("reset").addEventListener("click", () => {
+    store.notes = {};
+    store.picks = {};
+    persist();
+    location.reload();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const lines = [];
+    for (const section of SPEC.sections) {
+      for (const item of section.items) {
+        if (!hasInput(item.id)) continue;
+        const picks = store.picks[item.id] || [];
+        const note = (store.notes[item.id] || "").trim();
+        let line = "- " + item.title;
+        if (picks.length) line += ": " + picks.join(" | ");
+        if (note) line += picks.length ? " (note: " + note + ")" : ": " + note;
+        lines.push(line);
+      }
+    }
+    const sendmsg = document.getElementById("sendmsg");
+    if (!lines.length) {
+      sendmsg.textContent = "Nothing to send yet, click an answer or type a note first.";
+      sendmsg.className = "sendmsg err";
+      return;
+    }
+    const text = SPEC.chatPrefix + "\n" + lines.join("\n");
+    try {
+      const r = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text }),
+      });
+      if (!r.ok) throw new Error();
+      sendmsg.textContent = "Sent, the agent has it.";
+      sendmsg.className = "sendmsg ok";
+    } catch {
+      sendmsg.textContent = "Could not reach the agent. Open this at http://localhost:4173" + location.pathname + " and retry.";
+      sendmsg.className = "sendmsg err";
+    }
+  });
+</script>
+</body>
+</html>

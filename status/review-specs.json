@@ -1,0 +1,450 @@
+[
+  {
+    "key": "focus-grill",
+    "spec": {
+      "title": "Focus interface: redesign decisions",
+      "intro": "Click the options that fit, add a note where you have one, then send it all to chat.",
+      "sendLabel": "Send focus answers",
+      "chatPrefix": "Focus grill:",
+      "storageKey": "punchlist-focus-grill-v1",
+      "sections": [
+        {
+          "heading": "Collapse and expand",
+          "items": [
+            {
+              "id": "collapse-controls",
+              "title": "What controls do you want for folding rows?",
+              "body": "Everything opens flat with no way to fold it. Which set of controls fixes that?",
+              "answers": {
+                "options": [
+                  "Both: a chevron on each parent plus one collapse-all / expand-all button",
+                  "Chevrons only, fold each row by hand",
+                  "One collapse-all / expand-all toggle, no per-row chevrons",
+                  "A depth slider: show only the top N levels"
+                ]
+              },
+              "placeholder": "Note which control you'd reach for first, and any keyboard shortcut you'd want."
+            },
+            {
+              "id": "initial-state",
+              "title": "Opening focus on a big subtree: how should it start?",
+              "body": "Long lists come open all at once. When focus opens on something with lots of children, what state should it land in?",
+              "answers": {
+                "options": [
+                  "Collapsed to the top level, you open what you need",
+                  "Remember the collapse state from the main board",
+                  "Fully open, like today",
+                  "Remember how you left this focus last time"
+                ]
+              },
+              "placeholder": "Note what 'top level' should mean for a whole group versus a single task."
+            }
+          ]
+        },
+        {
+          "heading": "Editing power",
+          "items": [
+            {
+              "id": "editing-parity",
+              "title": "Which main-board editing powers are missing in focus?",
+              "body": "Focus should match the main page. Check every editing power you reach for inside focus that isn't there.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Tab / Shift+Tab to indent and outdent",
+                  "Drag to reorder rows",
+                  "Alt+Arrow to move a row up, down, in, or out",
+                  "Multi-select rows, then act on all of them",
+                  "Paste or drop in images"
+                ]
+              },
+              "placeholder": "Note the one whose absence stops you cold, plus anything else the board does that focus can't."
+            }
+          ]
+        },
+        {
+          "heading": "Moving around a long list",
+          "items": [
+            {
+              "id": "long-list-nav",
+              "title": "What helps you not get lost in a long focus list?",
+              "body": "Once an outline is long, scrolling loses your place. Which navigation aid earns its keep?",
+              "answers": {
+                "options": [
+                  "Sticky header showing a breadcrumb of where you are",
+                  "A side outline you click to jump around this list",
+                  "Good collapse controls are enough, no extra nav",
+                  "Both the breadcrumb and the side outline"
+                ]
+              },
+              "placeholder": "Note whether you scroll or search to find a row today."
+            },
+            {
+              "id": "minimal-vs-nav",
+              "title": "Keep focus minimal, or move between groups and tasks inside it?",
+              "body": "Focus hides the sidebar on purpose. Should it stay on one thing, or let you hop to the next group or task without leaving?",
+              "answers": {
+                "options": [
+                  "Keep it minimal, one thing at a time, exit to switch",
+                  "Add prev / next to step to the sibling group or task",
+                  "Add a switcher to jump to any other group or task"
+                ]
+              },
+              "placeholder": "Note if you ever wish you could jump to the next thing without exiting."
+            }
+          ]
+        },
+        {
+          "heading": "Where it hurts, and getting in and out",
+          "items": [
+            {
+              "id": "where-it-hurts",
+              "title": "Where does focus hurt most today?",
+              "body": "Focus runs on a single task's subtree or a whole group. Which is the bigger problem to fix first?",
+              "answers": {
+                "options": [
+                  "Group focus, the long many-item case",
+                  "Task focus, a single task's subtree",
+                  "Both equally, fix them together"
+                ]
+              },
+              "placeholder": "Note a real example of the one that hurts."
+            },
+            {
+              "id": "enter-leave",
+              "title": "Entering and leaving focus: any friction?",
+              "body": "Think about getting into focus and back out. What's the main annoyance, if any?",
+              "answers": {
+                "options": [
+                  "No keyboard way in or out, it's all mouse",
+                  "Exiting drops me at the wrong spot on the board",
+                  "Getting in takes too many clicks",
+                  "No real friction here"
+                ]
+              },
+              "placeholder": "Note the exact moment it annoys you, going in or coming out."
+            }
+          ]
+        },
+        {
+          "heading": "Open floor",
+          "items": [
+            {
+              "id": "anything-else",
+              "title": "Anything else about focus?",
+              "body": "Bugs, half-formed ideas, things that feel wrong but you can't name yet. Notes only is fine.",
+              "placeholder": "Type anything."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "key": "update-overview",
+    "spec": {
+      "title": "Update check: review the flow",
+      "intro": "Pick one option per state, add a note, and send it all to chat.",
+      "sendLabel": "Send my update-flow notes",
+      "chatPrefix": "Update flow review:",
+      "storageKey": "punchlist-update-overview-v1",
+      "sections": [
+        {
+          "heading": "The idea",
+          "items": [
+            {
+              "id": "whole-idea",
+              "title": "The whole idea",
+              "body": "Only the downloaded copy of Punchlist checks GitHub in the background and shows a small banner when a newer build exists. Local data is never touched. The hosted copy on the website never checks.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "Yes, build it this way",
+                  "Mostly right, see my notes",
+                  "No, let's rethink the approach"
+                ]
+              },
+              "placeholder": "Anything about the overall flow to change before the states below."
+            }
+          ]
+        },
+        {
+          "heading": "1. When it checks",
+          "items": [
+            {
+              "id": "check-frequency",
+              "title": "How often it checks",
+              "body": "The check runs in the background and never blocks the app. Open question: how often it may call GitHub.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "At most once per day",
+                  "Every app load, no throttle",
+                  "At most once per week",
+                  "Only when I open Settings"
+                ]
+              },
+              "placeholder": "Notes on timing, throttle, or when to skip a check."
+            }
+          ]
+        },
+        {
+          "heading": "2. Up to date",
+          "items": [
+            {
+              "id": "up-to-date",
+              "title": "When you are already current",
+              "body": "Most loads find nothing new. Question: stay fully silent, or show a small version stamp.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "Silent, plus a tiny 'vX.Y.Z, current' line in Settings",
+                  "Fully silent, no stamp anywhere",
+                  "Stamp in Settings and in the footer"
+                ]
+              },
+              "placeholder": "Notes on where, if anywhere, the current version shows."
+            }
+          ]
+        },
+        {
+          "heading": "3. Update available",
+          "items": [
+            {
+              "id": "banner-copy",
+              "title": "Banner wording",
+              "body": "A newer build exists. Pick the line that reads best.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "A newer version of Punchlist is available (vX.Y.Z).",
+                  "Update available. Punchlist vX.Y.Z is out.",
+                  "New build vX.Y.Z. You are on vA.B.C.",
+                  "vX.Y.Z is available."
+                ]
+              },
+              "placeholder": "Reword the line however you like."
+            },
+            {
+              "id": "banner-buttons",
+              "title": "Banner buttons",
+              "body": "The banner needs a button set. Get opens the newest build. What changed opens the release notes.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "[Get vX.Y.Z] [What changed] [Dismiss]",
+                  "[Get vX.Y.Z] [Dismiss]",
+                  "[Get vX.Y.Z] [What changed], X in the corner dismisses",
+                  "[Get vX.Y.Z] only, no dismiss"
+                ]
+              },
+              "placeholder": "Notes on buttons, labels, or which to drop."
+            },
+            {
+              "id": "banner-placement",
+              "title": "Banner placement",
+              "body": "Where the banner sits when it appears. It should stay easy to ignore.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "Thin bar pinned to the top",
+                  "Thin bar pinned to the bottom",
+                  "A line inside Settings only, no bar",
+                  "Toast in a corner that auto-fades"
+                ]
+              },
+              "placeholder": "Notes on placement and prominence."
+            }
+          ]
+        },
+        {
+          "heading": "4. After you dismiss",
+          "items": [
+            {
+              "id": "dismissed",
+              "title": "What a dismissal remembers",
+              "body": "Dismissing hides the banner. Question: when, if ever, it returns.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "Gone until a build newer than the dismissed one appears",
+                  "Back on the next app load",
+                  "Back after 7 days if still not updated",
+                  "Gone for good until you open Settings"
+                ]
+              },
+              "placeholder": "Notes on how sticky the dismissal should be."
+            }
+          ]
+        },
+        {
+          "heading": "5. Offline or error",
+          "items": [
+            {
+              "id": "offline-error",
+              "title": "When the check cannot complete",
+              "body": "GitHub may be unreachable, error, or rate limit the check. Question: what the app does then.",
+              "answers": {
+                "multi": false,
+                "options": [
+                  "Fail silent, show nothing, retry at the next allowed check",
+                  "Fail silent, log a tiny note in Settings",
+                  "Show a small 'could not check for updates' line"
+                ]
+              },
+              "placeholder": "Notes on the failure case."
+            }
+          ]
+        },
+        {
+          "heading": "6. Privacy and trust",
+          "items": [
+            {
+              "id": "privacy-trust",
+              "title": "What leaves the machine",
+              "body": "The only network call is one GET to api.github.com for the latest release. No personal data is sent.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "State this plainly in Settings",
+                  "Also mention it on the notes page",
+                  "Add a toggle to turn the check off"
+                ]
+              },
+              "placeholder": "Notes on wording or where to surface it."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "key": "graph-options",
+    "spec": {
+      "title": "Status board graph: pick a direction",
+      "intro": "Today's graph hides branches and crams time and tree depth onto one line. Pick the direction to fix it.",
+      "sendLabel": "Send my graph picks",
+      "chatPrefix": "Graph redesign:",
+      "storageKey": "punchlist-graph-options-v1",
+      "sections": [
+        {
+          "heading": "The problem",
+          "items": [
+            {
+              "id": "problem-today",
+              "title": "What hurts most today",
+              "body": "The graph is a single horizontal staircase. Siblings hide behind +N pills, one axis carries both time and tree depth, and state barely shows.",
+              "answers": {
+                "options": [
+                  "Hidden branches behind the +N pills",
+                  "One axis carrying both time and tree depth",
+                  "Weak state and intent signals",
+                  "All three, about equally"
+                ]
+              },
+              "placeholder": "Anything else about today's graph that bugs you?"
+            }
+          ]
+        },
+        {
+          "heading": "Three layouts",
+          "items": [
+            {
+              "id": "layout-a-force",
+              "title": "Layout A: local force graph (the Obsidian look)",
+              "body": "Nodes float and links pull them into a web. Handles merges, but it jitters and lands differently each render, which is rough for a board you scan by keyboard.",
+              "sketch": "<svg viewBox='0 0 320 150'><g stroke='#888' stroke-width='1'><line x1='160' y1='75' x2='90' y2='40'/><line x1='160' y1='75' x2='230' y2='45'/><line x1='160' y1='75' x2='120' y2='115'/><line x1='160' y1='75' x2='215' y2='110'/><line x1='230' y1='45' x2='285' y2='80'/><line x1='90' y1='40' x2='55' y2='95'/><line x1='215' y1='110' x2='285' y2='80'/></g><g fill='currentColor'><circle cx='160' cy='75' r='9'/><circle cx='90' cy='40' r='6'/><circle cx='230' cy='45' r='6'/><circle cx='120' cy='115' r='6'/><circle cx='215' cy='110' r='6'/><circle cx='285' cy='80' r='5'/><circle cx='55' cy='95' r='5'/></g></svg>",
+              "answers": {
+                "options": [
+                  "Keep it as an optional explore toggle for later",
+                  "Not for me, skip it"
+                ]
+              },
+              "placeholder": "When would you actually want the organic view?"
+            },
+            {
+              "id": "layout-b-tree",
+              "title": "Layout B: tidy exposed tree",
+              "body": "Root on the left, depth to the right, every sibling shown so the +N pills die. Deterministic, roughly 50 lines of vanilla, and arrow keys map to parent, child, and siblings.",
+              "sketch": "<svg viewBox='0 0 320 150'><g stroke='#888' stroke-width='1'><line x1='30' y1='75' x2='120' y2='30'/><line x1='30' y1='75' x2='120' y2='75'/><line x1='30' y1='75' x2='120' y2='120'/><line x1='120' y1='30' x2='215' y2='20'/><line x1='120' y1='30' x2='215' y2='50'/><line x1='120' y1='75' x2='215' y2='80'/><line x1='120' y1='120' x2='215' y2='105'/><line x1='120' y1='120' x2='215' y2='135'/><line x1='215' y1='50' x2='295' y2='50'/></g><g fill='currentColor'><circle cx='30' cy='75' r='8'/><circle cx='120' cy='30' r='6'/><circle cx='120' cy='75' r='6'/><circle cx='120' cy='120' r='6'/><circle cx='215' cy='20' r='5'/><circle cx='215' cy='50' r='5'/><circle cx='215' cy='80' r='5'/><circle cx='215' cy='105' r='5'/><circle cx='215' cy='135' r='5'/><circle cx='295' cy='50' r='4'/></g></svg>",
+              "answers": {
+                "options": [
+                  "Make this the default, yes",
+                  "Yes, but I want to tweak it first",
+                  "No, don't go this way"
+                ]
+              },
+              "placeholder": "If you want tweaks, what would you change?"
+            },
+            {
+              "id": "layout-c-lanes",
+              "title": "Layout C: timeline swimlanes (git-lane hybrid)",
+              "body": "X is time. Each subagent gets a lane that opens on spawn and closes on merge, and each node fans its children into a small sub-tree. Highest ceiling for live parallel work, but the most code, and it only pays once subagents are routine.",
+              "sketch": "<svg viewBox='0 0 320 150'><g stroke='#888' stroke-width='1' stroke-dasharray='3 3'><line x1='20' y1='45' x2='300' y2='45'/><line x1='20' y1='105' x2='300' y2='105'/></g><g stroke='currentColor' stroke-width='2' fill='none'><line x1='30' y1='45' x2='290' y2='45'/><path d='M110 45 Q140 45 150 105'/><line x1='150' y1='105' x2='230' y2='105'/><path d='M230 105 Q252 105 260 45'/></g><g fill='currentColor'><circle cx='30' cy='45' r='5'/><circle cx='110' cy='45' r='5'/><circle cx='200' cy='45' r='5'/><circle cx='290' cy='45' r='5'/><circle cx='150' cy='105' r='5'/><circle cx='230' cy='105' r='5'/></g><g fill='#888' font-size='10'><text x='20' y='32'>main</text><text x='150' y='128'>subagent</text></g></svg>",
+              "answers": {
+                "options": [
+                  "Wait until subagents are common, then build it",
+                  "Build it now",
+                  "Skip it"
+                ]
+              },
+              "placeholder": "What would make subagents common enough to justify C?"
+            }
+          ]
+        },
+        {
+          "heading": "State and intent",
+          "items": [
+            {
+              "id": "node-encodings",
+              "title": "What each node should encode",
+              "body": "Beyond position, a node can carry visual signals. Pick every one you want.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "State as color",
+                  "Active node glows or pulses",
+                  "Author badge: you vs a subagent",
+                  "Done nodes always dim",
+                  "Age cue on older nodes",
+                  "Focus mode dims nodes far from the active one"
+                ]
+              },
+              "placeholder": "Any encoding missing, or any you would drop?"
+            },
+            {
+              "id": "authoring-convention",
+              "title": "The authoring-convention half",
+              "body": "Half of showing state is data, not layout. Agents have to mark a node active when they start, split work into clear children, and close nodes promptly.",
+              "answers": {
+                "options": [
+                  "Yes, write a tightened authoring convention",
+                  "Yes, but keep it lightweight",
+                  "No, layout changes are enough for now"
+                ]
+              },
+              "placeholder": "Which authoring habits matter most to enforce?"
+            }
+          ]
+        },
+        {
+          "heading": "Recommendation",
+          "items": [
+            {
+              "id": "recommendation",
+              "title": "The recommendation",
+              "body": "Ship Layout B now as the default so branching is fully exposed. Grow into Layout C once parallel subagents are routine. Keep Layout A as an optional toggle.",
+              "answers": {
+                "options": [
+                  "Go with it: ship B now, grow to C",
+                  "I want a different plan"
+                ]
+              },
+              "placeholder": "If different, what is your plan?"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]
