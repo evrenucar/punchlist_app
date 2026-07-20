@@ -2063,30 +2063,36 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px;
+      padding: 8px 14px;
       border-bottom: 1px solid var(--line);
     }
 
     .focus-mode__task {
       display: grid;
-      align-content: center;
+      /* safe center: centered when it fits, but top-aligned once it overflows so
+         the top stays reachable. overflow-y makes long focus content scroll
+         (Evren: could not scroll long text). */
+      align-content: safe center;
       justify-items: center;
-      gap: 18px;
+      gap: 12px;
       min-height: 0;
-      padding: 32px;
+      padding: 16px 16px 28px;
+      overflow-y: auto;
     }
 
     .focus-mode__text {
       display: grid;
       align-content: center;
       width: min(1500px, 96%);
-      min-height: 160px;
+      min-height: 0;
       border: 0;
       outline: 0;
       background: transparent;
       color: inherit;
-      font-size: clamp(32px, 6vw, 72px);
-      line-height: 1.1;
+      /* was clamp(32px,6vw,72px) which loomed huge; Evren wanted the header
+         smaller. Roughly half. */
+      font-size: clamp(20px, 3vw, 34px);
+      line-height: 1.15;
       text-align: center;
       overflow-wrap: anywhere;
       white-space: pre-wrap;
@@ -2124,9 +2130,9 @@
     .focus-mode__group-title {
       min-height: 0;
       font-weight: 900;
-      /* was clamp(26px,4.5vw,52px), which loomed over the list; Evren wanted
-         it about half. Smaller heading, the tasks lead. */
-      font-size: clamp(20px, 3.4vw, 34px);
+      /* trimmed again 2026-07-20: the header still loomed. Smaller heading,
+         the tasks lead. */
+      font-size: clamp(18px, 2.5vw, 26px);
     }
 
     .focus-mode.group-focus .focus-mode__children {
