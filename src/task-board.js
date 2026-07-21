@@ -1765,13 +1765,13 @@
       if (options.save !== false) saveState();
       if (options.render !== false) {
         if (nextDone && isTaskHiddenFromActive(found.item, found.group)) {
-          // the row leaves for the Completed section: full render after the
-          // slide-away, the lifecycle sections move
-          animateRowsAway([found.item.id], render);
+          // the row leaves for the Completed section: retire exactly the rows
+          // that hid after the slide-away (per-placement retention respected)
+          animateRowsAway([found.item.id], () => retireHiddenRows([item.id]));
         } else if (taskIsLinkFree(found.item)) {
           renderTaskSubtreeInPlace(found.item.id, found.group.id);
         } else {
-          render();
+          renderLinkedPlacements(found.item, found.item.id, found.group.id);
         }
       }
       return true;
@@ -2188,7 +2188,9 @@
             : groupsToDelete.length ? "this group"
             : `this task and its ${subtreeCount} sub-item${subtreeCount === 1 ? "" : "s"}`,
         };
-        render();
+        // the confirm card lives in the group header: one group swap shows it
+        if (pendingGroupDelete.groupId) renderGroupInPlace(pendingGroupDelete.groupId);
+        else render();
         document.querySelector('[data-action="confirm-delete"]')?.focus();
         return;
       }
@@ -2666,9 +2668,12 @@
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
       // writing into an alias's resolved children lands in ANOTHER group's
-      // subtree; only the plain same-group insert may scope
-      if (found.item.linkType || getLinkCount(resolved.id) > 0) render();
-      else renderScoped(intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id);
+      // subtree; the original's placement and every link repaint in place
+      if (found.item.linkType || getLinkCount(resolved.id) > 0) {
+        renderLinkedPlacements(found.item, intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id);
+      } else {
+        renderScoped(intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id, [found.item.id, item.id]);
+      }
       return item;
     }
 
@@ -2691,8 +2696,8 @@
       if (options.select !== false) setSingleSelection({ kind: "task", id });
       if (options.save !== false) saveState();
       // the pre-op parent's subtree contains both the old slot and the new
-      // parent (the previous sibling); top-level indents cover via the group
-      if (options.render !== false) renderScoped(found.parent?.id ?? null, found.group.id);
+      // parent (the previous sibling); a top-level indent swaps just the two lis
+      if (options.render !== false) renderScoped(found.parent?.id ?? null, found.group.id, [newParent.id, id]);
       return true;
     }
 
@@ -2706,8 +2711,9 @@
       parent.list.splice(parent.index + 1, 0, item);
       if (options.select !== false) setSingleSelection({ kind: "task", id });
       if (options.save !== false) saveState();
-      // the item leaves its parent P for P's own list: P's parent covers both
-      if (options.render !== false) renderScoped(parent.parent?.id ?? null, found.group.id);
+      // the item leaves its parent P for P's own list: P's parent covers both;
+      // at the top level, only P's li and the arriving li change
+      if (options.render !== false) renderScoped(parent.parent?.id ?? null, found.group.id, [parent.item.id, id]);
       return true;
     }
 
@@ -2889,8 +2895,8 @@
       }
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
-      if (scopedOk) renderScoped(parentId || null, groupId);
-      else render();
+      if (scopedOk) renderScoped(parentId || null, groupId, [item.id]);
+      else renderLinkedPlacements(findTask(parentId)?.item || item, parentId || null, groupId);
       focusTaskText(item.id);
       return item;
     }
@@ -3358,8 +3364,8 @@
       setSingleSelection({ kind: "task", id: target.id });
       saveState();
       // merged text fans out through any linked placement of either item
-      if (taskIsLinkFree(prevFound.item) && !getLinkCount(item.id)) renderScoped(found.parent?.id ?? null, found.group.id);
-      else render();
+      if (taskIsLinkFree(prevFound.item) && !getLinkCount(item.id)) renderScoped(found.parent?.id ?? null, found.group.id, [prevFound.item.id, found.item.id]);
+      else renderLinkedPlacements([prevFound.item, found.item], found.parent?.id ?? null, found.group.id);
       return true;
     }
 
@@ -3573,8 +3579,8 @@
       setSingleSelection({ kind: "task", id: newItem.id });
       saveState();
       // the rewritten text of the split task shows in every linked placement
-      if (taskIsLinkFree(found.item)) renderScoped(intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id);
-      else render();
+      if (taskIsLinkFree(found.item)) renderScoped(intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id, [found.item.id, newItem.id]);
+      else renderLinkedPlacements(found.item, intoChildren ? found.item.id : (found.parent?.id ?? null), found.group.id);
       focusTaskText(newItem.id, false);
       return { item: newItem, position: plan.position };
     }
@@ -4315,7 +4321,9 @@
       const previousCompleted = new Set(lifecycleSignature.split("|")[0].split(",").filter(Boolean));
       const newlyHidden = nextSignature.split("|")[0].split(",").filter((id) => id && !previousCompleted.has(id));
       lifecycleSignature = nextSignature;
-      if (newlyHidden.length) animateRowsAway(newlyHidden, render);
+      // hiding rows retire surgically; anything else (trash purge, restores
+      // from elsewhere) keeps the full render
+      if (newlyHidden.length) animateRowsAway(newlyHidden, () => retireHiddenRows(newlyHidden));
       else render();
       return true;
     }
@@ -4435,15 +4443,110 @@
       }
       const wrap = document.createElement("div");
       wrap.innerHTML = renderTask(found.item, found.group?.id || groupId, "");
-      li.replaceWith(wrap.firstElementChild);
+      const next = wrap.firstElementChild;
+      // a task that became hidden (retention) renders to nothing: its li just
+      // leaves — replaceWith(null) would throw
+      if (next) li.replaceWith(next);
+      else li.remove();
       lifecycleSignature = getLifecycleSignature();
       if (selectedNode) renderSelection();
     }
 
+    // Top-level li surgery: reconcile ONLY the named task ids against a group's
+    // top-level list, so depth-0 splits/inserts/indents swap one or two <li>s
+    // instead of rebuilding the whole (huge) group article. Ids no longer at
+    // the top level lose their li; ids present get their li swapped in place or
+    // inserted after the nearest preceding sibling that has one.
+    function renderTopLevelInPlace(groupId, taskIds) {
+      const group = findGroup(groupId);
+      const ul = document.querySelector?.(`[data-group-list="${groupId}"]`);
+      const query = searchEl?.value?.trim() || "";
+      if (!group || !ul || boardEl.hidden || query || group.collapsed) {
+        renderGroupInPlace(groupId);
+        return;
+      }
+      // an empty group renders an empty-state <p> outside the ul; going from
+      // empty to first task must rebuild the article to clear it
+      if (!ul.querySelector(':scope > li[data-task]')) {
+        renderGroupInPlace(groupId);
+        return;
+      }
+      for (const id of taskIds) {
+        const li = ul.querySelector(`:scope > li[data-task="${id}"]`);
+        const index = group.tasks.findIndex((t) => t.id === id);
+        if (li) li.remove();
+        if (index < 0) continue; // left the top level (indent/merge)
+        const html = renderTask(group.tasks[index], groupId, "");
+        if (!html) continue; // hidden — nothing to show
+        let anchor = null;
+        for (let i = index - 1; i >= 0 && !anchor; i--) {
+          anchor = ul.querySelector(`:scope > li[data-task="${group.tasks[i].id}"]`);
+        }
+        if (anchor) anchor.insertAdjacentHTML("afterend", html);
+        else ul.insertAdjacentHTML("afterbegin", html);
+      }
+      lifecycleSignature = getLifecycleSignature();
+      if (selectedNode) renderSelection();
+    }
+
+    // A linked task's edit repaints the edited scope plus every other placement
+    // of the same underlying task(s), instead of the whole board. Each
+    // placement rides the subtree primitive, whose own fallback (a group swap)
+    // already covers a missing li.
+    function renderLinkedPlacements(editedItems, coveringTaskId, groupId) {
+      const items = Array.isArray(editedItems) ? editedItems : [editedItems];
+      const resolvedIds = new Set(items.map((item) => resolveTaskItem(item)?.id || item?.id).filter(Boolean));
+      if (!resolvedIds.size || typeof document.querySelector !== "function") {
+        render();
+        return;
+      }
+      renderScoped(coveringTaskId, groupId);
+      const seen = new Set(items.map((item) => item?.id).filter(Boolean));
+      state.groups.forEach((group) => walkPlacements(group.tasks, (placement) => {
+        if (seen.has(placement.id)) return;
+        const hits = resolvedIds.has(placement.id)
+          || (["alias", "reference"].includes(placement.linkType) && resolvedIds.has(placement.targetTaskId));
+        if (!hits) return;
+        seen.add(placement.id);
+        renderTaskSubtreeInPlace(placement.id, group.id);
+      }));
+    }
+
+    // After a completion slide-away (or the 1s lifecycle tick), retire exactly
+    // the rows that became hidden: remove their lis, repaint placements that
+    // stay visible (per-placement retention can differ), refresh the lifecycle
+    // sections. A vanished selection falls back to the full render.
+    function retireHiddenRows(resolvedIds) {
+      const ids = new Set(resolvedIds);
+      const query = searchEl?.value?.trim() || "";
+      if (!ids.size || typeof document.querySelector !== "function" || boardEl.hidden || query) {
+        render();
+        return;
+      }
+      state.groups.forEach((group) => walkPlacements(group.tasks, (placement) => {
+        const resolved = resolveTaskItem(placement);
+        if (!resolved || !ids.has(resolved.id)) return;
+        if (!isTaskHiddenFromActive(placement, group)) {
+          // this placement's own retention keeps it visible: repaint its row
+          renderTaskSubtreeInPlace(placement.id, group.id);
+          return;
+        }
+        document.querySelector(`li[data-task="${placement.id}"]`)?.remove();
+      }));
+      refreshLifecycleSections();
+      lifecycleSignature = getLifecycleSignature();
+      if (selectedNode && !getNodeRow(selectedNode)) {
+        render();
+        return;
+      }
+      if (selectedNode) renderSelection();
+    }
+
     // Route a scoped render to the smallest container that covers the change:
-    // a task subtree when one exists, else the group article.
-    function renderScoped(coveringTaskId, groupId) {
+    // a task subtree when one exists, else named top-level lis, else the group.
+    function renderScoped(coveringTaskId, groupId, topLevelTaskIds) {
       if (coveringTaskId) renderTaskSubtreeInPlace(coveringTaskId, groupId);
+      else if (topLevelTaskIds && topLevelTaskIds.length) renderTopLevelInPlace(groupId, topLevelTaskIds);
       else renderGroupInPlace(groupId);
     }
 
@@ -4799,8 +4902,10 @@
         return;
       }
       if (action === "cancel-delete") {
+        const confirmGroupId = pendingGroupDelete?.groupId || null;
         pendingGroupDelete = null;
-        render();
+        if (confirmGroupId) renderGroupInPlace(confirmGroupId);
+        else render();
         return;
       }
       if (action === "restore-completed" || action === "restore-trash" || action === "purge-trash") {
@@ -6064,8 +6169,10 @@
       }
       if (event.key === "Escape" && pendingGroupDelete) {
         event.preventDefault();
+        const confirmGroupId = pendingGroupDelete.groupId || null;
         pendingGroupDelete = null;
-        render();
+        if (confirmGroupId) renderGroupInPlace(confirmGroupId);
+        else render();
         return;
       }
       if (event.target.closest?.("[data-delete-confirm]")) return;

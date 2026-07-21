@@ -2383,6 +2383,35 @@ test("a 409 on push schedules its own retry", async () => {
   assert.equal(timers.length > before, true, "a 409 must arm a retry timer instead of sitting failed");
 });
 
+test("linked-placement edits stay consistent through the scoped repaint paths", async () => {
+  const api = await loadBoardApi();
+  const today = api.state.groups.find((group) => group.title === "Today");
+  const projects = api.state.groups.find((group) => group.id === "group-projects");
+  const original = projects.tasks[0];
+  const placed = api.pasteTaskIds([original.id], { kind: "group", id: today.id }, "alias");
+  assert.equal(placed.length, 1, "alias created");
+  // completing the ORIGINAL routes through renderLinkedPlacements (linked branch)
+  assert.equal(api.setTaskCompleted(original.id, true), true);
+  assert.equal(api.resolveTaskItem(placed[0]).done, true, "completion fans out to the alias");
+  assert.equal(api.setTaskCompleted(original.id, false), true);
+  // splitting the linked original routes the same path and must keep state exact
+  const before = api.resolveTaskItem(original).text;
+  const split = api.splitTaskAtOffset(original.id, Math.min(3, before.length));
+  assert.ok(split && split.item, "split produced a sibling");
+  assert.equal(projects.tasks.some((t) => t.id === split.item.id), true, "sibling landed in the original's group");
+});
+
+test("retention-immediate completion retires rows without corrupting state", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((g) => g.id === "group-projects");
+  const item = group.tasks[1];
+  api.state.settings.completionRetentionSeconds = 0;
+  assert.equal(api.setTaskCompleted(item.id, true, "2020-01-01T00:00:00.000Z"), true);
+  assert.equal(item.done, true);
+  const entries = api.getCompletedEntries(Date.parse("2020-01-01T00:00:10.000Z"));
+  assert.equal(entries.some(({ item: entry }) => entry.id === item.id), true, "the hidden task reached the Completed section");
+});
+
 test("scoped render keeps behavior identical and falls back safely", async () => {
   const api = await loadBoardApi();
   const today = api.state.groups.find((group) => group.title === "Today");
