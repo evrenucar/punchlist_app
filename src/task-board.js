@@ -6142,6 +6142,35 @@
     // Fire-and-forget update check (downloaded copy only; see checkForUpdate).
     checkForUpdate();
 
+    // ?probe: a disposable on-device layout instrument for the iOS sideways
+    // drift (does not reproduce in emulation). Zero UI without the flag.
+    // ponytail: throwaway diagnostic, delete once the phone bug is closed.
+    if (/[?&]probe\b/.test(typeof location !== "undefined" ? location.search || "" : "") && document.body && typeof window.setInterval === "function") {
+      const probeEl = document.createElement("div");
+      probeEl.style.cssText = "position:fixed;left:4px;right:4px;bottom:4px;z-index:9999;background:rgba(0,0,0,0.85);color:#0f0;font:11px/1.4 monospace;padding:6px 8px;border-radius:6px;pointer-events:none;white-space:pre-wrap;";
+      document.body.appendChild(probeEl);
+      const probe = () => {
+        const vv = window.visualViewport;
+        const mainEl = document.querySelector("main");
+        const wide = [];
+        document.querySelectorAll("body *").forEach((el) => {
+          if (wide.length >= 3 || el === probeEl) return;
+          const r = el.getBoundingClientRect();
+          if (r.right > window.innerWidth + 1 || r.left < -1) {
+            wide.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0] || "-"} L${Math.round(r.left)} R${Math.round(r.right)}`);
+          }
+        });
+        probeEl.textContent =
+          `inner ${window.innerWidth} docW ${document.scrollingElement.scrollWidth}` +
+          ` | vv w${vv ? Math.round(vv.width) : "-"} x${vv ? Math.round(vv.offsetLeft) : "-"} s${vv ? vv.scale.toFixed(2) : "-"}` +
+          ` | main sL ${mainEl ? Math.round(mainEl.scrollLeft) : "-"}` +
+          `\nwide: ${wide.length ? wide.join(" | ") : "none"}`;
+      };
+      window.setInterval(probe, 700);
+      window.addEventListener?.("scroll", probe, true);
+      probe();
+    }
+
     // Sync on load, when the tab regains focus (that's the moment a second
     // device's edits matter), and after edits via the debounce in saveState.
     // The asset cache loads first: pushes need it to know what to upload, and
