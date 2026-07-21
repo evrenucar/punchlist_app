@@ -287,6 +287,16 @@
 
     <article>
       <header>
+        <h2>Sync can no longer roll your board back to an old version</h2>
+        <span class="entry-date">July 21, 2026 · build v1.5.20</span>
+      </header>
+      <p>A board that had not been touched in days could still overwrite your current one. When two devices had both changed, sync always let the local one win, with no check for which board was actually newer. So a device that woke up after five days, still carrying one unsynced edit, pushed its stale board over everyone else. That is what reverted a board to a five day old state.</p>
+      <p>Now every board carries a small counter that ticks up on each real edit, and sync compares those counters instead of guessing. A stale device can never overwrite a newer board, it takes the newer one instead. When two devices genuinely both moved ahead, the one with more changes wins and the other version stays in your Undo and in the repo history, and a real tie asks you which to keep. No clocks are involved, so a device with a wrong clock cannot fool it.</p>
+      <p>Also in this build: expanding or collapsing a big group no longer rebuilds the whole group, so the toggle stops lagging on large boards.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>The flash is gone: edits repaint rows, not the board</h2>
         <span class="entry-date">July 21, 2026 · build v1.5.19</span>
       </header>
