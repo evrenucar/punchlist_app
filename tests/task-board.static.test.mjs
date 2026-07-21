@@ -45,6 +45,9 @@ async function loadBoardApi(overrides = {}) {
   elements.set("[data-total-count]", totalCountEl);
   elements.set("[data-done-count]", doneCountEl);
   elements.set("[data-search]", searchEl);
+  elements.set("[data-report-bug]", makeElement({ hidden: false }));
+  elements.set("[data-bug-dialog]", makeElement({ hidden: true }));
+  elements.set("[data-bug-text]", makeElement({ value: "" }));
 
   const store = new Map();
   const context = {
@@ -97,7 +100,9 @@ async function loadBoardApi(overrides = {}) {
   Object.assign(context, overrides);
   vm.createContext(context);
   vm.runInContext(script, context);
-  return context.window.taskBoardTestApi;
+  const api = context.window.taskBoardTestApi;
+  if (api) api.testElements = elements;
+  return api;
 }
 
 test("build emits one standalone task board", async () => {
@@ -1019,10 +1024,10 @@ test("board shell brands as Punchlist with a timeline pane and history tab", asy
   }
 });
 
-test("settings offers a feedback button that copies the author's email", async () => {
+test("settings offers a bug-report button that carries the author's email", async () => {
   const html = await readBoard();
-  assert.match(html, /data-feedback/);
-  assert.match(html, /Give feedback/);
+  assert.match(html, /data-report-bug/);
+  assert.match(html, /Report a bug/);
   assert.match(html, /evrenucar1999@gmail\.com/);
 });
 
@@ -2520,4 +2525,53 @@ test("drag auto-scroll steps evenly and never shoves past the top", async () => 
   const scheduled = timers.filter((timer) => !timer.cleared && !timer.fired).length;
   fire("pointerup", touchEvent(70));
   assert.equal(timers.filter((timer) => !timer.cleared && !timer.fired).length <= scheduled, true, "no frame leak after release");
+});
+
+test("bug-report dialog is in the build; the button hides in demo mode", async () => {
+  const html = await readBoard();
+  assert.match(html, /data-bug-dialog hidden/, "dialog markup ships closed");
+  assert.match(html, /data-report-bug/, "settings has the report button");
+  assert.match(html, /data-bug-text/);
+  assert.match(html, /data-bug-github/);
+  assert.match(html, /data-bug-email/);
+  assert.match(html, /attach anything that shows the problem/, "attachment reminder is present");
+  assert.equal(html.includes("data-feedback"), false, "the old feedback button is gone");
+
+  const api = await loadBoardApi();
+  assert.equal(api.testElements.get("[data-report-bug]").hidden, false, "button shows normally");
+  api.openBugDialog();
+  assert.equal(api.testElements.get("[data-bug-dialog]").hidden, false, "opening reveals the dialog");
+  api.closeBugDialog();
+  assert.equal(api.testElements.get("[data-bug-dialog]").hidden, true);
+
+  const demo = await loadBoardApi({ location: { search: "?demo" } });
+  assert.equal(demo.testElements.get("[data-report-bug]").hidden, true, "demo hides the button");
+  demo.openBugDialog();
+  assert.equal(demo.testElements.get("[data-bug-dialog]").hidden, true, "demo can never open the dialog");
+});
+
+test("bug-report issue URL encodes the description and names the version and channel", async () => {
+  const api = await loadBoardApi();
+  const url = api.buildBugReportUrl("Dragging a task & dropping it\ncrashes");
+  assert.ok(url.startsWith("https://github.com/evrenucar/punchlist_app/issues/new?title="), url);
+  assert.ok(url.includes("Dragging%20a%20task%20%26%20dropping%20it%0Acrashes"), "description is URL-encoded");
+  assert.ok(url.includes(encodeURIComponent(`App version: v${api.APP_VERSION} (hosted)`)), "http copy reports hosted");
+
+  const local = await loadBoardApi({ location: { protocol: "file:", search: "" } });
+  assert.ok(local.buildBugReportUrl("x").includes(encodeURIComponent("(downloaded)")), "file copy reports downloaded");
+});
+
+test("image resolution changes never touch stored images and explain themselves", async () => {
+  const api = await loadBoardApi();
+  const task = api.state.groups[0].tasks[0];
+  task.images = [{ id: "img-1", src: "data:image/webp;base64,AAAA", width: 320, caption: "" }];
+  const before = JSON.stringify(task.images);
+  api.updateSettings({ imageResolution: "low" });
+  api.updateSettings({ imageResolution: "original" });
+  assert.equal(JSON.stringify(api.state.groups[0].tasks[0].images), before, "existing images stay byte-identical");
+
+  assert.match(api.describeImageResolutionChange("medium", "high"), /keep more detail/);
+  assert.match(api.describeImageResolutionChange("medium", "high"), /Existing images are unchanged/);
+  assert.match(api.describeImageResolutionChange("original", "low"), /will be smaller/);
+  assert.match(api.describeImageResolutionChange("original", "low"), /not downscaled/);
 });

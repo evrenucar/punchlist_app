@@ -115,7 +115,12 @@
     const identityLineEl = document.querySelector("[data-identity-line]");
     const syncDevicesEl = document.querySelector("[data-sync-devices]");
     const exportSettingsEl = document.querySelector("[data-export-settings]");
-    const feedbackEl = document.querySelector("[data-feedback]");
+    const reportBugEl = document.querySelector("[data-report-bug]");
+    const bugDialogEl = document.querySelector("[data-bug-dialog]");
+    const bugTextEl = document.querySelector("[data-bug-text]");
+    const bugCloseEl = document.querySelector("[data-bug-close]");
+    const bugGithubEl = document.querySelector("[data-bug-github]");
+    const bugEmailEl = document.querySelector("[data-bug-email]");
     const syncSectionEl = document.querySelector("[data-sync-section]");
     const syncEnabledEl = document.querySelector("[data-sync-enabled]");
     const syncFieldsEl = document.querySelector("[data-sync-fields]");
@@ -5229,6 +5234,7 @@
       }
       if (syncDevicesEl) syncDevicesEl.innerHTML = renderDeviceRoster();
       if (syncSectionEl) syncSectionEl.hidden = IS_DEMO;
+      if (reportBugEl) reportBugEl.hidden = IS_DEMO;
       if (syncEnabledEl) syncEnabledEl.checked = Boolean(syncConfig.enabled);
       if (syncFieldsEl) syncFieldsEl.hidden = !syncConfig.enabled;
       if (syncRepoEl) syncRepoEl.value = String(syncConfig.repo || "");
@@ -5267,7 +5273,21 @@
     }
 
     pasteModeEl?.addEventListener("change", () => updateSettings({ pasteMode: pasteModeEl.value }));
-    imageResolutionEl?.addEventListener("change", () => updateSettings({ imageResolution: imageResolutionEl.value }));
+    // Changing the tier only affects pastes from now on; compressImageFile is
+    // the sole caller and it runs at paste time. Nothing revisits stored images.
+    function describeImageResolutionChange(previous, next) {
+      const rank = (tier) => ["low", "medium", "high", "original"].indexOf(tier);
+      return rank(next) > rank(previous)
+        ? "Images pasted from now on keep more detail. Existing images are unchanged."
+        : "New pastes will be smaller. Existing images are not downscaled.";
+    }
+
+    imageResolutionEl?.addEventListener("change", () => {
+      const previous = state.settings.imageResolution;
+      const next = imageResolutionEl.value;
+      updateSettings({ imageResolution: next });
+      if (next !== previous) showToast(describeImageResolutionChange(previous, next));
+    });
     [completionModeEl, completionValueEl, completionUnitEl].forEach((element) => {
       element?.addEventListener("change", () => updateSettings({ completionRetentionSeconds: readCompletionRetentionFromControls() }));
     });
@@ -5308,10 +5328,43 @@
     checkUpdatesEl?.addEventListener("change", () => updateSettings({ checkForUpdates: checkUpdatesEl.checked }));
 
     const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
-    feedbackEl?.addEventListener("click", () => {
-      const done = () => showToast(`${FEEDBACK_EMAIL} copied. Please send Evren a kind email with your feedback.`);
+    const BUG_ISSUE_BASE = "https://github.com/evrenucar/punchlist_app/issues/new";
+
+    // Pure so the suite can pin it: URL-encodes the description and appends
+    // the running version plus whether this copy is hosted or downloaded.
+    function buildBugReportUrl(description) {
+      const body = `${String(description || "").trim()}\n\nApp version: v${APP_VERSION} (${IS_LOCAL_FILE ? "downloaded" : "hosted"})`;
+      return `${BUG_ISSUE_BASE}?title=${encodeURIComponent("Bug report")}&body=${encodeURIComponent(body)}`;
+    }
+
+    function openBugDialog() {
+      if (!bugDialogEl || IS_DEMO) return;
+      bugDialogEl.hidden = false;
+      bugTextEl?.focus?.();
+    }
+
+    function closeBugDialog() {
+      if (bugDialogEl) bugDialogEl.hidden = true;
+    }
+
+    reportBugEl?.addEventListener("click", openBugDialog);
+    bugCloseEl?.addEventListener("click", closeBugDialog);
+    bugDialogEl?.addEventListener("click", (event) => {
+      if (event.target === bugDialogEl) closeBugDialog();
+    });
+    bugGithubEl?.addEventListener("click", () => {
+      window.open?.(buildBugReportUrl(bugTextEl?.value || ""), "_blank", "noopener");
+      closeBugDialog();
+    });
+    bugEmailEl?.addEventListener("click", () => {
+      const description = String(bugTextEl?.value || "").trim();
+      const text = description ? `${FEEDBACK_EMAIL}\n\n${description}` : FEEDBACK_EMAIL;
+      const done = () => {
+        closeBugDialog();
+        showToast(`${FEEDBACK_EMAIL}${description ? " and your description" : ""} copied. Please send Evren a kind email.`);
+      };
       if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(FEEDBACK_EMAIL).then(done).catch(() => {
+        navigator.clipboard.writeText(text).then(done).catch(() => {
           window.prompt?.("Copy the feedback address:", FEEDBACK_EMAIL);
         });
         return;
@@ -5785,6 +5838,11 @@
       if (event.key === "Escape" && lightboxView) {
         event.preventDefault();
         closeLightbox();
+        return;
+      }
+      if (event.key === "Escape" && bugDialogEl && !bugDialogEl.hidden) {
+        event.preventDefault();
+        closeBugDialog();
         return;
       }
       if (event.key === "Escape" && pendingGroupDelete) {
@@ -6408,6 +6466,10 @@
       compareVersions,
       updateChecksEnabled,
       checkForUpdate,
+      buildBugReportUrl,
+      openBugDialog,
+      closeBugDialog,
+      describeImageResolutionChange,
       getExportState,
       storeAsset,
       getAssetSrc,
