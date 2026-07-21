@@ -48,6 +48,13 @@
     html,
     body {
       height: 100%;
+      /* iOS Safari's automatic text-size-adjust can inflate a line past the
+         viewport; body's own overflow:hidden isn't enough once html becomes
+         the scroll root, so the whole page pans sideways and the URL-bar
+         collapse repaint reveals it as a growing left margin + right overflow
+         (Evren, phone). Same treatment as the landing page's iOS margin fix. */
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
     }
 
     body {
@@ -237,6 +244,9 @@
       color: var(--text);
       font-weight: 700;
       font-size: 13px;
+      /* button labels never wrap: "Collapse all" was folding to two lines at
+         narrow sidebar widths while "Expand all" stayed on one (Evren shot) */
+      white-space: nowrap;
       transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
     }
 
@@ -2739,7 +2749,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.6";
+    const APP_VERSION = "1.5.7";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";

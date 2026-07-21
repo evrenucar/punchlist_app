@@ -310,6 +310,20 @@ test("completion retention supports seconds and restores tasks", async () => {
   assert.equal(item.completedAt, null);
 });
 
+test("css pins the iOS sideways-pan guards and one-line button labels", async () => {
+  const css = await readFile(path.join(root, "src", "task-board.css"), "utf8");
+  // the html/body rule must clip sideways pan and pin text-size-adjust, or iOS
+  // Safari's URL-bar-collapse repaint drifts the page (left margin grows,
+  // right edge overflows); .control labels must never wrap to two lines
+  const htmlRule = css.match(/html,\s*body \{[^}]*\}/);
+  assert.ok(htmlRule, "html,body rule present");
+  assert.match(htmlRule[0], /overflow-x:\s*hidden/);
+  assert.match(htmlRule[0], /-webkit-text-size-adjust:\s*100%/);
+  const controlRule = css.match(/\n    \.control \{[^}]*\}/);
+  assert.ok(controlRule, ".control rule present");
+  assert.match(controlRule[0], /white-space:\s*nowrap/);
+});
+
 test("expand chevron is hidden when a task's only children are completed-and-hidden", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((g) => g.id === "group-projects");
