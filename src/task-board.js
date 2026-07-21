@@ -6160,10 +6160,19 @@
             wide.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0] || "-"} L${Math.round(r.left)} R${Math.round(r.right)}`);
           }
         });
+        const box = (el) => {
+          if (!el) return "-";
+          const r = el.getBoundingClientRect();
+          const cs = getComputedStyle(el);
+          return `L${Math.round(r.left)} R${Math.round(r.right)} pad ${cs.paddingLeft}/${cs.paddingRight} mar ${cs.marginLeft}/${cs.marginRight}`;
+        };
+        const firstGroup = document.querySelector("main article");
         probeEl.textContent =
           `inner ${window.innerWidth} docW ${document.scrollingElement.scrollWidth}` +
           ` | vv w${vv ? Math.round(vv.width) : "-"} x${vv ? Math.round(vv.offsetLeft) : "-"} s${vv ? vv.scale.toFixed(2) : "-"}` +
           ` | main sL ${mainEl ? Math.round(mainEl.scrollLeft) : "-"}` +
+          `\nmain ${box(mainEl)}` +
+          `\ngroup ${box(firstGroup)}` +
           `\nwide: ${wide.length ? wide.join(" | ") : "none"}`;
       };
       window.setInterval(probe, 700);

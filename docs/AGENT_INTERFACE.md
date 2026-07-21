@@ -43,6 +43,15 @@ Half of "the graph doesn't reflect intent and state" is authoring, not layout. R
 6. **He restated it? You probably have it.** Search the board JSON for a matching item before reacting to a restated request; answer with the item's ID and status instead of acting confused or creating a duplicate.
 7. **Every node maps to a board item.** Heartbeat `taskId`s must be real board item IDs so the chip pins to a node. Duration and authorship ride the item (`focusSeconds` machinery in the app; `completedBy`/history on the board), so keep IDs stable.
 
+## Mobile bugs: the ?probe loop (Evren's standing method, 2026-07-21)
+
+iOS layout bugs routinely do NOT reproduce in DevTools emulation (text-size-adjust, URL-bar collapse, visual-viewport panning). Do not ship guesses. The method:
+
+1. The app has a disposable on-device instrument: open the hosted app with `?probe` (`…/task-board.html?probe`). A fixed overlay reports innerWidth vs document scrollWidth, visualViewport width/offset/scale, `main.scrollLeft`, main's and the first group's rect + computed padding/margin, and names elements crossing the viewport edge.
+2. His phone caches hard: give him a cache-busting query (`?probe&fresh=N`) and check the sidebar version matches the latest build before trusting a "still broken".
+3. He screenshots the overlay into chat; the numbers name the culprit (real overflow vs viewport pan vs asymmetric padding). Fix from data, then have him re-probe.
+4. Extend the probe's readout rather than inventing a new instrument, and keep it gated behind the flag (zero UI otherwise). It is throwaway tooling: delete it when the bug class is closed, revive it from git when needed.
+
 ## Braindump and intake
 
 Private until the Intake button posts `"Braindump intake requested"` into chat. Top of the braindump = highest priority. On intake: view any embedded images FIRST, fetch links when context matters, classify each item's lane (card when unsure), check whether it was mentioned before and NAME the duplicate in the summary, triage in STAGED quiet-writes a few seconds apart (the button glows "Intaking braindump…" until the group empties), preserve his task objects (move, never retype), never silently delete non-empty leftovers, and post a placement summary in chat.

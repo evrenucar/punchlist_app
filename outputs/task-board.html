@@ -2749,7 +2749,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.9";
+    const APP_VERSION = "1.5.10";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -8899,10 +8899,19 @@
             wide.push(`${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0] || "-"} L${Math.round(r.left)} R${Math.round(r.right)}`);
           }
         });
+        const box = (el) => {
+          if (!el) return "-";
+          const r = el.getBoundingClientRect();
+          const cs = getComputedStyle(el);
+          return `L${Math.round(r.left)} R${Math.round(r.right)} pad ${cs.paddingLeft}/${cs.paddingRight} mar ${cs.marginLeft}/${cs.marginRight}`;
+        };
+        const firstGroup = document.querySelector("main article");
         probeEl.textContent =
           `inner ${window.innerWidth} docW ${document.scrollingElement.scrollWidth}` +
           ` | vv w${vv ? Math.round(vv.width) : "-"} x${vv ? Math.round(vv.offsetLeft) : "-"} s${vv ? vv.scale.toFixed(2) : "-"}` +
           ` | main sL ${mainEl ? Math.round(mainEl.scrollLeft) : "-"}` +
+          `\nmain ${box(mainEl)}` +
+          `\ngroup ${box(firstGroup)}` +
           `\nwide: ${wide.length ? wide.join(" | ") : "none"}`;
       };
       window.setInterval(probe, 700);
