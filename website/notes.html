@@ -287,6 +287,15 @@
 
     <article>
       <header>
+        <h2>The flash is gone: edits repaint rows, not the board</h2>
+        <span class="entry-date">July 21, 2026 · build v1.5.19</span>
+      </header>
+      <p>The oldest open complaint here was a visible flash while editing a big board. It turned out to be the whole board repainting in one long freeze, and two habits made it worse: link badges were recounted from scratch for every row drawn, and edits to linked copies (the day-planning kind) always repainted everything.</p>
+      <p>Measured on a 1,400-task board: completing a linked task went from 650ms to 31ms, pressing Enter on a top-level row from around 300ms to 25ms, and hiding a completed task now removes just that row instead of redrawing the page. Same board, same edits, about twenty times less work.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Report a bug, calmer image settings, and focus knows where you are</h2>
         <span class="entry-date">July 21, 2026 · build v1.5.14</span>
       </header>
