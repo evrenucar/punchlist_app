@@ -2309,9 +2309,11 @@
         display: none;
       }
 
-      .board {
-        grid-template-columns: 1fr;
-      }
+      /* no .board override here: the base rule is already a single
+         minmax(0, 1fr) column. A bare 1fr repeated here had an auto MINIMUM,
+         so any wide task content (a fixed-width pasted image) inflated the
+         track past the viewport on phones — probe-measured as the group card
+         at R393 on a 375px screen (Evren's margin-drift report). */
 
       .board-split.with-timeline {
         grid-template-columns: minmax(0, 1fr);
@@ -2749,7 +2751,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.11";
+    const APP_VERSION = "1.5.12";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";

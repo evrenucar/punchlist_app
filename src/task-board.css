@@ -2298,9 +2298,11 @@
         display: none;
       }
 
-      .board {
-        grid-template-columns: 1fr;
-      }
+      /* no .board override here: the base rule is already a single
+         minmax(0, 1fr) column. A bare 1fr repeated here had an auto MINIMUM,
+         so any wide task content (a fixed-width pasted image) inflated the
+         track past the viewport on phones — probe-measured as the group card
+         at R393 on a 375px screen (Evren's margin-drift report). */
 
       .board-split.with-timeline {
         grid-template-columns: minmax(0, 1fr);

@@ -322,6 +322,9 @@ test("css pins the iOS sideways-pan guards and one-line button labels", async ()
   const controlRule = css.match(/\n    \.control \{[^}]*\}/);
   assert.ok(controlRule, ".control rule present");
   assert.match(controlRule[0], /white-space:\s*nowrap/);
+  // a bare 1fr board track has an auto minimum, so wide task content (pasted
+  // images) inflates it past a phone viewport; every board track must clamp
+  assert.equal(/\.board \{[^}]*grid-template-columns:\s*1fr;/.test(css), false, "board grid tracks must use minmax(0, 1fr), never bare 1fr");
 });
 
 test("expand chevron is hidden when a task's only children are completed-and-hidden", async () => {

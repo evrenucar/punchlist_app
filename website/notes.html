@@ -287,6 +287,15 @@
 
     <article>
       <header>
+        <h2>The phone margin bug is dead, measured this time</h2>
+        <span class="entry-date">July 21, 2026 · build v1.5.12</span>
+      </header>
+      <p>The board on a phone could sit shifted, dead space on the left and the card running off the right edge. A live probe on the actual device measured the group card at 393px on a 375px screen: one CSS grid track allowed itself to grow past the viewport whenever a task held a wide pasted image. The track is clamped now, and the same board measures a clean 20px margin on both sides with images shrinking to fit.</p>
+      <p>Checkboxes also toggle reliably now. Pressing the checkbox of an unselected, half-visible row used to select the row and scroll it, which swallowed the click before it could check the box.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Sync stops eating edits and throwing you around the board</h2>
         <span class="entry-date">July 21, 2026 · build v1.5.8</span>
       </header>
