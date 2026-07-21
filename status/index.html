@@ -306,6 +306,31 @@
   .ctx-chip.stale { opacity: 0.55; border-style: dashed; }
   .ctx-chip[hidden] { display: none; }
   .ctx-chip[hidden] + .chat-gear { margin-left: auto; }
+  /* Usage limits chip: sits left of the ctx chip and owns the rightward push
+     while visible; the ctx chip (or pause) takes the push back when it hides. */
+  .limits-wrap { position: relative; margin-left: auto; display: flex; align-items: center; }
+  .limits-wrap[hidden] { display: none; }
+  .limits-wrap:not([hidden]) + .ctx-chip { margin-left: 0; }
+  .limits-wrap:not([hidden]) ~ .chat-gear { margin-left: 0; }
+  .limits-chip {
+    font: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+    color: var(--muted); background: none; border: 1px solid var(--line-strong);
+    border-radius: 999px; padding: 2px 8px; white-space: nowrap; margin-right: 4px;
+  }
+  .limits-chip.warn { color: #a16207; border-color: #eab308; }
+  .limits-chip.hot { color: #bd6f23; border-color: #bd6f23; }
+  .limits-chip.max { color: #b73d3d; border-color: #b73d3d; }
+  .limits-chip.stale { opacity: 0.55; border-style: dashed; }
+  .limits-panel {
+    position: absolute; top: calc(100% + 6px); right: 4px; z-index: 40;
+    background: var(--bg); border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: 8px 12px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    font-size: 11.5px; font-weight: 500; color: var(--text); white-space: nowrap;
+  }
+  .limits-panel[hidden] { display: none; }
+  .limits-row { display: flex; gap: 14px; justify-content: space-between; padding: 2px 0; }
+  .limits-row b { font-weight: 700; }
+  .limits-note { color: var(--muted); font-size: 10.5px; padding-top: 4px; }
   .chat-gear:hover, .chat-gear[aria-expanded="true"] { color: var(--text); }
   .chat-settings {
     flex: none; padding: 8px 14px 10px; border-bottom: 1px solid var(--line);
@@ -447,7 +472,7 @@
     </div>
     <aside class="chatpane" id="chat" hidden aria-label="Chat with the agent">
       <div class="chat-vdivider" id="chat-vdivider" title="Drag to resize the chat pane"></div>
-      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><span class="ctx-chip" id="ctx-chip" hidden title="Real context usage from the agent's terminal session"></span><button class="chat-gear" id="chat-pause" type="button" title="Pause the agent: it finishes its current step, then holds until you write resume" aria-label="Pause the agent">⏸</button><button class="chat-gear" id="chat-stop" type="button" title="Stop the agent: it wraps up, logs its state, and goes offline" aria-label="Stop the agent">⏹</button><button class="chat-gear" id="chat-gear" type="button" aria-label="Chat settings" aria-expanded="false">⚙</button><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
+      <div class="chat-head">Agent chat<span class="chat-working" id="chat-working" hidden><span class="dots"><i></i><i></i><i></i></span><span id="chat-working-text"></span></span><span class="limits-wrap" id="limits-wrap" hidden><button class="limits-chip" id="limits-chip" type="button" aria-expanded="false" title="Claude usage limits from the agent's terminal session. Click for details."></button><div class="limits-panel" id="limits-panel" hidden></div></span><span class="ctx-chip" id="ctx-chip" hidden title="Real context usage from the agent's terminal session"></span><button class="chat-gear" id="chat-pause" type="button" title="Pause the agent: it finishes its current step, then holds until you write resume" aria-label="Pause the agent">⏸</button><button class="chat-gear" id="chat-stop" type="button" title="Stop the agent: it wraps up, logs its state, and goes offline" aria-label="Stop the agent">⏹</button><button class="chat-gear" id="chat-gear" type="button" aria-label="Chat settings" aria-expanded="false">⚙</button><button class="chat-close" id="chat-close" type="button" aria-label="Close chat">×</button></div>
       <div class="chat-settings" id="chat-settings" hidden>
         <label class="pref-row"><input type="checkbox" id="pref-notifications"> Desktop notifications (attention needed, run complete)</label>
         <button class="pref-warn" id="notif-grant" type="button" hidden>Notifications are blocked in this browser — click to allow</button>
@@ -1909,6 +1934,76 @@
       : "Real context usage from the agent's terminal session";
     chip.hidden = false;
   }
+  // Usage limits, left of the ctx chip. Data is the statusline hook's
+  // rate_limits object (real numbers only, never fabricated): buckets like
+  // five_hour/seven_day with used_percentage and resets_at (epoch seconds).
+  // The chip shows the session (5h) line, since usage and time to reset are
+  // what he checks most; the click-open panel holds the weekly detail plus
+  // any extra bucket the harness ever adds (a model-specific one would land
+  // here automatically). No model-specific bucket exists in today's payload.
+  const limitsWrap = document.getElementById("limits-wrap");
+  const limitsChip = document.getElementById("limits-chip");
+  const limitsPanel = document.getElementById("limits-panel");
+  limitsChip.addEventListener("click", () => {
+    limitsPanel.hidden = !limitsPanel.hidden;
+    limitsChip.setAttribute("aria-expanded", limitsPanel.hidden ? "false" : "true");
+  });
+  document.addEventListener("click", (event) => {
+    if (!limitsPanel.hidden && !limitsWrap.contains(event.target)) {
+      limitsPanel.hidden = true;
+      limitsChip.setAttribute("aria-expanded", "false");
+    }
+  });
+  function fmtLeft(ms) {
+    const minutes = Math.max(0, Math.round(ms / 60000));
+    if (minutes >= 1440) return Math.floor(minutes / 1440) + "d" + Math.round((minutes % 1440) / 60) + "h";
+    if (minutes >= 60) return Math.floor(minutes / 60) + "h" + String(minutes % 60).padStart(2, "0") + "m";
+    return minutes + "m";
+  }
+  const LIMIT_LABELS = { five_hour: "Session (5h)", seven_day: "Weekly (7d)" };
+  const LIMIT_ORDER = ["five_hour", "seven_day"];
+  function paintLimits(rateLimits, stale, at) {
+    const buckets = Object.entries(rateLimits || {})
+      .filter(([, bucket]) => bucket && typeof bucket.used_percentage === "number")
+      .sort(([a], [b]) => {
+        const rank = (key) => { const i = LIMIT_ORDER.indexOf(key); return i === -1 ? LIMIT_ORDER.length : i; };
+        return rank(a) - rank(b);
+      });
+    if (!buckets.length) { limitsWrap.hidden = true; return; }
+    const [chipKey, chipBucket] = buckets.find(([key]) => key === "five_hour") || buckets[0];
+    const chipUsed = Math.round(chipBucket.used_percentage);
+    const chipShort = chipKey === "five_hour" ? "5h" : chipKey === "seven_day" ? "7d" : chipKey.replace(/_/g, " ");
+    limitsChip.textContent = chipShort + " " + chipUsed + "%"
+      + (chipBucket.resets_at ? " · " + fmtLeft(chipBucket.resets_at * 1000 - Date.now()) : "");
+    limitsChip.classList.toggle("warn", chipUsed > 40 && chipUsed <= 60);
+    limitsChip.classList.toggle("hot", chipUsed > 60 && chipUsed <= 85);
+    limitsChip.classList.toggle("max", chipUsed > 85);
+    limitsChip.classList.toggle("stale", stale);
+    limitsChip.title = stale
+      ? "Last known usage limits, the agent session is not reporting (as of " + new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + "). Click for details."
+      : "Claude usage limits from the agent's terminal session: session used and time to reset. Click for weekly detail.";
+    limitsPanel.innerHTML = "";
+    buckets.forEach(([key, bucket]) => {
+      const row = document.createElement("div");
+      row.className = "limits-row";
+      const name = document.createElement("span");
+      name.textContent = LIMIT_LABELS[key] || key.replace(/_/g, " ");
+      const value = document.createElement("b");
+      value.textContent = Math.round(bucket.used_percentage) + "%"
+        + (bucket.resets_at ? " · resets in " + fmtLeft(bucket.resets_at * 1000 - Date.now()) : "");
+      if (bucket.resets_at) row.title = "Resets " + new Date(bucket.resets_at * 1000).toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+      row.appendChild(name);
+      row.appendChild(value);
+      limitsPanel.appendChild(row);
+    });
+    if (stale) {
+      const note = document.createElement("div");
+      note.className = "limits-note";
+      note.textContent = "Last known, as of " + new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      limitsPanel.appendChild(note);
+    }
+    limitsWrap.hidden = false;
+  }
   async function pollCtx() {
     const chip = document.getElementById("ctx-chip");
     try {
@@ -1916,12 +2011,15 @@
       if (!response.ok) throw new Error();
       const ctx = await response.json();
       if (Date.now() - (ctx.at || 0) > 180000) throw new Error();
-      localStorage.setItem(CTX_LAST_KEY, JSON.stringify({ used: ctx.usedPercentage, at: ctx.at }));
+      localStorage.setItem(CTX_LAST_KEY, JSON.stringify({ used: ctx.usedPercentage, at: ctx.at, rateLimits: ctx.rateLimits || null }));
       paintCtx(chip, ctx.usedPercentage, false, ctx.at);
+      paintLimits(ctx.rateLimits, false, ctx.at);
     } catch {
       const last = JSON.parse(localStorage.getItem(CTX_LAST_KEY) || "null");
       if (last && typeof last.used === "number") paintCtx(chip, last.used, true, last.at);
       else chip.hidden = true;
+      if (last && last.rateLimits) paintLimits(last.rateLimits, true, last.at);
+      else limitsWrap.hidden = true;
     }
   }
 
@@ -1987,6 +2085,7 @@
   // card; the correction posts as a fresh answer message and the latest wins
   const questionEditing = new Set();
   let lastChatLines = [];
+  let chatRenderDeferred = false;
 
   // Lightbox for chat images: wheel zooms around the cursor, drag pans,
   // Esc or clicking the backdrop closes — same manners as the app's own.
@@ -2196,6 +2295,10 @@
             questionEditing.delete(entry.at);
             questionPicks.delete(entry.at);
             questionNotes.delete(entry.at);
+            // Enter-to-send keeps the caret in the note input; without this
+            // blur the focus guard suppresses the re-render and the answered
+            // card keeps showing the form as if the answer never sent
+            note.blur();
             sendAnswer(entry.at, text).then(() => highlightNextQuestion(entry.at));
           });
           note.addEventListener("keydown", (event) => {
@@ -2289,9 +2392,15 @@
       lastChatLines = lines;
       if (lines.length !== chatCount) {
         // never re-render the log out from under a card note he is typing in
-        // (the rebuild was stealing his cursor); retry on the next tick
+        // (the rebuild was stealing his cursor). Covers every editable, not
+        // just inputs; the focusout listener below lands the deferred render
+        // right after blur instead of waiting out the next tick.
         const active = document.activeElement;
-        if (chatLog.contains(active) && active.matches?.("input")) return;
+        if (chatLog.contains(active) && (active.isContentEditable || active.matches?.("input, textarea"))) {
+          chatRenderDeferred = true;
+          return;
+        }
+        chatRenderDeferred = false;
         const initialLoad = chatCount === 0;
         const fresh = lines.slice(chatCount).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
         chatCount = lines.length;
@@ -2311,6 +2420,13 @@
       }
     } catch {}
   }
+
+  // a render deferred by the typing guard lands the moment the caret leaves
+  // the log; the timeout lets focus settle so pollChat can re-check the guard
+  // (moving between two card notes must not render mid-hop)
+  chatLog.addEventListener("focusout", () => {
+    if (chatRenderDeferred) setTimeout(() => pollChat(), 0);
+  });
 
   document.getElementById("chat-toggle").addEventListener("click", () => {
     chatPane.hidden = !chatPane.hidden;

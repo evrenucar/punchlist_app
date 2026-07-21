@@ -18,13 +18,20 @@ try {
   const used = Math.round(ctx.used_percentage ?? 0);
   const model = data.model?.display_name || data.model?.id || "";
   const cost = data.cost?.total_cost_usd;
+  // rate_limits (Claude Code 2.1.x): buckets like five_hour/seven_day, each
+  // {used_percentage, resets_at (epoch seconds)}. Persisted wholesale so the
+  // chat header can render any bucket the harness sends, present or future.
+  const limits = data.rate_limits || null;
   await writeFile(ctxFile, JSON.stringify({
     usedPercentage: used,
     model,
     sessionId: data.session_id || null,
+    rateLimits: limits,
     at: Date.now(),
   }));
-  line = [model, `ctx ${used}%`, cost != null ? `$${cost.toFixed(2)}` : null]
+  const fiveHour = limits?.five_hour?.used_percentage;
+  line = [model, `ctx ${used}%`, cost != null ? `$${cost.toFixed(2)}` : null,
+    fiveHour != null ? `5h ${Math.round(fiveHour)}%` : null]
     .filter(Boolean).join(" · ");
 } catch {
   /* malformed stdin: keep the fallback line, write nothing */
