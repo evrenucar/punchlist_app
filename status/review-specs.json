@@ -462,7 +462,7 @@
             {
               "id": "prio-task-agent-touch-round2",
               "title": "Touch re-test round 2 (from his on-glass notes on the reloaded build): 4 fixes shipped, 2 threads waiting on …",
-              "body": "2 open sub-items ride along with this pick.",
+              "body": "- OPEN (tentative): wants a visible boundary between the tap-to-select zone and where the e…\n- OPEN: the 'random line on the left' is the group CARD's colored border (group color, oran…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -476,7 +476,7 @@
             {
               "id": "prio-task-mrred11c-soeow",
               "title": "Flash is still there",
-              "body": "3 open sub-items ride along with this pick.",
+              "body": "- Written 06:10, four hours AFTER the scoped-render deploy and your tab reload, so it is re…\n- Deletes now render scoped too (75ms to 14ms), the biggest remaining full-render in daily …\n- Round 2 deployed (dc526c4) from your sub-items clue: your few-huge-groups board made grou…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -490,7 +490,7 @@
             {
               "id": "prio-task-agent-mobileaudit",
               "title": "Mobile audit (app): every control and flow at 390x844 and 360x780, both themes; findings ranked by daily-use …",
-              "body": "2 open sub-items ride along with this pick.",
+              "body": "- Clean: sidebar drawer, both themes, no horizontal overflow at 390/360/617, drawer touch t…\n- Still open from P2: touch interactions themselves (indent/outdent gesture, drag select, d…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -504,7 +504,7 @@
             {
               "id": "prio-task-mrtod6is-d87ui",
               "title": "Graph things.",
-              "body": "5 open sub-items ride along with this pick.",
+              "body": "- this kind of sucks. I don't know what they are doing and cannot reveal it at all.h\n- Force is a bit too chaotic hard to read 0 order too much overlap\n- fEEDBACK ON GRAPH\n- Force cleanup shipped: depth-ordered, zero box overlap, chips show status and click-selec…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -523,7 +523,7 @@
             {
               "id": "prio-task-mrs53avc-nj6ja",
               "title": "Focus interface",
-              "body": "4 open sub-items ride along with this pick.",
+              "body": "- In the focus interface if there is too much text I cant scroll up and dow\n- The elements that were hidden behind toggles display all opened. Should adopt the default…\n- When focused the header is still too large\n- On group basis when I focus there is no time display (there should be groups should also …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -537,7 +537,7 @@
             {
               "id": "prio-task-mrs1vx64-k369h",
               "title": "General engineering",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- Currently are we handling multi timezone issues? Like what if my two devices were across …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -551,7 +551,7 @@
             {
               "id": "prio-task-mrs1vtoz-j3uiy",
               "title": "Mobile",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- To enter focus double clicking on a item could bring you in the focus mode. The standard …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -593,7 +593,7 @@
             {
               "id": "prio-task-mrrms9r9-r0y9a",
               "title": "On mobile",
-              "body": "5 open sub-items ride along with this pick.",
+              "body": "- The toggles are broken sometimes after I change items edit text etc. And I cannot fix it …\n- On mobile taskboard group toggles have a bit of a delay. On other sub item toggles its fi…\n- the interface is still floaty horizontally its not locked in also\n- there are weird artifacts with the lines on the left of groups.\n- Also dragging tasks around don't work so well. SOmetimes it ends up copying the contents …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -607,7 +607,7 @@
             {
               "id": "prio-task-mrrmizd9-ls0ij",
               "title": "(status board)The red here could be white for easy readability of text.",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -621,7 +621,7 @@
             {
               "id": "prio-task-tri-mro85vly-6",
               "title": "Friction list — triaged from braindump (2026-07-17), P1 first",
-              "body": "3 open sub-items ride along with this pick.",
+              "body": "- P1 — Flow-breaking bugs\n- P3 — Keyboard & desktop frictions\n- P4 — Visual & design",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -635,7 +635,7 @@
             {
               "id": "prio-task-mro61r16-utkp5",
               "title": "Mobile audit before fixing",
-              "body": "3 open sub-items ride along with this pick.",
+              "body": "- Every control and flow at 390×844 and 360×780\n- Both themes, design-review phase list, plus the physical iPhone\n- Rank findings by daily-use frequency",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -691,7 +691,7 @@
             {
               "id": "prio-task-mrs59v4k-xvx65",
               "title": "We need to improve the browsing experience. Currently Its hard to know what is where and how to get ot groups…",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- İdea 1 : nav menu on left, idea2 easier to browse interface somehow or an overview somewh…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -766,7 +766,7 @@
             {
               "id": "prio-task-mrs1y7y2-3c8ex",
               "title": "Graph itnerface",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- Some of the text looks blurry for some reason",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -836,7 +836,7 @@
             {
               "id": "prio-task-mrroq07l-f4lgp",
               "title": "Graph in status board",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- the time on top right is interfering with the text",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -850,7 +850,7 @@
             {
               "id": "prio-task-mrr4nxx8-2zbhm",
               "title": "Graph",
-              "body": "2 open sub-items ride along with this pick.",
+              "body": "- Second report, still open: zoom re-layout has no anchor. Fix direction: keep the selected…\n- Fixed (development interface): zoom now anchors on the node nearest your cursor and pins …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -864,7 +864,7 @@
             {
               "id": "prio-task-mrr4t9go-6mmmg",
               "title": "The agent stopped running but was still showing it was running in the interface",
-              "body": "2 open sub-items ride along with this pick.",
+              "body": "- Nope this is still and issue. Maybe the monitor still triggers it to show active even tho…\n- Restored after the same slip. Your monitor theory noted, needs a repro window: next time …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -878,7 +878,7 @@
             {
               "id": "prio-task-mrr3r4zn-7std2",
               "title": "General interface",
-              "body": "2 open sub-items ride along with this pick.",
+              "body": "- Intake note, IMPORTANT flag kept: different from the image flash fixed earlier (that was …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -892,7 +892,7 @@
             {
               "id": "prio-task-mrr2zdmg-m4tig",
               "title": "Chat interface",
-              "body": "3 open sub-items ride along with this pick.",
+              "body": "- Q&A\n- Intake note: the Q&A focus theft is the chat log re-rendering while you type into a card …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -906,7 +906,7 @@
             {
               "id": "prio-task-mrr43dm1-xw8wn",
               "title": "Graph interface",
-              "body": "2 open sub-items ride along with this pick.",
+              "body": "- Intake note: fresh feedback on the staircase shipped tonight. Click-should-not-jump and d…\n- Shipped per your card pick (development interface): a stopped agent leaves a dimmed dashe…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -934,7 +934,7 @@
             {
               "id": "prio-task-mroxlxsv-xb6v4",
               "title": "General interface (general)",
-              "body": "3 open sub-items ride along with this pick.",
+              "body": "- Chat\n- Intake note: the typing delay item is app-side (the board in the iframe IS the app) — rel…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -948,7 +948,7 @@
             {
               "id": "prio-task-mrou46uk-ir8w4",
               "title": "low priority Bugs (status board)",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- Intake note: the BUGS heading and its High priority shell were dissolved — the high-prior…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -962,7 +962,7 @@
             {
               "id": "prio-task-mroz5zi1-1qwwt",
               "title": "Can it handle multiple agents running at the same time? What would happen if I launch codex now from CLI in t…",
-              "body": "2 open sub-items ride along with this pick.",
+              "body": "- Give me feedback on this and maybe grill me about it a bit.\n- Answered in chat 2026-07-19. Robustness work (name collisions, git races between agents) …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -976,7 +976,7 @@
             {
               "id": "prio-task-mrr59quf-zmh1j",
               "title": "Writing has become very laggy all of a sudden if multiple of the punchlist is open on pc (maybe pc lag issue …",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- Written 01:56, BEFORE the typing-save debounce and scoped render deploys. Likely already …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -990,7 +990,7 @@
             {
               "id": "prio-task-mrr54ws2-97cfy",
               "title": "currently I don't have a great overview of the code base as it stands. Maybe nice to have summaries of the co…",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- Two asks kept together: periodic codebase summaries for you, and clickable links in chat …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -1004,7 +1004,7 @@
             {
               "id": "prio-task-mrr56voa-62lq3",
               "title": "Is there still a Improved mobile Test plan? Can you share with me?",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- Answered in chat: the 18-step plan exists as a tab, reopening it for you. The per-step fe…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -1018,7 +1018,7 @@
             {
               "id": "prio-task-mrs5uuzq-gb1wa",
               "title": "Graph",
-              "body": "3 open sub-items ride along with this pick.",
+              "body": "- Name of agent working isn't showing in the graph interface.\n- currently its a bit useless still for me. Its not updated. What is active and being worke…\n- Would be nice to add easy formatting. Should be able to bold underscore strike through",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -1060,21 +1060,7 @@
             {
               "id": "prio-task-mrtrf6jo-7532d",
               "title": "Task execution order and prioritization from todo group.",
-              "body": "1 open sub-item ride along with this pick.",
-              "placeholder": "Anything to add or narrow?",
-              "answers": {
-                "options": [
-                  "Top, go now",
-                  "Soon",
-                  "Later",
-                  "Drop it"
-                ]
-              }
-            },
-            {
-              "id": "prio-task-mrto8xlg-ne59e",
-              "title": "Do we need to refactor. do we need to use improve codebase structure?",
-              "body": "",
+              "body": "- You should prioritize what is at the top of groups and sub groups. And order accordingly.…",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -1088,7 +1074,7 @@
             {
               "id": "prio-task-mrto9biy-kq7gk",
               "title": "New features_to focus on after current changes and fixes land:",
-              "body": "4 open sub-items ride along with this pick.",
+              "body": "- Design how sharing will work\n- Design collaboration\n- Encrption\n- Text formatting",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
@@ -1116,7 +1102,7 @@
             {
               "id": "prio-task-mrty54l2-34et0",
               "title": "Automated Testing",
-              "body": "1 open sub-item ride along with this pick.",
+              "body": "- When a tab opens when it opens in the foreground its super distracting always OPEN it on …",
               "placeholder": "Anything to add or narrow?",
               "answers": {
                 "options": [
