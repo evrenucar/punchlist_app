@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Recover your board — Punchlist</title>
+<style>
+  :root {
+    --bg: #151716; --surface: #202321; --surface-2: #292d2a;
+    --ink: #f1f4ef; --muted: #a8b2aa; --line: #3a403c;
+    --accent: #246bfe; --accent-soft: #1f315f;
+    --good: #2f6f4e; --warn: #d9480f; --danger: #c92a2a;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f7f2; --surface:#fff; --surface-2:#eef4f1; --ink:#202422; --muted:#65716b; --line:#d8ded8; --accent-soft:#e9f0ff; }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 0 18px 80px;
+  }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  header { padding: 40px 0 8px; }
+  .eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 13px; }
+  h1 { font-size: clamp(28px, 6vw, 40px); line-height: 1.1; margin: 8px 0 6px; }
+  .sub { color: var(--muted); font-size: 17px; margin: 0 0 8px; }
+  h2 { font-size: 22px; margin: 40px 0 12px; }
+  p { margin: 0 0 14px; }
+  code, .mono { font-family: var(--mono); font-size: .92em; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; margin: 16px 0; box-shadow: 0 12px 34px rgba(0,0,0,.20); }
+  .callout { border-left: 4px solid var(--accent); background: var(--surface); border-radius: 0 var(--radius) var(--radius) 0; padding: 14px 18px; margin: 16px 0; }
+  .callout.good { border-left-color: var(--good); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout.danger { border-left-color: var(--danger); }
+  .callout .lead { font-weight: 700; display: block; margin-bottom: 4px; }
+
+  /* what happened: device timeline */
+  .devices { display: grid; gap: 8px; margin: 6px 0 2px; }
+  .dev { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+  .dev .when { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 14px; }
+  .dev.bad { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--surface-2)); }
+  .dev .tag { font-size: 12px; color: var(--warn); font-weight: 700; }
+
+  /* steps */
+  ol.steps { list-style: none; counter-reset: step; padding: 0; margin: 0; }
+  ol.steps > li { position: relative; padding: 0 0 4px 52px; margin: 0 0 22px; }
+  ol.steps > li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: -2px; width: 34px; height: 34px;
+    display: grid; place-items: center; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700; font-size: 16px;
+  }
+  ol.steps > li h3 { margin: 4px 0 6px; font-size: 18px; }
+  ol.steps ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+  ol.steps ul li { margin: 4px 0; }
+
+  /* mock GitHub UI */
+  .mock { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 12px 0 2px; font-size: 14px; }
+  .mock .bar { background: var(--surface-2); padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: center; }
+  .mock .bar .path { font-family: var(--mono); color: var(--muted); }
+  .mock .pill { margin-left: auto; border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; font-size: 12px; color: var(--ink); background: var(--surface); }
+  .mock .row { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--line); align-items: center; }
+  .mock .row:first-child { border-top: 0; }
+  .mock .row .msg { font-family: var(--mono); font-size: 13px; }
+  .mock .row .meta { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .mock .row.good { background: color-mix(in srgb, var(--good) 14%, var(--surface)); }
+  .mock .row.bad { background: color-mix(in srgb, var(--warn) 12%, var(--surface)); }
+  .arrow { text-align: center; color: var(--good); font-weight: 700; margin: 2px 0; }
+  kbd { font-family: var(--mono); font-size: 12px; background: var(--surface-2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+  .foot { color: var(--muted); font-size: 14px; margin-top: 40px; border-top: 1px solid var(--line); padding-top: 16px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Punchlist · data recovery</span>
+    <h1>Get your board back</h1>
+    <p class="sub">Your board did not vanish. A stale device overwrote it through GitHub sync, and every sync keeps a full backup as a commit. The good version is still in your repo. Here is how to pull it back.</p>
+  </header>
+
+  <div class="callout good">
+    <span class="lead">The short version</span>
+    Open your sync repo on GitHub, look at the history of <code>punchlist-board.json</code>, grab the version from just before the bad sync, and Import it into the app. Ten minutes, no data lost.
+  </div>
+
+  <h2>What actually happened</h2>
+  <p>Sync stores your whole board as one file in a private repo. When two devices have both changed, the app currently lets the local device win, with no check for which board is newer. A device that was last used 5 days ago came back online, still counting as changed, and pushed its old board over your current one. Your other devices then pulled that old board down.</p>
+
+  <div class="devices">
+    <div class="dev"><span>asus_laptop <span class="mono" style="color:var(--muted)">(this device)</span></span><span class="when">today · 10:12</span></div>
+    <div class="dev"><span>device a07y</span><span class="when">today · 04:22</span></div>
+    <div class="dev bad"><span>device hkth <span class="tag">← the culprit</span></span><span class="when">5 days ago · 09:00</span></div>
+  </div>
+  <p class="sub" style="font-size:14px">That 5-days-ago device is the one whose old board won. The other two read “today” only because they saved again after pulling the old board down.</p>
+
+  <div class="callout warn">
+    <span class="lead">Before you touch anything</span>
+    Do not let the stale device (hkth) sync again until you have restored and the fix is in, or it can overwrite you a second time. Easiest: keep that device closed, or turn its sync toggle off (Settings → Sync) for now.
+  </div>
+
+  <h2>Recover the board</h2>
+  <ol class="steps">
+    <li>
+      <h3>Open your sync repo on GitHub</h3>
+      <p>It is the private repo shown in the app under <strong>Settings → Sync → Repository</strong> (<code>evrenucar/punchlist-…</code>). Open it in a browser where you are signed in to GitHub.</p>
+    </li>
+    <li>
+      <h3>Open the board file and its history</h3>
+      <p>Click the file <code>punchlist-board.json</code>, then click <strong>History</strong> (top right of the file view). You will see one commit per sync.</p>
+      <div class="mock">
+        <div class="bar"><span class="path">punchlist-board.json</span><span class="pill">History ›</span></div>
+        <div class="row bad"><span class="msg">punchlist sync (load, hkth)</span><span class="meta">today · the bad push</span></div>
+        <div class="row good"><span class="msg">punchlist sync (edit, asus_laptop)</span><span class="meta">today · ← your good board</span></div>
+        <div class="row"><span class="msg">punchlist sync (edit, a07y)</span><span class="meta">today, earlier</span></div>
+      </div>
+    </li>
+    <li>
+      <h3>Find the last good commit</h3>
+      <p>The bad one is the sync from the stale device, message like <code>punchlist sync (load, hkth)</code>, timed when your board reverted. The commit <strong>right above it in time</strong> (the one just before) is your good board. Its message names your real device, like <code>punchlist sync (edit, asus_laptop)</code>.</p>
+      <ul>
+        <li>Not sure which is which? Click a commit to preview that version of the file and scan the task text. Pick the one that has your recent work.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Download that good version</h3>
+      <p>Click the good commit, then open <code>punchlist-board.json</code> at that point, click <strong>Raw</strong>, and save the page (<kbd>Ctrl</kbd>+<kbd>S</kbd>) as a <code>.json</code> file.</p>
+      <ul>
+        <li>On GitHub a file view has a <strong>Raw</strong> button top right. Right-click it → Save link as, or open it and save.</li>
+      </ul>
+    </li>
+    <li>
+      <h3>Back up the current (broken) board first</h3>
+      <p>In the app, export the board you have now before overwriting it, just as a safety net. Menu → <strong>Export JSON</strong>. Keep that file somewhere.</p>
+    </li>
+    <li>
+      <h3>Import the good version</h3>
+      <p>In the app on your main device, use <strong>Import JSON</strong> and pick the file you downloaded in step 4. Your board comes back. Your images come with it: image files live separately in the repo and are never deleted, so old references still load.</p>
+    </li>
+  </ol>
+
+  <div class="callout">
+    <span class="lead">Then let it spread</span>
+    After importing on your main device, that device pushes the restored board back up, and your other devices pull it. Give it a minute, then check Settings → Sync shows “Synced” and the board looks right on each device.
+  </div>
+
+  <div class="callout danger">
+    <span class="lead">One order-of-operations note</span>
+    Until the fix ships, the same thing could happen again if any stale device syncs while dirty. Safest sequence: I ship the guard first, then you restore, so nothing can re-clobber. If you would rather restore right now, just keep hkth offline until the fix lands. I am building that fix in parallel and will bring it to you.
+  </div>
+
+  <p class="foot">Made by Opus 4.8 for the Punchlist sync incident on 2026-07-21. This page is local only. The permanent fix (a stale board can never overwrite a newer one) is being designed and verified now and comes to you separately.</p>
+</div>
+</body>
+</html>

@@ -2854,7 +2854,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.19";
+    const APP_VERSION = "1.5.20";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -3217,8 +3217,14 @@
 
     function saveState() {
       touchDeviceRoster();
+      const syncable = syncIsActive() && !syncApplying;
+      // Bump the logical rev on every real local edit (2026-07-21 data-loss
+      // fix). This single counter is what lets sync tell a genuinely newer
+      // board from a stale one, with no wall clock to be fooled by. Pulls run
+      // under syncApplying, so adopting a remote board never inflates our rev.
+      if (syncable) state.rev = (Number(state.rev) || 0) + 1;
       saveStateToLocalStorage();
-      if (syncIsActive() && !syncApplying) {
+      if (syncable) {
         saveSyncConfig({ dirty: true });
         scheduleSyncPush();
       }
@@ -3508,12 +3514,22 @@
     }
 
     // Pure decision core: given where local and remote stand, one action.
-    // Divergence resolves local-wins because the losing version survives as
-    // the previous commit; there is no merge in v1.
-    function syncDecision({ remoteExists, remoteSha, lastSha, dirty }) {
+    // Divergence (the remote moved since our last sync) is resolved by the
+    // logical rev counter, never by the dirty flag or a wall clock — a stale
+    // device (low rev) must never overwrite a newer board (2026-07-21 data-loss
+    // fix). base = our rev at the last agreed sync. Missing rev fails safe to
+    // pull. The one conflict neither counter can rank — an exact tie with local
+    // edits — returns "conflict" so the caller can ask (Evren's blend).
+    function syncDecision({ remoteExists, remoteSha, lastSha, dirty, base, localRev, remoteRev }) {
       if (!remoteExists) return "create";
       if (remoteSha === lastSha) return dirty ? "push" : "none";
-      return dirty ? "push" : "pull";
+      const knownRemote = Number.isFinite(remoteRev);
+      const knownBase = Number.isFinite(base);
+      if (knownRemote && knownBase && remoteRev < base) return "push"; // remote regressed below our base -> heal it
+      if (knownRemote && localRev > remoteRev) return "push";          // we have more edits -> we win, remote kept in git
+      if (knownRemote && localRev < remoteRev) return "pull";          // remote has more edits -> adopt it
+      if (knownRemote && dirty) return "conflict";                     // exact tie with local edits -> ask
+      return "pull";                                                   // unknown rev / nothing local to lose -> fail safe
     }
 
     // Sync payloads are lossless: unlike user exports they ignore the
@@ -3541,7 +3557,10 @@
       const keepSelection = selectedNode ? { ...selectedNode } : null;
       const scroller = typeof document.querySelector === "function" ? document.querySelector("main") : null;
       const keepScrollTop = scroller ? scroller.scrollTop : null;
+      const keepRev = Number(state.rev) || 0;
       state = migrateState(imported, new Date().toISOString(), { includeResearch: false });
+      // Never let the logical counter regress after adopting a remote board.
+      state.rev = Math.max(Number(state.rev) || 0, keepRev);
       state.settings = currentSettings;
       // A payload from an older build must not wipe the shared key or the
       // contact book; when the remote has them, the remote versions win.
@@ -3661,13 +3680,35 @@
         } else if (get.status !== 404) {
           throw new Error(`GitHub answered ${get.status}${get.status === 401 ? "; check the token" : ""}.`);
         }
+        let remotePayload = null;
+        if (remote.exists && remote.content) {
+          try { remotePayload = JSON.parse(decodeBase64Utf8(remote.content)); } catch { remotePayload = null; }
+        }
         const action = syncDecision({
           remoteExists: remote.exists,
           remoteSha: remote.sha,
           lastSha: syncConfig.lastSha || null,
           dirty: Boolean(syncConfig.dirty),
+          base: Number(syncConfig.lastRev),
+          localRev: Number(state.rev) || 0,
+          remoteRev: Number(remotePayload?.state?.rev),
         });
-        if (action === "pull") {
+        // A true two-sided tie (equal rev, different board) is the only case
+        // neither counter can rank, so it is the only one that asks (Evren's
+        // blend, 2026-07-21). Background syncs never ambush with a dialog: they
+        // defer the tie to a manual Sync. Everything else auto-resolves.
+        let resolved = action;
+        if (action === "conflict") {
+          const userInitiated = trigger === "manual" || trigger === "edit" || trigger === "config" || trigger === "enable";
+          if (!userInitiated || typeof window.confirm !== "function") {
+            setSyncStatus("Conflict: both devices changed. Press Sync now to choose.");
+            return;
+          }
+          resolved = window.confirm("This device and another both changed since the last sync, and neither is clearly newer. Keep THIS device's version? (Cancel keeps the other device's version. Either way the other stays in Undo and the repo history.)")
+            ? "push"
+            : "pull";
+        }
+        if (resolved === "pull") {
           // Never yank the board out from under an active caret: retry shortly
           // instead (the debounce re-runs syncNow; it re-decides from scratch).
           const active = document.activeElement;
@@ -3676,14 +3717,17 @@
             scheduleSyncPush();
             return;
           }
-          applySyncedState(JSON.parse(decodeBase64Utf8(remote.content)));
-          saveSyncConfig({ lastSha: remote.sha, dirty: false, lastSyncedAt: new Date().toISOString() });
-          showToast("Pulled board changes from GitHub.");
+          const hadLocalEdits = Boolean(syncConfig.dirty);
+          applySyncedState(remotePayload || JSON.parse(decodeBase64Utf8(remote.content)));
+          saveSyncConfig({ lastSha: remote.sha, dirty: false, lastRev: state.rev, lastSyncedAt: new Date().toISOString() });
+          showToast(hadLocalEdits
+            ? "Another device had newer changes; kept those. Your edits are in Undo and the repo history."
+            : "Pulled board changes from GitHub.");
           // a not-yet-migrated device may push embedded images; offload them
           // here and let the debounced push send the slim board back
           if (assetsAvailable() && offloadEmbeddedImages()) saveState();
           await pullMissingAssets(branch);
-        } else if (action === "push" || action === "create") {
+        } else if (resolved === "push" || resolved === "create") {
           const overwroteRemote = remote.exists && remote.sha !== (syncConfig.lastSha || null);
           // asset files land before the board that references them, so a
           // crash between the two never strands a device on broken references
@@ -3700,8 +3744,8 @@
           });
           if (!put.ok) throw new Error(`GitHub answered ${put.status} on push.`);
           const putData = await put.json();
-          saveSyncConfig({ lastSha: putData.content?.sha || null, dirty: false, lastSyncedAt: new Date().toISOString() });
-          if (overwroteRemote) showToast("Pushed this device's board over newer remote changes; the overwritten version is in the repo's commit history.");
+          saveSyncConfig({ lastSha: putData.content?.sha || null, dirty: false, lastRev: state.rev, lastSyncedAt: new Date().toISOString() });
+          if (overwroteRemote) showToast("Pushed this device's board over an older remote; the previous version is in the repo's commit history.");
         }
         setSyncStatus(`Synced ${formatClockTime()}`);
       } catch (error) {
@@ -4921,8 +4965,31 @@
       pushUndoState("collapse");
       group.collapsed = nextCollapsed;
       saveState();
-      renderGroupInPlace(id);
+      renderGroupCollapse(id, nextCollapsed);
       selectNode("group", id);
+    }
+
+    // Collapse/expand is a class toggle, not a re-serialize. renderGroup emits
+    // every task even when collapsed (hidden by .is-hidden), so rebuilding the
+    // whole article on a toggle re-serialized the entire group — the group-
+    // toggle lag on his huge groups (mobile). Just flip the class and the
+    // chevron; the .group:has(.is-hidden) rule restyles the header for free.
+    function renderGroupCollapse(groupId, collapsed) {
+      const article = document.querySelector?.(`[data-group-card="${groupId}"]`);
+      const ul = article?.querySelector?.(`[data-group-list="${groupId}"]`);
+      // empty groups toggle an empty-state <p> outside the list; search re-
+      // filters globally; the vm/hidden board has nothing to touch: fall back
+      if (!article || !ul || boardEl.hidden || (searchEl?.value?.trim()) || !ul.querySelector(":scope > li[data-task]")) {
+        renderGroupInPlace(groupId);
+        return;
+      }
+      ul.classList.toggle("is-hidden", collapsed);
+      const chevron = article.querySelector('[data-action="toggle-group"]');
+      if (chevron) {
+        chevron.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        chevron.setAttribute("aria-label", `${collapsed ? "Expand" : "Collapse"} group`);
+      }
+      if (selectedNode) renderSelection();
     }
 
     function toggleSelectedNode(collapsed) {
@@ -6570,6 +6637,9 @@
 
     function normalizeState(boardState, now = new Date().toISOString()) {
       boardState.version = SCHEMA_VERSION;
+      // Logical sync counter (2026-07-21 data-loss fix): floor of 0 so every
+      // board carries one and cross-version comparisons never hit undefined.
+      boardState.rev = Number.isFinite(Number(boardState.rev)) && Number(boardState.rev) >= 0 ? Number(boardState.rev) : 0;
       boardState.example = Boolean(boardState.example);
       boardState.settings = {
         ...DEFAULT_SETTINGS,

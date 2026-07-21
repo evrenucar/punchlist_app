@@ -165,6 +165,28 @@ test("legacy state migrates to version two without losing task data", async () =
   );
 });
 
+test("sync recency guard: a stale device can never overwrite a newer board", async () => {
+  const api = await loadBoardApi();
+  const d = (args) => api.syncDecision({ remoteExists: true, ...args });
+  // Fast-forward (no divergence): our edits push, nothing else stays put.
+  assert.strictEqual(d({ remoteSha: "s", lastSha: "s", dirty: true }), "push");
+  assert.strictEqual(d({ remoteSha: "s", lastSha: "s", dirty: false }), "none");
+  assert.strictEqual(api.syncDecision({ remoteExists: false }), "create");
+  // THE INCIDENT: a stale device (low rev) meets a newer remote (high rev).
+  // Old code returned "push" and clobbered; it must now "pull".
+  assert.strictEqual(d({ remoteSha: "b", lastSha: "a", dirty: true, base: 40, localRev: 43, remoteRev: 130 }), "pull");
+  // A genuinely more-edited local wins; the remote is kept in git history.
+  assert.strictEqual(d({ remoteSha: "b", lastSha: "a", dirty: true, base: 40, localRev: 46, remoteRev: 43 }), "push");
+  // A remote that regressed below our base (an old-build clobber) is healed by pushing.
+  assert.strictEqual(d({ remoteSha: "b", lastSha: "a", dirty: false, base: 40, localRev: 40, remoteRev: 30 }), "push");
+  // Unknown remote rev (old build, no counter) fails safe to pull, never clobbers.
+  assert.strictEqual(d({ remoteSha: "b", lastSha: "a", dirty: true, base: 40, localRev: 43, remoteRev: NaN }), "pull");
+  // Exact tie WITH local edits is the only case that asks.
+  assert.strictEqual(d({ remoteSha: "b", lastSha: "a", dirty: true, base: 40, localRev: 43, remoteRev: 43 }), "conflict");
+  // Exact tie with nothing local to lose: just take remote.
+  assert.strictEqual(d({ remoteSha: "b", lastSha: "a", dirty: false, base: 40, localRev: 43, remoteRev: 43 }), "pull");
+});
+
 test("new tasks retain immutable creation context", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-projects");
@@ -2028,7 +2050,12 @@ test("github sync: decision table and utf8 base64 roundtrip", async () => {
   assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "a", lastSha: "a", dirty: false }), "none");
   assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "a", lastSha: "a", dirty: true }), "push");
   assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: false }), "pull");
-  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: true }), "push", "divergence resolves local-wins; git history keeps the loser");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: true }), "pull", "divergence with no rev info fails safe to pull; a stale board never clobbers a newer one");
+  // rev-aware divergence: stale local (low rev) yields; more-edited local wins; a regressed remote is healed; an exact tie with local edits asks.
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: true, base: 40, localRev: 42, remoteRev: 120 }), "pull", "a stale device pulls instead of overwriting a newer board");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: true, base: 40, localRev: 50, remoteRev: 44 }), "push", "more-edited local wins, remote kept in git");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: false, base: 40, localRev: 40, remoteRev: 20 }), "push", "a remote that regressed below our base is healed");
+  assert.equal(api.syncDecision({ remoteExists: true, remoteSha: "b", lastSha: "a", dirty: true, base: 40, localRev: 45, remoteRev: 45 }), "conflict", "an exact tie with local edits asks");
 
   const text = "Ünïcödé ✓ görev listesi 🎯";
   assert.equal(api.decodeBase64Utf8(api.encodeBase64Utf8(text)), text);
@@ -2322,7 +2349,7 @@ test("a pending typed save survives a sync while the remote moved (flush before 
   const remotePayload = {
     version: 2,
     syncedAt: "2026-07-20T02:00:00.000Z",
-    state: { groups: [{ id: "g-remote", title: "Remote board", tasks: [], collapsed: false }], history: [], trash: [] },
+    state: { groups: [{ id: "g-remote", title: "Remote board", tasks: [], collapsed: false }], history: [], trash: [], rev: 0 },
   };
   const base64 = Buffer.from(JSON.stringify(remotePayload), "utf8").toString("base64");
   const fetchMock = async (url, options = {}) => {
@@ -2367,9 +2394,12 @@ test("a pull keeps the selection when the selected task survives", async () => {
 
 test("a 409 on push schedules its own retry", async () => {
   const timers = [];
+  // A versioned remote whose rev sits below our last-agreed base, so the
+  // recency guard still resolves to a push (which then 409s and must retry).
+  const remoteContent = btoa(JSON.stringify({ version: 2, syncedAt: "2026-07-20T00:00:00.000Z", state: { groups: [], history: [], trash: [], rev: 3 } }));
   const fetchMock = async (url, options = {}) => {
     if (options.method === "PUT") return { ok: false, status: 409, json: async () => ({}) };
-    return { ok: true, status: 200, json: async () => ({ sha: "r3", size: 100, content: "" }) };
+    return { ok: true, status: 200, json: async () => ({ sha: "r3", size: remoteContent.length, content: remoteContent }) };
   };
   const windowStub = {
     getSelection() { return { rangeCount: 0, addRange() {}, getRangeAt() { return null; }, removeAllRanges() {} }; },
@@ -2377,7 +2407,7 @@ test("a 409 on push schedules its own retry", async () => {
     clearTimeout() {},
   };
   const api = await loadBoardApi({ fetch: fetchMock, window: windowStub, TextEncoder, TextDecoder, btoa, atob });
-  api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "r1", dirty: true });
+  api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "r1", dirty: true, lastRev: 5 });
   const before = timers.length;
   await api.syncNow("edit");
   assert.equal(timers.length > before, true, "a 409 must arm a retry timer instead of sitting failed");

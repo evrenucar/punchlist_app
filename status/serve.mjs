@@ -51,6 +51,8 @@ const routes = {
   "/update-overview": { file: join(statusDir, "update-overview.html"), type: "text/html; charset=utf-8" },
   "/graph-options": { file: join(statusDir, "graph-options.html"), type: "text/html; charset=utf-8" },
   "/priorities": { file: join(statusDir, "priorities.html"), type: "text/html; charset=utf-8" },
+  // step-by-step recovery walkthrough for the 2026-07-21 sync data-loss incident
+  "/recovery": { file: join(statusDir, "recovery.html"), type: "text/html; charset=utf-8" },
 };
 
 createServer(async (req, res) => {
