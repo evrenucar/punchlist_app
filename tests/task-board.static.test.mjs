@@ -698,6 +698,80 @@ test("focus mode accepts groups and hides retention-hidden children", async () =
   assert.equal(filtered.includes(`data-focus-task-text="${group.tasks[0].id}"`), false);
 });
 
+test("focus bar shows a breadcrumb and group focus shows a static time total", async () => {
+  const stub = (extra = {}) => ({
+    innerHTML: "",
+    textContent: "",
+    hidden: false,
+    dataset: {},
+    classList: { add() {}, remove() {} },
+    addEventListener() {},
+    contains() { return false; },
+    focus() {},
+    scrollIntoView() {},
+    ...extra,
+  });
+  const elements = new Map([
+    ["[data-board]", stub()],
+    ["[data-section-nav]", stub()],
+    ["[data-total-count]", stub()],
+    ["[data-done-count]", stub()],
+    ["[data-search]", stub({ value: "" })],
+    ["[data-focus-mode]", stub({ hidden: true })],
+    ["[data-focus-task]", stub()],
+    ["[data-focus-timer]", stub()],
+    ["[data-focus-crumb]", stub()],
+  ]);
+  const api = await loadBoardApi({
+    document: {
+      activeElement: null,
+      querySelector(selector) {
+        return elements.get(selector) || null;
+      },
+      querySelectorAll() {
+        return [];
+      },
+      addEventListener() {},
+      createRange() {
+        return { collapse() {}, deleteContents() {}, insertNode() {}, selectNodeContents() {}, setStartAfter() {} };
+      },
+    },
+  });
+
+  const group = api.state.groups.find((g) => g.id === "group-projects");
+  const flatten = (list, out = []) => {
+    (list || []).forEach((t) => {
+      out.push(t);
+      flatten(t.children, out);
+    });
+    return out;
+  };
+  const all = flatten(group.tasks);
+  all.forEach((t) => { t.focusSeconds = 0; });
+  all[0].focusSeconds = 90;
+  all[1].focusSeconds = 45;
+  assert.equal(api.getGroupFocusSeconds(group), 135, "total sums the whole subtree");
+
+  assert.equal(api.enterGroupFocusMode(group.id), true);
+  const crumb = elements.get("[data-focus-crumb]");
+  const timer = elements.get("[data-focus-timer]");
+  assert.equal(crumb.textContent, group.title, "group focus puts the group title in the bar");
+  assert.equal(timer.hidden, false, "group focus no longer hides the timer slot");
+  assert.equal(timer.textContent, "02:15 total", "the slot shows a labeled static sum");
+  api.exitFocusMode();
+  assert.equal(crumb.textContent, "", "exit clears the breadcrumb");
+
+  // task focus: breadcrumb carries the task's first line; timer keeps ticking format
+  const task = all.find((t) => t.text);
+  assert.equal(api.enterFocusMode(task.id), true);
+  assert.equal(crumb.textContent, String(task.text).split("\n")[0]);
+  api.exitFocusMode();
+
+  // a linked copy of an in-group task must not double count
+  group.tasks.push({ id: "gfs-alias", linkType: "alias", targetTaskId: all[0].id, children: [] });
+  assert.equal(api.getGroupFocusSeconds(group), 135, "alias dedupes against its original");
+});
+
 test("focus mode owns its keys: outline browsing, sibling moves, guarded board", async () => {
   const api = await loadBoardApi();
   const html = await readBoard();

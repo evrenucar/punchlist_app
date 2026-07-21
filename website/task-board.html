@@ -2130,8 +2130,35 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
       padding: 8px 14px;
       border-bottom: 1px solid var(--line);
+    }
+
+    /* Breadcrumb: the focused group/task title stays visible in the bar while
+       the big in-body title scrolls away. */
+    .focus-mode__crumb {
+      flex: 1;
+      min-width: 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .focus-mode__hint {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    @media (max-width: 640px) {
+      .focus-mode__hint {
+        display: none;
+      }
     }
 
     .focus-mode__task {
@@ -2730,8 +2757,10 @@
 
   <section class="focus-mode" data-focus-mode hidden>
     <div class="focus-mode__bar">
-      <button type="button" class="control" data-focus-exit title="Exit focus mode">Back</button>
+      <button type="button" class="control" data-focus-exit title="Exit focus mode (Ctrl+Alt+F)">Back</button>
       <button type="button" class="control" data-focus-fold title="Collapse or expand every row">Fold all</button>
+      <div class="focus-mode__crumb" data-focus-crumb></div>
+      <span class="focus-mode__hint">Ctrl+Alt+F to exit</span>
       <div class="focus-mode__clock" data-focus-clock aria-label="Current time">--:--</div>
     </div>
     <article class="focus-mode__task" data-focus-task></article>
@@ -2751,7 +2780,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.12";
+    const APP_VERSION = "1.5.13";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -2877,6 +2906,7 @@
     const focusTaskEl = document.querySelector("[data-focus-task]");
     const focusTimerEl = document.querySelector("[data-focus-timer]");
     const focusClockEl = document.querySelector("[data-focus-clock]");
+    const focusCrumbEl = document.querySelector("[data-focus-crumb]");
     let selectedNode = null;
     let multiSelectedNodes = [];
     let selectionAnchorNode = null;
@@ -7115,6 +7145,26 @@
       return parts.map((part) => String(part).padStart(2, "0")).join(":");
     }
 
+    // Static sum of a group's tasks' accumulated focus time, for the group
+    // focus display. Focus TIMING stays per-task (no group timer runs); this
+    // only totals what the tasks already banked. Resolved IDs are deduped so
+    // a linked copy and its original count once; walks mirror the focus
+    // outline (reference placements don't recurse).
+    function getGroupFocusSeconds(group) {
+      const seen = new Set();
+      let total = 0;
+      const walk = (list) => (list || []).forEach((placement) => {
+        const item = resolveTaskItem(placement);
+        if (item && !seen.has(item.id)) {
+          seen.add(item.id);
+          total += Math.max(0, Math.floor(Number(item.focusSeconds) || 0));
+        }
+        if (placement.linkType !== "reference") walk(placement.children);
+      });
+      walk(group?.tasks);
+      return total;
+    }
+
     function getFocusElapsedSeconds(item, now = Date.now()) {
       const stored = Math.max(0, Math.floor(Number(item?.focusSeconds) || 0));
       if (!item || item.id !== focusModeTaskId || !focusModeStartedAt) return stored;
@@ -7168,7 +7218,11 @@
         }
         focusModeEl.hidden = false;
         focusModeEl.classList.add("group-focus");
-        if (focusTimerEl) focusTimerEl.hidden = true;
+        if (focusCrumbEl) focusCrumbEl.textContent = group.title;
+        if (focusTimerEl) {
+          focusTimerEl.hidden = false;
+          focusTimerEl.textContent = `${formatFocusSeconds(getGroupFocusSeconds(group))} total`;
+        }
         focusTaskEl.innerHTML = `
           <div class="focus-mode__text focus-mode__group-title" contenteditable="true" spellcheck="true" data-focus-group-title="${group.id}">${escapeHtml(group.title)}</div>
           <div class="focus-mode__children">${renderFocusChildren(group.tasks, 0, group) || '<p class="empty">This group is empty. Press Enter on the title to add a task.</p>'}</div>
@@ -7186,6 +7240,7 @@
       focusModeEl.classList.remove("group-focus");
       if (focusTimerEl) focusTimerEl.hidden = false;
       const item = resolveTaskItem(found.item);
+      if (focusCrumbEl) focusCrumbEl.textContent = String(item.text || "").split("\n")[0];
       const focusImagesHtml = renderFocusImages(item, "focus-mode__image");
       focusTaskEl.innerHTML = `
         <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${item.id}">${renderInlineMarkdown(item.text)}</div>
@@ -7233,6 +7288,7 @@
         focusModeEl.classList.remove("group-focus");
       }
       if (focusTaskEl) focusTaskEl.innerHTML = "";
+      if (focusCrumbEl) focusCrumbEl.textContent = "";
       if (focusTimerEl) focusTimerEl.hidden = false;
       if (boardStaleBehindFocus) {
         boardStaleBehindFocus = false;
@@ -9278,6 +9334,7 @@
       renderFocusMode,
       toggleFocusMode,
       formatFocusSeconds,
+      getGroupFocusSeconds,
       getFocusElapsedSeconds,
       addFocusElapsedSeconds,
       stopFocusTimer,

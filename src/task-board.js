@@ -136,6 +136,7 @@
     const focusTaskEl = document.querySelector("[data-focus-task]");
     const focusTimerEl = document.querySelector("[data-focus-timer]");
     const focusClockEl = document.querySelector("[data-focus-clock]");
+    const focusCrumbEl = document.querySelector("[data-focus-crumb]");
     let selectedNode = null;
     let multiSelectedNodes = [];
     let selectionAnchorNode = null;
@@ -4374,6 +4375,26 @@
       return parts.map((part) => String(part).padStart(2, "0")).join(":");
     }
 
+    // Static sum of a group's tasks' accumulated focus time, for the group
+    // focus display. Focus TIMING stays per-task (no group timer runs); this
+    // only totals what the tasks already banked. Resolved IDs are deduped so
+    // a linked copy and its original count once; walks mirror the focus
+    // outline (reference placements don't recurse).
+    function getGroupFocusSeconds(group) {
+      const seen = new Set();
+      let total = 0;
+      const walk = (list) => (list || []).forEach((placement) => {
+        const item = resolveTaskItem(placement);
+        if (item && !seen.has(item.id)) {
+          seen.add(item.id);
+          total += Math.max(0, Math.floor(Number(item.focusSeconds) || 0));
+        }
+        if (placement.linkType !== "reference") walk(placement.children);
+      });
+      walk(group?.tasks);
+      return total;
+    }
+
     function getFocusElapsedSeconds(item, now = Date.now()) {
       const stored = Math.max(0, Math.floor(Number(item?.focusSeconds) || 0));
       if (!item || item.id !== focusModeTaskId || !focusModeStartedAt) return stored;
@@ -4427,7 +4448,11 @@
         }
         focusModeEl.hidden = false;
         focusModeEl.classList.add("group-focus");
-        if (focusTimerEl) focusTimerEl.hidden = true;
+        if (focusCrumbEl) focusCrumbEl.textContent = group.title;
+        if (focusTimerEl) {
+          focusTimerEl.hidden = false;
+          focusTimerEl.textContent = `${formatFocusSeconds(getGroupFocusSeconds(group))} total`;
+        }
         focusTaskEl.innerHTML = `
           <div class="focus-mode__text focus-mode__group-title" contenteditable="true" spellcheck="true" data-focus-group-title="${group.id}">${escapeHtml(group.title)}</div>
           <div class="focus-mode__children">${renderFocusChildren(group.tasks, 0, group) || '<p class="empty">This group is empty. Press Enter on the title to add a task.</p>'}</div>
@@ -4445,6 +4470,7 @@
       focusModeEl.classList.remove("group-focus");
       if (focusTimerEl) focusTimerEl.hidden = false;
       const item = resolveTaskItem(found.item);
+      if (focusCrumbEl) focusCrumbEl.textContent = String(item.text || "").split("\n")[0];
       const focusImagesHtml = renderFocusImages(item, "focus-mode__image");
       focusTaskEl.innerHTML = `
         <div class="focus-mode__text" contenteditable="true" spellcheck="true" data-focus-task-text="${item.id}">${renderInlineMarkdown(item.text)}</div>
@@ -4492,6 +4518,7 @@
         focusModeEl.classList.remove("group-focus");
       }
       if (focusTaskEl) focusTaskEl.innerHTML = "";
+      if (focusCrumbEl) focusCrumbEl.textContent = "";
       if (focusTimerEl) focusTimerEl.hidden = false;
       if (boardStaleBehindFocus) {
         boardStaleBehindFocus = false;
@@ -6537,6 +6564,7 @@
       renderFocusMode,
       toggleFocusMode,
       formatFocusSeconds,
+      getGroupFocusSeconds,
       getFocusElapsedSeconds,
       addFocusElapsedSeconds,
       stopFocusTimer,
