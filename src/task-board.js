@@ -1313,7 +1313,24 @@
       });
     }
 
+    // One whole-board walk per render, not one per rendered task: getLinkCount
+    // runs for every non-link task while serializing, which made big renders
+    // QUADRATIC (measured ~111ms of pure link counting per full render on a
+    // 1.4k-task board; worse on Evren's). Render entry points build this map
+    // once and clear it when done; everything else falls back to the walk.
+    let linkCountCache = null;
+    function buildLinkCountCache() {
+      const counts = new Map();
+      state.groups.forEach((group) => walkPlacements(group.tasks, (item) => {
+        if (item.targetTaskId && ["alias", "reference"].includes(item.linkType)) {
+          counts.set(item.targetTaskId, (counts.get(item.targetTaskId) || 0) + 1);
+        }
+      }));
+      return counts;
+    }
+
     function getLinkCount(taskId) {
+      if (linkCountCache) return linkCountCache.get(taskId) || 0;
       let count = 0;
       state.groups.forEach((group) => walkPlacements(group.tasks, (item) => {
         if (item.targetTaskId === taskId && ["alias", "reference"].includes(item.linkType)) count += 1;
@@ -4304,6 +4321,16 @@
     }
 
     function render() {
+      const ownsLinkCache = !linkCountCache;
+      if (ownsLinkCache) linkCountCache = buildLinkCountCache();
+      try {
+        renderEverything();
+      } finally {
+        if (ownsLinkCache) linkCountCache = null;
+      }
+    }
+
+    function renderEverything() {
       const query = searchEl.value.trim().toLowerCase();
       if (!state.settings.timelineView) showTimeline = false;
       if (!showList && !showTimeline) showList = true;
@@ -4356,6 +4383,16 @@
     // Callers guarantee the operation touched only this group; anything the
     // fast path cannot prove safe at runtime falls back to render().
     function renderGroupInPlace(groupId) {
+      const ownsLinkCache = !linkCountCache;
+      if (ownsLinkCache) linkCountCache = buildLinkCountCache();
+      try {
+        renderGroupInPlaceInner(groupId);
+      } finally {
+        if (ownsLinkCache) linkCountCache = null;
+      }
+    }
+
+    function renderGroupInPlaceInner(groupId) {
       const index = state.groups.findIndex((group) => group.id === groupId);
       const article = document.querySelector?.(`[data-group-card="${groupId}"]`);
       const query = searchEl?.value?.trim().toLowerCase() || "";
@@ -4379,6 +4416,16 @@
     // task-subtree swap replaces one <li> — the drop zones ride inside it —
     // and leaves layout above and below untouched.
     function renderTaskSubtreeInPlace(taskId, groupId) {
+      const ownsLinkCache = !linkCountCache;
+      if (ownsLinkCache) linkCountCache = buildLinkCountCache();
+      try {
+        renderTaskSubtreeInPlaceInner(taskId, groupId);
+      } finally {
+        if (ownsLinkCache) linkCountCache = null;
+      }
+    }
+
+    function renderTaskSubtreeInPlaceInner(taskId, groupId) {
       const li = document.querySelector?.(`li[data-task="${taskId}"]`);
       const found = li ? findTask(taskId) : null;
       const query = searchEl?.value?.trim() || "";
