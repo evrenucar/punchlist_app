@@ -31,9 +31,25 @@ Shipped machinery, zero usage data so far.
 - [ ] Capture on the phone for a week as the default inbox; note every friction point into the board itself (they feed Direction A).
 - [ ] Check the sync commit list once during the week: device names should show which device pushed what (v1.3.0).
 
-## Direction C: research backlog (parked until A produces a lull)
+## Direction C: research-driven product direction (DONE 2026-07-21)
 
-The task-management workflow research task defined in `ROADMAP.md` stays queued. It informs later releases; it does not block polish work.
+The competitor research from `ROADMAP.md` ran on 2026-07-21: a 27-agent deep-research workflow across Todoist, Things, TickTick, Notion, ClickUp, Obsidian, Logseq (plus org-mode, TiddlyWiki, Wunderlist as reference points), ~70 cited sources. The interactive per-item review is at `status/research.html` (served at `/research` after a server restart). Evren reviewed all 22 findings; the calls below are his.
+
+**Positioning (locked).** The market splits in two and Punchlist sits in the unserved gap. Cloud apps (Todoist, TickTick, Notion, ClickUp) leak users through subscription fatigue, paywalled basics like reminders, feature bloat, and shutdown/lock-in fear. Local/PKM tools (Obsidian, Logseq, org-mode, TiddlyWiki) win on ownership but lose people to buried tasks with no trusted overview, performance collapse at scale, and painful sync/mobile. Punchlist's single-file local-first identity answers the first camp; its dedicated TODAY board answers the second. Lead the pitch on the single self-contained file as the survivability moat (Evren flagged this critical). The mandate is mostly DEFENSIVE: protect the moat, harden the two things that actually kill tools like this (sync reliability and touch), and hold minimalism, rather than chase features. Nearly every loved workflow the research surfaced, Punchlist already has.
+
+**Core value to keep and SURFACE (Evren's call).** Scheduling and time-tracking are core, not bloat: mapping tasks to a schedule, ordering them, seeing time estimates, and reviewing logged focus time. All already built (day timeline, planned minutes, focus timing, planned-vs-actual). NOTE: the timeline and planning bits are OFF by default, so the value is hidden. Making it more discoverable, still optional, is worth a look.
+
+**No-go list (deliberate, confirmed).** No live self-updating query dashboards or query DSL, no multi-view database, no team chat or collaboration, no habit tracker. Stay a personal tool. Differentiate from the everything-app and from PKM query dashboards.
+
+**Agreed backlog (each mirrored on the board under `task-research-competitors`):**
+- [ ] Harden GitHub sync + touch BEFORE any new feature (defensive #1). The rev-guard sync fix (v1.5.20) and the open mobile bug batch already serve this.
+- [ ] Large-board render speed as a non-negotiable: add a regression benchmark at thousands of items; keep the one-walk-per-render discipline (the flash surgery was the right instinct).
+- [ ] Living Markdown round-trip: guarantee an exported Markdown board re-imports losslessly (ownership only counts if the data reloads).
+- [ ] Natural-language date entry, minimal (dates and times only), feature-flagged OFF.
+- [ ] Self-rescheduling recurring tasks, OFF by default (Evren: "the one genuine daily-use gap").
+- [ ] Positioning/pitch update: free, local, no subscription, you own the one durable file (the survivability moat).
+
+Full evidence and per-item sources live in `status/research.html`.
 
 ## Direction D: sharing and collaboration (stays parked)
 
