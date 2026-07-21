@@ -899,6 +899,7 @@
     var pos = laid.pos || {};
     nodeCtx = { NODE_W: NODE_W, clampLines: (Z >= 1.8 ? "unset" : String(Math.max(1, Math.round(3 * Z)))), isNew: function (t) { return t && t.createdAt && Date.parse(t.createdAt) > graphLastVisit; } };
     var placed = {};
+    var firstActiveId = null;
     model.nodes.forEach(function (n) {
       var p = pos[n.id];
       if (!p) return;
@@ -907,9 +908,36 @@
       el.style.left = p.x + "px";
       el.style.top = p.y + "px";
       var h = el.offsetHeight;
-      placed[n.id] = { cx: p.x + NODE_W / 2, cy: p.y + h / 2, x: p.x, y: p.y, h: h };
-      if (kind === "active" && !activeNodeCenter) activeNodeCenter = { x: p.x + NODE_W / 2, y: p.y + h / 2 };
+      placed[n.id] = { el: el, cx: p.x + NODE_W / 2, cy: p.y + h / 2, x: p.x, y: p.y, h: h };
+      if (kind === "active" && !firstActiveId) firstActiveId = n.id;
     });
+    // The physics assumed a fixed node height, but real boxes run ~40-120px, so
+    // tall nodes can still overlap. One measured resolve pass with true heights
+    // (same push-apart rule as the layout's) before edges are drawn.
+    var ids = Object.keys(placed);
+    for (var sweep = 0; sweep < 30; sweep++) {
+      var moved = false;
+      for (var i = 0; i < ids.length; i++) for (var j = i + 1; j < ids.length; j++) {
+        var A = placed[ids[i]], B = placed[ids[j]];
+        var ox = Math.min(A.x + NODE_W, B.x + NODE_W) - Math.max(A.x, B.x) + Math.round(10 * Z);
+        var oy = Math.min(A.y + A.h, B.y + B.h) - Math.max(A.y, B.y) + Math.round(10 * Z);
+        if (ox <= 0 || oy <= 0) continue;
+        moved = true;
+        if (oy <= ox) { var dy = oy / 2; if (A.y <= B.y) { A.y -= dy; B.y += dy; } else { A.y += dy; B.y -= dy; } }
+        else { var dx = ox / 2; if (A.x <= B.x) { A.x -= dx; B.x += dx; } else { A.x += dx; B.x -= dx; } }
+      }
+      if (!moved) break;
+    }
+    var minX = Infinity, minY = Infinity;
+    ids.forEach(function (id) { var c = placed[id]; if (c.x < minX) minX = c.x; if (c.y < minY) minY = c.y; });
+    if (!ids.length) { minX = 0; minY = 0; }
+    ids.forEach(function (id) {
+      var c = placed[id];
+      c.x = Math.round(c.x - minX + 20); c.y = Math.round(c.y - minY + 16);
+      c.cx = c.x + NODE_W / 2; c.cy = c.y + c.h / 2;
+      c.el.style.left = c.x + "px"; c.el.style.top = c.y + "px";
+    });
+    if (firstActiveId && placed[firstActiveId]) activeNodeCenter = { x: placed[firstActiveId].cx, y: placed[firstActiveId].cy };
     var maxX = 0, maxY = 0;
     model.nodes.forEach(function (n) {
       var c = placed[n.id];
@@ -934,13 +962,26 @@
     graphWorld.style.height = worldH + "px";
     svg.setAttribute("width", worldW);
     svg.setAttribute("height", worldH);
+    var offGraphCount = 0;
     agentsLive.forEach(function (agent, index) {
       var chip = document.createElement("div");
       chip.className = "agent-chip";
-      chip.textContent = agent.name;
+      chip.title = agent.status || "";                  // hover reveals what the agent is doing
       var host = placed[agent.taskId];
-      if (host) { chip.style.left = (host.x + 8 + index * 4) + "px"; chip.style.top = (host.y - 10) + "px"; }
-      else { chip.style.left = "8px"; chip.style.top = (6 + index * 20) + "px"; chip.textContent = agent.name + " · off-graph task"; }
+      if (host) {
+        chip.textContent = agent.name;
+        chip.dataset.agentTask = agent.taskId;          // click selects the node (pointerup handler)
+        chip.style.pointerEvents = "auto";
+        chip.style.cursor = "pointer";
+        chip.style.left = (host.x + 8 + index * 4) + "px";
+        chip.style.top = (host.y - 10) + "px";
+      } else {
+        // no placed node: tidy top-left stack WITH the status, not a useless pile
+        chip.textContent = agent.name + " — " + (agent.status || "off-graph task");
+        chip.style.left = "8px";
+        chip.style.top = (6 + offGraphCount * 22) + "px";
+        offGraphCount++;
+      }
       graphWorld.appendChild(chip);
     });
     Object.values(agentGhosts).forEach(function (ghost) {
@@ -977,20 +1018,34 @@
     var damping = 0.85;             // velocity decay each step (bleeds off energy -> settles)
     var dt = 0.9;                   // integration step
     var maxStep = rest;             // clamp per-iteration travel -> never explodes to Infinity
-    var GOLDEN = 2.399963229728653; // golden angle (radians) for the deterministic seed spiral
+    var gapY = opts.gapY || Math.round(nodeH / 4);
+    var kColumn = 0.03;             // anchor toward the BFS-depth column so hierarchy survives settling
 
-    // ---- deterministic spiral seed (NO randomness) -----------------------------
+    // ---- deterministic structured seed (NO randomness) -------------------------
+    // x = BFS depth (parents always precede children in model.nodes, so a single
+    // pass resolves depth); y = stacking order within that depth. The sim relaxes
+    // from here, so the result reads left-to-right instead of a spiral blob.
     var idx = {};
+    for (var i = 0; i < n; i++) idx[nodes[i].id] = i;
     var px = new Array(n), py = new Array(n);
     var vx = new Array(n), vy = new Array(n);
+    var depth = new Array(n), seedX = new Array(n);
+    var depthCount = [];
     for (var i = 0; i < n; i++) {
-      idx[nodes[i].id] = i;
-      var ang = i * GOLDEN;
-      var rad = nodeW * Math.sqrt(i);   // i=0 seeds exactly at the origin (the "middle")
-      px[i] = Math.cos(ang) * rad;
-      py[i] = Math.sin(ang) * rad;
+      var pdi = (nodes[i].parentId !== null && nodes[i].parentId !== undefined) ? idx[nodes[i].parentId] : undefined;
+      depth[i] = (pdi !== undefined && depth[pdi] !== undefined) ? depth[pdi] + 1 : 0;
+      var row = depthCount[depth[i]] || 0;
+      depthCount[depth[i]] = row + 1;
+      seedX[i] = depth[i] * (nodeW + gapX);
+      px[i] = seedX[i];
+      py[i] = row * (nodeH + gapY);
       vx[i] = 0; vy[i] = 0;
     }
+    // center the seed on the origin so the centering force doesn't drag the columns
+    var mx0 = 0, my0 = 0;
+    for (var i = 0; i < n; i++) { mx0 += px[i]; my0 += py[i]; }
+    mx0 /= n; my0 /= n;
+    for (var i = 0; i < n; i++) { px[i] -= mx0; py[i] -= my0; seedX[i] -= mx0; }
 
     // ---- edges: every non-root node linked to its parent -----------------------
     var eChild = [], eParent = [];
@@ -1040,9 +1095,10 @@
         fx[p] += fxs; fy[p] += fys;
       }
 
-      // Weak centering toward the origin (the middle).
+      // Weak vertical centering; x is anchored to the node's depth column so
+      // settling can't scramble the left-to-right hierarchy.
       for (var i = 0; i < n; i++) {
-        fx[i] -= kCenter * px[i];
+        fx[i] += kColumn * (seedX[i] - px[i]);
         fy[i] -= kCenter * py[i];
       }
 
@@ -1056,6 +1112,32 @@
         if (sl > maxStep) { var s = maxStep / sl; sx *= s; sy *= s; }
         px[i] += sx; py[i] += sy;
       }
+    }
+
+    // ---- rectangle-aware overlap resolution (post-settle, once per layout) -----
+    // The physics treats nodes as points but the DOM boxes are ~nodeW x nodeH.
+    // Push each overlapping pair apart along the smaller penetration axis;
+    // a few deterministic sweeps converge. Runs once, never per frame.
+    var sepW = nodeW + Math.round(gapX / 2);
+    var sepH = nodeH + gapY;
+    for (var sweep = 0; sweep < 60; sweep++) {
+      var bumped = false;
+      for (var a = 0; a < n; a++) {
+        for (var b = a + 1; b < n; b++) {
+          var odx = px[b] - px[a], ody = py[b] - py[a];
+          var ox = sepW - Math.abs(odx), oy = sepH - Math.abs(ody);
+          if (ox <= 0 || oy <= 0) continue;
+          bumped = true;
+          if (ox < oy) {
+            var shx = (odx >= 0 ? 1 : -1) * ox / 2;   // odx===0 -> deterministic (b goes right)
+            px[a] -= shx; px[b] += shx;
+          } else {
+            var shy = (ody >= 0 ? 1 : -1) * oy / 2;
+            py[a] -= shy; py[b] += shy;
+          }
+        }
+      }
+      if (!bumped) break;
     }
 
     // ---- freeze: to top-left corners, translate so min x,y = 0, add margin -----
@@ -1569,9 +1651,14 @@
       if (drag && !drag.moved) {
         const viewBtn = drag.target.closest("[data-graphview]");
         const jump = drag.target.closest(".gjump");
+        const chip = drag.target.closest(".agent-chip");
         const node = drag.target.closest(".gnode");
         if (viewBtn) {
           setGraphView(viewBtn.dataset.graphview);
+        } else if (chip && chip.dataset.agentTask) {
+          // clicking an agent chip selects the node it is pinned to
+          graphSelId = chip.dataset.agentTask;
+          renderGraph(true);
         } else if (jump) {
           jumpToTask(jump.dataset.jump);
         } else if (graphView !== "staircase") {
