@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punchlist review</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px 16px 72px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+  .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 18px; }
+  h2 { font-size: 13px; margin: 26px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+  .item {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; margin: 8px 0;
+  }
+  .item.noted { border-color: var(--accent); }
+  .item h3 { font-size: 15px; margin: 0 0 3px; }
+  .item p { margin: 0 0 8px; color: var(--muted); font-size: 13.5px; }
+  .answers { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 9px; }
+  .chip {
+    font: inherit; font-size: 12.5px; line-height: 1.3; padding: 5px 11px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+    color: var(--text); cursor: pointer; text-align: left;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.picked { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .sketch { margin: 2px 0 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .sketch svg { display: block; width: 100%; height: auto; max-width: 340px; color: var(--muted); }
+  .fb {
+    width: 100%; font: inherit; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+    color: var(--text); padding: 8px 10px; resize: vertical; min-height: 36px;
+  }
+  .fb::placeholder { color: var(--muted); opacity: 0.7; }
+  .sendbar { display: flex; gap: 10px; align-items: center; margin-top: 26px; flex-wrap: wrap;
+    position: sticky; bottom: 0; background: var(--bg); padding: 14px 0 4px; }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.reset {
+    font: inherit; font-size: 12px; padding: 6px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <p class="sub" id="intro"></p>
+  <p class="progress" id="progress"></p>
+  <div id="content"></div>
+  <div class="sendbar">
+    <button class="send" id="send">Send</button>
+    <button class="reset" id="reset">Clear</button>
+    <span class="sendmsg" id="sendmsg"></span>
+  </div>
+</main>
+<script>
+  const SPEC = {"title":"Priority pass: rank the open to-dos","intro":"Everything open on the board, straight from it. Mark each one, send, and agents fan out on your Tops.","sendLabel":"Send my priorities","chatPrefix":"Priority picks:","storageKey":"punchlist-priorities-v1","sections":[{"heading":"Agent queue (open, not currently worked)","items":[{"id":"prio-task-agent-touch-round2","title":"Touch re-test round 2 (from his on-glass notes on the reloaded build): 4 fixes shipped, 2 threads waiting on …","body":"2 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrred11c-soeow","title":"Flash is still there","body":"3 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-agent-mobileaudit","title":"Mobile audit (app): every control and flow at 390x844 and 360x780, both themes; findings ranked by daily-use …","body":"2 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrtod6is-d87ui","title":"Graph things.","body":"5 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}}]},{"heading":"Direction A: app, mobile and touch","items":[{"id":"prio-task-mrs53avc-nj6ja","title":"Focus interface","body":"4 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrs1vx64-k369h","title":"General engineering","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrs1vtoz-j3uiy","title":"Mobile","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrs23qhp-ko194","title":"General (punchlist app)","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrropods-bs1wd","title":"(important for app) I think the enter when text fields start is selected being issue was a wrong call I made.…","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrrms9r9-r0y9a","title":"On mobile","body":"5 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrrmizd9-ls0ij","title":"(status board)The red here could be white for easy readability of text.","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-tri-mro85vly-6","title":"Friction list — triaged from braindump (2026-07-17), P1 first","body":"3 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mro61r16-utkp5","title":"Mobile audit before fixing","body":"3 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mro61r16-c445p","title":"Fix in small batches — regression test, full suite, rebuild, phone-width browser check per batch","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mro61r16-f0fqt","title":"Revisit: action buttons only on selected row, long-press drag vs scroll, group top-edge drop targeting","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrs54qla-yt9yf","title":"We need to improve the search and ctrl F behavior","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrs59v4k-xvx65","title":"We need to improve the browsing experience. Currently Its hard to know what is where and how to get ot groups…","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrsdchj5-xjkkr","title":"Whats the workflow to update if you are using the html and not the website direct link","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrtqx787-bjvsp","title":"If you change the image resolution setting in your board will all images be resized. If you up the size they …","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrtnx7up-h326r","title":"Make it easy for people to report a bug through a button can create a pop up where you enter the issue descri…","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}}]},{"heading":"Development interface","items":[{"id":"prio-task-mrs1ztui-crpvc","title":"Chat interface","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrs1y7y2-3c8ex","title":"Graph itnerface","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrrplvuo-h8g5z","title":"In the chat interface when I hover over the seen button it should explain what it does and the shortcut to do…","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrrrj089-7f1l1","title":"When an agent picks up work they should identify themselves with their model  \"Opus here\" \"Fable here\" etc.","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrrrkbai-xip6l","title":"In chat interface don't show the seconds","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrrr0i64-uj1i2","title":"When a new test chrome page launches do it in the background otherwise it interferes with what I'm doing ente…","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrroq07l-f4lgp","title":"Graph in status board","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr4nxx8-2zbhm","title":"Graph","body":"2 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr4t9go-6mmmg","title":"The agent stopped running but was still showing it was running in the interface","body":"2 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr3r4zn-7std2","title":"General interface","body":"2 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr2zdmg-m4tig","title":"Chat interface","body":"3 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr43dm1-xw8wn","title":"Graph interface","body":"2 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mroxlty7-tsxpz","title":"Graph interface for status board (status board)","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mroxlxsv-xb6v4","title":"General interface (general)","body":"3 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrou46uk-ir8w4","title":"low priority Bugs (status board)","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mroz5zi1-1qwwt","title":"Can it handle multiple agents running at the same time? What would happen if I launch codex now from CLI in t…","body":"2 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr59quf-zmh1j","title":"Writing has become very laggy all of a sudden if multiple of the punchlist is open on pc (maybe pc lag issue …","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr54ws2-97cfy","title":"currently I don't have a great overview of the code base as it stands. Maybe nice to have summaries of the co…","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrr56voa-62lq3","title":"Is there still a Improved mobile Test plan? Can you share with me?","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrs5uuzq-gb1wa","title":"Graph","body":"3 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrtnyor5-rlwk1","title":"Add current usage , weekly limit and fable limit monitoring to the chat interface it can be on the left of ct…","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrtpvo27-z5qk3","title":"A lot of todo items on the punchlist board in the status board are un-attended. If I re-state them the agent …","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrtrf6jo-7532d","title":"Task execution order and prioritization from todo group.","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrto8xlg-ne59e","title":"Do we need to refactor. do we need to use improve codebase structure?","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrto9biy-kq7gk","title":"New features_to focus on after current changes and fixes land:","body":"4 open sub-items ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrtybpyy-0ummz","title":"On top right when I clic the hamburger menu just like the others it should also be blue as long as the menu i…","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mrty54l2-34et0","title":"Automated Testing","body":"1 open sub-item ride along with this pick.","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}}]},{"heading":"Direction B: live with the phone","items":[{"id":"prio-task-mro61r16-7nmg0","title":"Set up the phone: hosted board, Add to Home Screen, sync repo + token, device name \"phone\"","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mro61r16-3i3zu","title":"Capture on the phone for a week as the default inbox; log frictions into the board","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mro61r16-l27x7","title":"Check the sync commit list once during the week — device names should show who pushed","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}}]},{"heading":"Blockers","items":[{"id":"prio-task-mro61r16-cc4iy","title":"Phone isn't set up with sync — hosted board → Add to Home Screen → repo + token → device name \"phone\"","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}},{"id":"prio-task-mro61r16-3do82","title":"Physical-device testing needs the real iPhone at least once per fix batch","body":"","placeholder":"Anything to add or narrow?","answers":{"options":["Top, go now","Soon","Later","Drop it"]}}]}]};
+  const KEY = SPEC.storageKey;
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+  store.notes = store.notes || {};
+  store.picks = store.picks || {};
+
+  document.title = "Punchlist — " + SPEC.title;
+  document.getElementById("title").textContent = SPEC.title;
+  document.getElementById("intro").textContent = SPEC.intro;
+  document.getElementById("send").textContent = SPEC.sendLabel;
+
+  const root = document.getElementById("content");
+  const allIds = [];
+
+  function persist() { localStorage.setItem(KEY, JSON.stringify(store)); }
+  function hasInput(id) {
+    return (store.picks[id] && store.picks[id].length) || (store.notes[id] && store.notes[id].trim());
+  }
+  function paintCard(card, id) { card.classList.toggle("noted", Boolean(hasInput(id))); }
+  function paintProgress() {
+    const n = allIds.filter(hasInput).length;
+    document.getElementById("progress").textContent =
+      n ? n + " of " + allIds.length + " answered" : "Click the answers that fit and add notes, then send";
+  }
+
+  for (const section of SPEC.sections) {
+    const h2 = document.createElement("h2");
+    h2.textContent = section.heading;
+    root.appendChild(h2);
+    for (const item of section.items) {
+      allIds.push(item.id);
+      const card = document.createElement("div");
+      card.className = "item";
+      card.dataset.id = item.id;
+
+      const h3 = document.createElement("h3");
+      h3.textContent = item.title;
+      card.appendChild(h3);
+
+      if (item.body) {
+        const p = document.createElement("p");
+        p.textContent = item.body;
+        card.appendChild(p);
+      }
+      if (item.sketch) {
+        const s = document.createElement("div");
+        s.className = "sketch";
+        s.innerHTML = item.sketch;
+        card.appendChild(s);
+      }
+      if (item.answers && Array.isArray(item.answers.options)) {
+        const multi = Boolean(item.answers.multi);
+        const wrap = document.createElement("div");
+        wrap.className = "answers";
+        for (const opt of item.answers.options) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "chip";
+          b.textContent = opt;
+          if ((store.picks[item.id] || []).includes(opt)) b.classList.add("picked");
+          b.addEventListener("click", () => {
+            let cur = store.picks[item.id] || [];
+            if (multi) cur = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
+            else cur = cur.includes(opt) ? [] : [opt];
+            store.picks[item.id] = cur;
+            if (!cur.length) delete store.picks[item.id];
+            persist();
+            const picked = store.picks[item.id] || [];
+            [...wrap.children].forEach((c) => c.classList.toggle("picked", picked.includes(c.textContent)));
+            paintCard(card, item.id);
+            paintProgress();
+          });
+          wrap.appendChild(b);
+        }
+        card.appendChild(wrap);
+      }
+
+      const ta = document.createElement("textarea");
+      ta.className = "fb";
+      ta.dataset.fb = item.id;
+      ta.placeholder = item.placeholder || "Add a note (optional)";
+      ta.value = store.notes[item.id] || "";
+      ta.addEventListener("input", () => {
+        if (ta.value.trim()) store.notes[item.id] = ta.value;
+        else delete store.notes[item.id];
+        persist();
+        paintCard(card, item.id);
+        paintProgress();
+      });
+      card.appendChild(ta);
+
+      paintCard(card, item.id);
+      root.appendChild(card);
+    }
+  }
+  paintProgress();
+
+  document.getElementById("reset").addEventListener("click", () => {
+    store.notes = {};
+    store.picks = {};
+    persist();
+    location.reload();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const lines = [];
+    for (const section of SPEC.sections) {
+      for (const item of section.items) {
+        if (!hasInput(item.id)) continue;
+        const picks = store.picks[item.id] || [];
+        const note = (store.notes[item.id] || "").trim();
+        let line = "- " + item.title;
+        if (picks.length) line += ": " + picks.join(" | ");
+        if (note) line += picks.length ? " (note: " + note + ")" : ": " + note;
+        lines.push(line);
+      }
+    }
+    const sendmsg = document.getElementById("sendmsg");
+    if (!lines.length) {
+      sendmsg.textContent = "Nothing to send yet, click an answer or type a note first.";
+      sendmsg.className = "sendmsg err";
+      return;
+    }
+    const text = SPEC.chatPrefix + "\n" + lines.join("\n");
+    try {
+      const r = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text }),
+      });
+      if (!r.ok) throw new Error();
+      sendmsg.textContent = "Sent, the agent has it.";
+      sendmsg.className = "sendmsg ok";
+    } catch {
+      sendmsg.textContent = "Could not reach the agent. Open this at http://localhost:4173" + location.pathname + " and retry.";
+      sendmsg.className = "sendmsg err";
+    }
+  });
+</script>
+</body>
+</html>

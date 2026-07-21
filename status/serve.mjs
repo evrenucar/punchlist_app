@@ -50,6 +50,7 @@ const routes = {
   "/focus-grill": { file: join(statusDir, "focus-grill.html"), type: "text/html; charset=utf-8" },
   "/update-overview": { file: join(statusDir, "update-overview.html"), type: "text/html; charset=utf-8" },
   "/graph-options": { file: join(statusDir, "graph-options.html"), type: "text/html; charset=utf-8" },
+  "/priorities": { file: join(statusDir, "priorities.html"), type: "text/html; charset=utf-8" },
 };
 
 createServer(async (req, res) => {

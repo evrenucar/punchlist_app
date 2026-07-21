@@ -446,5 +446,770 @@
         }
       ]
     }
+  },
+  {
+    "key": "priorities",
+    "spec": {
+      "title": "Priority pass: rank the open to-dos",
+      "intro": "Everything open on the board, straight from it. Mark each one, send, and agents fan out on your Tops.",
+      "sendLabel": "Send my priorities",
+      "chatPrefix": "Priority picks:",
+      "storageKey": "punchlist-priorities-v1",
+      "sections": [
+        {
+          "heading": "Agent queue (open, not currently worked)",
+          "items": [
+            {
+              "id": "prio-task-agent-touch-round2",
+              "title": "Touch re-test round 2 (from his on-glass notes on the reloaded build): 4 fixes shipped, 2 threads waiting on …",
+              "body": "2 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrred11c-soeow",
+              "title": "Flash is still there",
+              "body": "3 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-agent-mobileaudit",
+              "title": "Mobile audit (app): every control and flow at 390x844 and 360x780, both themes; findings ranked by daily-use …",
+              "body": "2 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrtod6is-d87ui",
+              "title": "Graph things.",
+              "body": "5 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "heading": "Direction A: app, mobile and touch",
+          "items": [
+            {
+              "id": "prio-task-mrs53avc-nj6ja",
+              "title": "Focus interface",
+              "body": "4 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrs1vx64-k369h",
+              "title": "General engineering",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrs1vtoz-j3uiy",
+              "title": "Mobile",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrs23qhp-ko194",
+              "title": "General (punchlist app)",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrropods-bs1wd",
+              "title": "(important for app) I think the enter when text fields start is selected being issue was a wrong call I made.…",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrrms9r9-r0y9a",
+              "title": "On mobile",
+              "body": "5 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrrmizd9-ls0ij",
+              "title": "(status board)The red here could be white for easy readability of text.",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-tri-mro85vly-6",
+              "title": "Friction list — triaged from braindump (2026-07-17), P1 first",
+              "body": "3 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mro61r16-utkp5",
+              "title": "Mobile audit before fixing",
+              "body": "3 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mro61r16-c445p",
+              "title": "Fix in small batches — regression test, full suite, rebuild, phone-width browser check per batch",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mro61r16-f0fqt",
+              "title": "Revisit: action buttons only on selected row, long-press drag vs scroll, group top-edge drop targeting",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrs54qla-yt9yf",
+              "title": "We need to improve the search and ctrl F behavior",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrs59v4k-xvx65",
+              "title": "We need to improve the browsing experience. Currently Its hard to know what is where and how to get ot groups…",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrsdchj5-xjkkr",
+              "title": "Whats the workflow to update if you are using the html and not the website direct link",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrtqx787-bjvsp",
+              "title": "If you change the image resolution setting in your board will all images be resized. If you up the size they …",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrtnx7up-h326r",
+              "title": "Make it easy for people to report a bug through a button can create a pop up where you enter the issue descri…",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "heading": "Development interface",
+          "items": [
+            {
+              "id": "prio-task-mrs1ztui-crpvc",
+              "title": "Chat interface",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrs1y7y2-3c8ex",
+              "title": "Graph itnerface",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrrplvuo-h8g5z",
+              "title": "In the chat interface when I hover over the seen button it should explain what it does and the shortcut to do…",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrrrj089-7f1l1",
+              "title": "When an agent picks up work they should identify themselves with their model  \"Opus here\" \"Fable here\" etc.",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrrrkbai-xip6l",
+              "title": "In chat interface don't show the seconds",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrrr0i64-uj1i2",
+              "title": "When a new test chrome page launches do it in the background otherwise it interferes with what I'm doing ente…",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrroq07l-f4lgp",
+              "title": "Graph in status board",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr4nxx8-2zbhm",
+              "title": "Graph",
+              "body": "2 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr4t9go-6mmmg",
+              "title": "The agent stopped running but was still showing it was running in the interface",
+              "body": "2 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr3r4zn-7std2",
+              "title": "General interface",
+              "body": "2 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr2zdmg-m4tig",
+              "title": "Chat interface",
+              "body": "3 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr43dm1-xw8wn",
+              "title": "Graph interface",
+              "body": "2 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mroxlty7-tsxpz",
+              "title": "Graph interface for status board (status board)",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mroxlxsv-xb6v4",
+              "title": "General interface (general)",
+              "body": "3 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrou46uk-ir8w4",
+              "title": "low priority Bugs (status board)",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mroz5zi1-1qwwt",
+              "title": "Can it handle multiple agents running at the same time? What would happen if I launch codex now from CLI in t…",
+              "body": "2 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr59quf-zmh1j",
+              "title": "Writing has become very laggy all of a sudden if multiple of the punchlist is open on pc (maybe pc lag issue …",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr54ws2-97cfy",
+              "title": "currently I don't have a great overview of the code base as it stands. Maybe nice to have summaries of the co…",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrr56voa-62lq3",
+              "title": "Is there still a Improved mobile Test plan? Can you share with me?",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrs5uuzq-gb1wa",
+              "title": "Graph",
+              "body": "3 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrtnyor5-rlwk1",
+              "title": "Add current usage , weekly limit and fable limit monitoring to the chat interface it can be on the left of ct…",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrtpvo27-z5qk3",
+              "title": "A lot of todo items on the punchlist board in the status board are un-attended. If I re-state them the agent …",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrtrf6jo-7532d",
+              "title": "Task execution order and prioritization from todo group.",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrto8xlg-ne59e",
+              "title": "Do we need to refactor. do we need to use improve codebase structure?",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrto9biy-kq7gk",
+              "title": "New features_to focus on after current changes and fixes land:",
+              "body": "4 open sub-items ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrtybpyy-0ummz",
+              "title": "On top right when I clic the hamburger menu just like the others it should also be blue as long as the menu i…",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mrty54l2-34et0",
+              "title": "Automated Testing",
+              "body": "1 open sub-item ride along with this pick.",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "heading": "Direction B: live with the phone",
+          "items": [
+            {
+              "id": "prio-task-mro61r16-7nmg0",
+              "title": "Set up the phone: hosted board, Add to Home Screen, sync repo + token, device name \"phone\"",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mro61r16-3i3zu",
+              "title": "Capture on the phone for a week as the default inbox; log frictions into the board",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mro61r16-l27x7",
+              "title": "Check the sync commit list once during the week — device names should show who pushed",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "heading": "Blockers",
+          "items": [
+            {
+              "id": "prio-task-mro61r16-cc4iy",
+              "title": "Phone isn't set up with sync — hosted board → Add to Home Screen → repo + token → device name \"phone\"",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            },
+            {
+              "id": "prio-task-mro61r16-3do82",
+              "title": "Physical-device testing needs the real iPhone at least once per fix batch",
+              "body": "",
+              "placeholder": "Anything to add or narrow?",
+              "answers": {
+                "options": [
+                  "Top, go now",
+                  "Soon",
+                  "Later",
+                  "Drop it"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
   }
 ]
