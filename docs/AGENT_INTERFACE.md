@@ -42,6 +42,7 @@ Half of "the graph doesn't reflect intent and state" is authoring, not layout. R
 5. **Position is priority.** Top of a group (and of a sub-group) is highest priority. Work the queues top-down, and insert new items at their true rank, not the bottom. To-do-group items must not rot un-attended: sweep them without being re-told.
 6. **He restated it? You probably have it.** Search the board JSON for a matching item before reacting to a restated request; answer with the item's ID and status instead of acting confused or creating a duplicate.
 7. **Every node maps to a board item.** Heartbeat `taskId`s must be real board item IDs so the chip pins to a node. Duration and authorship ride the item (`focusSeconds` machinery in the app; `completedBy`/history on the board), so keep IDs stable.
+8. **Closing is part of shipping** (Evren, 2026-07-21, after a 28-item rot sweep). When he marks something "done" or "drop" in a review/priority pass, close it on the board THAT session, with a one-line note when he asked for confirmation. A shipped fix whose ticket stays open reads as unshipped, erodes the queue, and makes him re-state things. When a "Top" pick turns out already shipped, say so and close it rather than re-doing it.
 
 ## Mobile bugs: the ?probe loop (Evren's standing method, 2026-07-21)
 
