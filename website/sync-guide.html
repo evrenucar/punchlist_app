@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Set up sync from scratch</title>
+  <meta name="description" content="How to turn on Punchlist sync from zero: make a free GitHub account, a private repo, and an access token, then paste it into Settings.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --surface: #ffffff;
+      --surface-2: #eef4f1;
+      --ink: #202422;
+      --muted: #65716b;
+      --line: #d8ded8;
+      --accent: #246bfe;
+      --accent-soft: #e9f0ff;
+      --g-red: #c92a2a;
+      --g-green: #2f6f4e;
+      --shadow: 0 18px 48px rgba(26, 38, 33, 0.10);
+      --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151716; --surface: #202321; --surface-2: #292d2a; --ink: #f1f4ef;
+        --muted: #a8b2aa; --line: #3a403c; --accent-soft: #1f315f;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 16px; line-height: 1.55; }
+    a { color: var(--accent); }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px 60px; }
+    .topbar { position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--line); background: var(--surface); }
+    .topbar-inner { display: flex; align-items: center; gap: 12px; max-width: 760px; margin: 0 auto; padding: 10px 20px; }
+    .brand-mark { position: relative; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 8px; background: #191b1a; color: #fff; transform: rotate(-4deg); }
+    .brand-mark::after { content: ""; position: absolute; top: -3px; right: -3px; width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--surface); background: var(--g-red); }
+    @media (prefers-color-scheme: dark) { .brand-mark { background: #f1f4ef; color: #191b1a; } }
+    .brand-name { font-weight: 900; letter-spacing: -0.01em; text-transform: uppercase; }
+    .topbar .page-name { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .topbar .back { margin-left: auto; font-size: 14px; }
+    h1 { font-size: 30px; letter-spacing: -0.02em; margin: 40px 0 6px; }
+    .lede { color: var(--muted); margin: 0 0 24px; }
+    article { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); padding: 24px 26px 26px; margin: 0 0 20px; }
+    article p { margin: 0 0 12px; }
+    article ul, article ol { margin: 0 0 12px; padding-left: 22px; }
+    article li { margin: 0 0 8px; }
+    code { font-family: var(--mono); font-size: 13px; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+
+    /* step heading with a number badge */
+    .step-head { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+    .step-num { flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 800; font-size: 17px; }
+    .step-head h2 { font-size: 19px; margin: 0; letter-spacing: -0.01em; }
+
+    /* prominent "go here" link */
+    .linkbtn { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; padding: 10px 16px; border-radius: 9px; margin: 4px 0 14px; }
+    .linkbtn:hover { filter: brightness(1.06); }
+    .linkbtn .arr { font-weight: 900; }
+    .small-link { font-size: 14px; }
+
+    .callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--surface-2); padding: 10px 14px; margin: 0 0 14px; font-size: 15px; }
+    .callout.warn { border-left-color: var(--g-red); }
+    .callout .lead { font-weight: 700; }
+
+    /* CSS mockups (no external images, keeps the page zero-request) */
+    .mock { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin: 4px 0 16px; font-size: 14px; background: var(--surface); }
+    .mock .mock-bar { background: var(--surface-2); border-bottom: 1px solid var(--line); padding: 7px 12px; font-family: var(--mono); font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+    .mock .mock-body { padding: 14px 14px 16px; display: grid; gap: 12px; }
+    .mock .fld { display: grid; gap: 5px; }
+    .mock .fld .lab { font-size: 12px; font-weight: 700; color: var(--muted); }
+    .mock .box { border: 1px solid var(--line); border-radius: 7px; padding: 8px 10px; background: var(--bg); font-family: var(--mono); font-size: 13px; color: var(--ink); }
+    .mock .box.ph { color: var(--muted); }
+    .mock .opt { display: flex; align-items: center; gap: 9px; }
+    .mock .dot { flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); }
+    .mock .dot.on { border-color: var(--accent); box-shadow: inset 0 0 0 3px var(--accent); }
+    .mock .chk { flex: none; width: 16px; height: 16px; border-radius: 4px; border: 2px solid var(--line); display: grid; place-items: center; }
+    .mock .chk.on { border-color: var(--accent); background: var(--accent); color: #fff; font-size: 11px; font-weight: 900; }
+    .mock .sw { flex: none; width: 34px; height: 20px; border-radius: 999px; background: var(--accent); position: relative; }
+    .mock .sw::after { content: ""; position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+    .mock .btn { justify-self: start; background: var(--g-green); color: #fff; font-weight: 700; font-size: 13px; padding: 7px 14px; border-radius: 7px; }
+    .mock .btn.blue { background: var(--accent); }
+    .mock .hint { font-size: 12px; color: var(--muted); }
+    .mock .synced { font-size: 12px; color: var(--g-green); font-weight: 700; }
+
+    footer { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
+      </div>
+      <div class="brand-name">Punchlist</div>
+      <div class="page-name">sync setup</div>
+      <a class="back" href="index.html">Back to the site</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>Set up sync from scratch</h1>
+    <p class="lede">By default your board lives in one browser. Turn on sync and your phone, laptop, and any other device share the same board through one private folder on GitHub. It is free, it stays private, and it doubles as a backup. Here is the whole thing from zero, no GitHub account needed to start.</p>
+
+    <div class="callout"><span class="lead">You do this once, about ten minutes.</span> Your board goes into a repo only you can see, and the access key you create is stored only in your browser. It is never included in any board you export.</div>
+
+    <article>
+      <div class="step-head"><span class="step-num">1</span><h2>Make a free GitHub account</h2></div>
+      <p>GitHub is the service that will hold your board. An account is free. If you already have one, skip to step 2.</p>
+      <a class="linkbtn" href="https://github.com/signup" target="_blank" rel="noopener">Create a GitHub account <span class="arr">&rarr;</span></a>
+      <p class="hint">Pick a username, email, and password, then confirm your email. That is all this step needs.</p>
+    </article>
+
+    <article>
+      <div class="step-head"><span class="step-num">2</span><h2>Make a private repository</h2></div>
+      <p>A repository is just a private storage space. Yours will hold one small file, your board. Nobody but you can see a private repo.</p>
+      <a class="linkbtn" href="https://github.com/new" target="_blank" rel="noopener">Create a new repository <span class="arr">&rarr;</span></a>
+      <p>On that page:</p>
+      <div class="mock">
+        <div class="mock-bar">github.com &rsaquo; new repository</div>
+        <div class="mock-body">
+          <div class="fld"><span class="lab">Repository name</span><div class="box">punchlist-board</div></div>
+          <div class="opt"><span class="dot"></span><span>Public</span></div>
+          <div class="opt"><span class="dot on"></span><span><strong>Private</strong> &nbsp;<span class="hint">pick this one</span></span></div>
+          <div class="opt"><span class="chk on">&check;</span><span>Add a README file</span></div>
+          <div class="btn">Create repository</div>
+        </div>
+      </div>
+      <ul>
+        <li>Name it anything, for example <code>punchlist-board</code>.</li>
+        <li>Choose <strong>Private</strong>.</li>
+        <li>Check <strong>Add a README file</strong> so the repo is ready to use right away.</li>
+        <li>Click <strong>Create repository</strong>.</li>
+      </ul>
+      <p>Note the name at the top of the new repo. It reads <code>your-username/punchlist-board</code>. You will paste that into the app.</p>
+    </article>
+
+    <article>
+      <div class="step-head"><span class="step-num">3</span><h2>Make an access token</h2></div>
+      <p>The app needs permission to read and write that one repo. A fine-grained token gives it exactly that, and nothing else.</p>
+      <a class="linkbtn" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Create a fine-grained token <span class="arr">&rarr;</span></a>
+      <div class="mock">
+        <div class="mock-bar">github.com &rsaquo; settings &rsaquo; new fine-grained token</div>
+        <div class="mock-body">
+          <div class="fld"><span class="lab">Token name</span><div class="box">punchlist</div></div>
+          <div class="fld"><span class="lab">Repository access</span><div class="box">Only select repositories &rarr; punchlist-board</div></div>
+          <div class="fld"><span class="lab">Repository permissions &rsaquo; Contents</span><div class="box">Read and write</div></div>
+          <div class="btn blue">Generate token</div>
+        </div>
+      </div>
+      <ul>
+        <li>Give it a name like <code>punchlist</code> and any expiration you like (you can always make a new one).</li>
+        <li>Under <strong>Repository access</strong>, choose <strong>Only select repositories</strong> and pick the repo from step 2.</li>
+        <li>Open <strong>Repository permissions</strong>, find <strong>Contents</strong>, and set it to <strong>Read and write</strong>.</li>
+        <li>Click <strong>Generate token</strong>, then <strong>copy it now</strong>. GitHub shows it only once. It starts with <code>github_pat_</code>.</li>
+      </ul>
+      <div class="callout"><span class="lead">Prefer the fine-grained token above.</span> If you would rather, a classic token also works: <a class="small-link" href="https://github.com/settings/tokens/new" target="_blank" rel="noopener">create a classic token</a> and tick the single <code>repo</code> checkbox. It is simpler but grants broader access.</div>
+    </article>
+
+    <article>
+      <div class="step-head"><span class="step-num">4</span><h2>Paste it into Punchlist</h2></div>
+      <p>Open Punchlist, open the sidebar, and expand the <strong>Sync</strong> section in Settings.</p>
+      <div class="mock">
+        <div class="mock-bar">Punchlist &rsaquo; Settings &rsaquo; Sync</div>
+        <div class="mock-body">
+          <div class="opt"><span class="sw"></span><span><strong>GitHub sync</strong> &nbsp;<span class="hint">on</span></span></div>
+          <div class="fld"><span class="lab">Repository</span><div class="box">your-username/punchlist-board</div></div>
+          <div class="fld"><span class="lab">Token</span><div class="box ph">github_pat_&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div></div>
+          <div class="btn blue">Sync now</div>
+          <div class="synced">Synced just now</div>
+        </div>
+      </div>
+      <ul>
+        <li>Turn <strong>GitHub sync</strong> on.</li>
+        <li>In <strong>Repository</strong>, paste <code>your-username/punchlist-board</code>. A full repo link works too; the app tidies it.</li>
+        <li>In <strong>Token</strong>, paste the token you copied.</li>
+      </ul>
+      <p>Within a few seconds it shows <strong>Synced</strong> with the time. Your board is now saved to your repo.</p>
+    </article>
+
+    <article>
+      <div class="step-head"><span class="step-num">5</span><h2>Add your other devices</h2></div>
+      <p>On each other device, open Punchlist, go to <strong>Settings &rsaquo; Sync</strong>, turn it on, and enter the <strong>same repository</strong>. For the token you can reuse the same one, or make another the same way as step 3.</p>
+      <p>From now on every change on any device lands in the repo as a saved version and shows up on the others. Open the app, and it pulls the latest before you start.</p>
+    </article>
+
+    <article>
+      <h2 style="font-size:19px;margin:0 0 12px">Good to know</h2>
+      <ul>
+        <li><strong>It is a backup too.</strong> Every sync saves a full version, so your repo keeps a history you can always go back to.</li>
+        <li><strong>Your token stays on your device.</strong> It is stored only in that browser and is never included when you export your board.</li>
+        <li><strong>If a token ever leaks</strong>, remove it and make a new one: <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">manage your tokens</a>.</li>
+        <li><strong>Keep the repo private.</strong> That is what keeps your board yours.</li>
+      </ul>
+    </article>
+
+    <footer>
+      <p>This page is part of Punchlist. It loads nothing from third parties and runs no scripts. The links above open GitHub in a new tab.</p>
+    </footer>
+  </div>
+</body>
+</html>
