@@ -1763,6 +1763,64 @@
       cursor: grabbing;
     }
 
+    /* Bug-report dialog: same overlay pattern as the lightbox, card styled
+       like the toast (surface, line-strong, shadow). */
+    .bug-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 85;
+      display: grid;
+      place-items: center;
+      background: rgba(8, 10, 9, 0.45);
+    }
+
+    .bug-dialog[hidden] {
+      display: none;
+    }
+
+    .bug-dialog__card {
+      display: grid;
+      gap: 10px;
+      width: min(440px, 92vw);
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+
+    .bug-dialog__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+
+    .bug-dialog__card textarea {
+      resize: vertical;
+      min-height: 90px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      padding: 8px;
+    }
+
+    .bug-dialog__hint {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .bug-dialog__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
     .focus-outline {
       list-style: none;
       margin: 0;

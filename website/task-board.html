@@ -1774,6 +1774,64 @@
       cursor: grabbing;
     }
 
+    /* Bug-report dialog: same overlay pattern as the lightbox, card styled
+       like the toast (surface, line-strong, shadow). */
+    .bug-dialog {
+      position: fixed;
+      inset: 0;
+      z-index: 85;
+      display: grid;
+      place-items: center;
+      background: rgba(8, 10, 9, 0.45);
+    }
+
+    .bug-dialog[hidden] {
+      display: none;
+    }
+
+    .bug-dialog__card {
+      display: grid;
+      gap: 10px;
+      width: min(440px, 92vw);
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      padding: 14px 16px;
+      font-size: 13px;
+    }
+
+    .bug-dialog__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+
+    .bug-dialog__card textarea {
+      resize: vertical;
+      min-height: 90px;
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      padding: 8px;
+    }
+
+    .bug-dialog__hint {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .bug-dialog__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
     .focus-outline {
       list-style: none;
       margin: 0;
@@ -2527,10 +2585,10 @@
             <label class="settings-row" title="How much to shrink images when you paste them in. Applies to new pastes; the original is discarded after paste unless you pick Original.">
               Image keep resolution
               <select data-image-resolution>
-                <option value="original">Original — full size, 1 to 5 MB</option>
-                <option value="high">High — 2560px, up to ~2 MB</option>
-                <option value="medium">Medium — 1440px, up to ~500 KB</option>
-                <option value="low">Low — 800px, up to ~120 KB</option>
+                <option value="original" title="New pastes keep the untouched file. Images already on the board stay as they are.">Original — full size, 1 to 5 MB</option>
+                <option value="high" title="New pastes shrink to at most 2560px. Images already on the board stay as they are.">High — 2560px, up to ~2 MB</option>
+                <option value="medium" title="New pastes shrink to at most 1440px. Images already on the board stay as they are.">Medium — 1440px, up to ~500 KB</option>
+                <option value="low" title="New pastes shrink to at most 800px. Images already on the board stay as they are.">Low — 800px, up to ~120 KB</option>
               </select>
             </label>
             <details class="settings-section">
@@ -2660,9 +2718,9 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
               Restore example board
             </button>
-            <button class="control" type="button" data-feedback title="Copy the author's email address so you can send feedback">
+            <button class="control" type="button" data-report-bug title="Describe a problem, then open a prefilled GitHub issue or copy it with the author's email">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="m22 6-10 7L2 6"/></svg>
-              Give feedback
+              Report a bug
             </button>
           </div>
         </details>
@@ -2677,6 +2735,7 @@
             <p><strong>Board shortcuts.</strong> Alt+A adds a group. Ctrl+Shift+Down expands everything; Ctrl+Shift+Up collapses everything. ArrowLeft jumps to the sidebar, ArrowUp from the top task reaches search.</p>
             <p><strong>Clipboard.</strong> Ctrl+C copies selected tasks as clean Markdown. Pasting inside the board places a linked copy by default; change this in Settings. Ctrl+X then paste moves tasks. Pasting Markdown from outside creates new tasks.</p>
             <p><strong>Linked copies.</strong> A linked copy is one task shown in two places: edit or complete either one and both update. A shortcut is a small pointer that jumps to the original instead. Ctrl+Shift+V pastes a real, unlinked copy no matter what the paste setting says.</p>
+            <p><strong>Images.</strong> The Image keep resolution setting only applies to images you paste from that moment on; nothing already on the board is ever resized. Pastes are compressed to the chosen size and the pasted original is discarded, unless the setting is Original, which stores the file untouched.</p>
             <p><strong>Your data.</strong> Everything stays in this browser. Use Export JSON for a lossless backup and Import JSON to load it elsewhere.</p>
             <p><strong>Updates.</strong> A copy you download and open from disk can check GitHub for a newer release; the hosted app is always current. See <a href="https://evrenucar.github.io/punchlist_app/updating.html" target="_blank" rel="noopener">how to update a downloaded copy</a>.</p>
             <p><strong>Reminders.</strong> Alerts and browser notifications only fire while this page is open.</p>
@@ -2753,6 +2812,21 @@
 
   <div class="lightbox" data-lightbox hidden>
     <img data-lightbox-img alt="Enlarged task image" draggable="false">
+  </div>
+
+  <div class="bug-dialog" data-bug-dialog hidden>
+    <div class="bug-dialog__card" role="dialog" aria-modal="true" aria-label="Report a bug">
+      <div class="bug-dialog__head">
+        <strong>Report a bug</strong>
+        <button type="button" class="toast-dismiss" data-bug-close aria-label="Close">×</button>
+      </div>
+      <textarea data-bug-text rows="5" placeholder="What went wrong, and what did you expect instead?"></textarea>
+      <p class="bug-dialog__hint">Once the issue opens on GitHub, please attach anything that shows the problem: screenshots, an exported JSON, console logs.</p>
+      <div class="bug-dialog__actions">
+        <button class="control" type="button" data-bug-github title="Open a new GitHub issue with your description filled in">Open a GitHub issue</button>
+        <button class="control" type="button" data-bug-email title="Copy the author's email address and your description">Copy email</button>
+      </div>
+    </div>
   </div>
 
   <section class="focus-mode" data-focus-mode hidden>
@@ -2885,7 +2959,12 @@
     const identityLineEl = document.querySelector("[data-identity-line]");
     const syncDevicesEl = document.querySelector("[data-sync-devices]");
     const exportSettingsEl = document.querySelector("[data-export-settings]");
-    const feedbackEl = document.querySelector("[data-feedback]");
+    const reportBugEl = document.querySelector("[data-report-bug]");
+    const bugDialogEl = document.querySelector("[data-bug-dialog]");
+    const bugTextEl = document.querySelector("[data-bug-text]");
+    const bugCloseEl = document.querySelector("[data-bug-close]");
+    const bugGithubEl = document.querySelector("[data-bug-github]");
+    const bugEmailEl = document.querySelector("[data-bug-email]");
     const syncSectionEl = document.querySelector("[data-sync-section]");
     const syncEnabledEl = document.querySelector("[data-sync-enabled]");
     const syncFieldsEl = document.querySelector("[data-sync-fields]");
@@ -8026,6 +8105,7 @@
       }
       if (syncDevicesEl) syncDevicesEl.innerHTML = renderDeviceRoster();
       if (syncSectionEl) syncSectionEl.hidden = IS_DEMO;
+      if (reportBugEl) reportBugEl.hidden = IS_DEMO;
       if (syncEnabledEl) syncEnabledEl.checked = Boolean(syncConfig.enabled);
       if (syncFieldsEl) syncFieldsEl.hidden = !syncConfig.enabled;
       if (syncRepoEl) syncRepoEl.value = String(syncConfig.repo || "");
@@ -8064,7 +8144,21 @@
     }
 
     pasteModeEl?.addEventListener("change", () => updateSettings({ pasteMode: pasteModeEl.value }));
-    imageResolutionEl?.addEventListener("change", () => updateSettings({ imageResolution: imageResolutionEl.value }));
+    // Changing the tier only affects pastes from now on; compressImageFile is
+    // the sole caller and it runs at paste time. Nothing revisits stored images.
+    function describeImageResolutionChange(previous, next) {
+      const rank = (tier) => ["low", "medium", "high", "original"].indexOf(tier);
+      return rank(next) > rank(previous)
+        ? "Images pasted from now on keep more detail. Existing images are unchanged."
+        : "New pastes will be smaller. Existing images are not downscaled.";
+    }
+
+    imageResolutionEl?.addEventListener("change", () => {
+      const previous = state.settings.imageResolution;
+      const next = imageResolutionEl.value;
+      updateSettings({ imageResolution: next });
+      if (next !== previous) showToast(describeImageResolutionChange(previous, next));
+    });
     [completionModeEl, completionValueEl, completionUnitEl].forEach((element) => {
       element?.addEventListener("change", () => updateSettings({ completionRetentionSeconds: readCompletionRetentionFromControls() }));
     });
@@ -8105,10 +8199,43 @@
     checkUpdatesEl?.addEventListener("change", () => updateSettings({ checkForUpdates: checkUpdatesEl.checked }));
 
     const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
-    feedbackEl?.addEventListener("click", () => {
-      const done = () => showToast(`${FEEDBACK_EMAIL} copied. Please send Evren a kind email with your feedback.`);
+    const BUG_ISSUE_BASE = "https://github.com/evrenucar/punchlist_app/issues/new";
+
+    // Pure so the suite can pin it: URL-encodes the description and appends
+    // the running version plus whether this copy is hosted or downloaded.
+    function buildBugReportUrl(description) {
+      const body = `${String(description || "").trim()}\n\nApp version: v${APP_VERSION} (${IS_LOCAL_FILE ? "downloaded" : "hosted"})`;
+      return `${BUG_ISSUE_BASE}?title=${encodeURIComponent("Bug report")}&body=${encodeURIComponent(body)}`;
+    }
+
+    function openBugDialog() {
+      if (!bugDialogEl || IS_DEMO) return;
+      bugDialogEl.hidden = false;
+      bugTextEl?.focus?.();
+    }
+
+    function closeBugDialog() {
+      if (bugDialogEl) bugDialogEl.hidden = true;
+    }
+
+    reportBugEl?.addEventListener("click", openBugDialog);
+    bugCloseEl?.addEventListener("click", closeBugDialog);
+    bugDialogEl?.addEventListener("click", (event) => {
+      if (event.target === bugDialogEl) closeBugDialog();
+    });
+    bugGithubEl?.addEventListener("click", () => {
+      window.open?.(buildBugReportUrl(bugTextEl?.value || ""), "_blank", "noopener");
+      closeBugDialog();
+    });
+    bugEmailEl?.addEventListener("click", () => {
+      const description = String(bugTextEl?.value || "").trim();
+      const text = description ? `${FEEDBACK_EMAIL}\n\n${description}` : FEEDBACK_EMAIL;
+      const done = () => {
+        closeBugDialog();
+        showToast(`${FEEDBACK_EMAIL}${description ? " and your description" : ""} copied. Please send Evren a kind email.`);
+      };
       if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(FEEDBACK_EMAIL).then(done).catch(() => {
+        navigator.clipboard.writeText(text).then(done).catch(() => {
           window.prompt?.("Copy the feedback address:", FEEDBACK_EMAIL);
         });
         return;
@@ -8582,6 +8709,11 @@
       if (event.key === "Escape" && lightboxView) {
         event.preventDefault();
         closeLightbox();
+        return;
+      }
+      if (event.key === "Escape" && bugDialogEl && !bugDialogEl.hidden) {
+        event.preventDefault();
+        closeBugDialog();
         return;
       }
       if (event.key === "Escape" && pendingGroupDelete) {
@@ -9205,6 +9337,10 @@
       compareVersions,
       updateChecksEnabled,
       checkForUpdate,
+      buildBugReportUrl,
+      openBugDialog,
+      closeBugDialog,
+      describeImageResolutionChange,
       getExportState,
       storeAsset,
       getAssetSrc,
