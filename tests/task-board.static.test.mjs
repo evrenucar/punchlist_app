@@ -209,6 +209,122 @@ test("task text renders clickable URLs and selected URL paste creates markdown l
   assert.match(api.renderInlineMarkdown(`Open ${url}`), /data-auto-link="true"/);
 });
 
+test("inline markdown renders bold, italic, and strikethrough", async () => {
+  const api = await loadBoardApi();
+
+  assert.equal(api.renderInlineMarkdown("a **bold** b"), "a <strong>bold</strong> b");
+  assert.equal(api.renderInlineMarkdown("a *italic* b"), "a <em>italic</em> b");
+  assert.equal(api.renderInlineMarkdown("a ~~gone~~ b"), "a <del>gone</del> b");
+  assert.equal(api.renderInlineMarkdown("***both***"), "<strong><em>both</em></strong>");
+  assert.equal(api.renderInlineMarkdown("**a *b* c**"), "<strong>a <em>b</em> c</strong>");
+  // italic at the very end of a bold span (what stacked toggles produce)
+  assert.equal(api.renderInlineMarkdown("**bold *in***"), "<strong>bold <em>in</em></strong>");
+  // a style span may contain a link
+  assert.match(
+    api.renderInlineMarkdown("**see [x](https://e.com) now**"),
+    /^<strong>see <a[^>]+href="https:\/\/e\.com"[^>]*>x<\/a> now<\/strong>$/,
+  );
+  // bare URLs containing marker chars stay links, not styles
+  assert.match(api.renderInlineMarkdown("https://e.com/~a and https://e.com/~b"), /data-auto-link="true"/);
+  assert.doesNotMatch(api.renderInlineMarkdown("https://e.com/~a and https://e.com/~b"), /<del>/);
+  // spaced-out asterisks are arithmetic, not emphasis
+  assert.equal(api.renderInlineMarkdown("2 * 3 * 4"), "2 * 3 * 4");
+  assert.equal(api.renderInlineMarkdown("a ** b"), "a ** b");
+  // markup in content stays escaped
+  assert.equal(api.renderInlineMarkdown("**<i>**"), "<strong>&lt;i&gt;</strong>");
+});
+
+function fakeText(value) {
+  return { nodeType: 3, nodeValue: value };
+}
+
+function fakeEl(tagName, childNodes, extra = {}) {
+  return {
+    nodeType: 1,
+    tagName,
+    dataset: {},
+    childNodes,
+    textContent: childNodes.map((node) => node.nodeValue || node.textContent || "").join(""),
+    getAttribute: () => extra.href || "",
+    ...extra,
+  };
+}
+
+test("styled DOM serializes back to the same markdown (paste/export round-trip)", async () => {
+  const api = await loadBoardApi();
+  const editable = fakeEl("DIV", [
+    fakeText("a "),
+    fakeEl("STRONG", [fakeText("bold "), fakeEl("EM", [fakeText("in")])]),
+    fakeText(" then "),
+    fakeEl("DEL", [fakeText("gone")]),
+    fakeText(" "),
+    fakeEl("A", [fakeText("x")], { href: "https://e.com" }),
+  ]);
+
+  assert.equal(api.getMarkdownTextFromEditable(editable), "a **bold *in*** then ~~gone~~ [x](https://e.com)");
+  // legacy browser tags map too (execCommand leftovers)
+  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("B", [fakeText("b")]), fakeEl("S", [fakeText("s")])])), "**b**~~s~~");
+});
+
+test("markdown caret offsets map through links and style tags", async () => {
+  const api = await loadBoardApi();
+  const label = fakeText("docs");
+  const boldText = fakeText("bold");
+  const link = fakeEl("A", [label], { href: "https://e.com" });
+  const strong = fakeEl("STRONG", [boldText]);
+  const tail = fakeText(" end");
+  const editable = fakeEl("DIV", [fakeText("see "), link, fakeText(" "), strong, tail]);
+
+  // markdown: see [docs](https://e.com) **bold** end
+  assert.equal(api.getMarkdownCaretOffset(editable, label, 2), "see [do".length);
+  assert.equal(api.getMarkdownCaretOffset(editable, boldText, 4), "see [docs](https://e.com) **bold".length);
+  assert.equal(api.getMarkdownCaretOffset(editable, tail, 4), "see [docs](https://e.com) **bold** end".length);
+  // element boundary: point after the second child (the link) counts its close
+  assert.equal(api.getMarkdownCaretOffset(editable, editable, 2), "see [docs](https://e.com)".length);
+});
+
+test("toggleMarkdownStyle wraps, unwraps, and stays idempotent", async () => {
+  const api = await loadBoardApi();
+  const t = (text, start, end, marker) => api.toggleMarkdownStyle(text, start, end, marker);
+
+  // wrap a selection
+  assert.deepEqual({ ...t("hello world", 6, 11, "**") }, { text: "hello **world**", start: 8, end: 13, caret: 15 });
+  assert.equal(t("hello world", 6, 11, "*").text, "hello *world*");
+  assert.equal(t("hello world", 6, 11, "~~").text, "hello ~~world~~");
+  // toggling the returned range unwraps back to the original (idempotence)
+  for (const marker of ["**", "*", "~~"]) {
+    const once = t("hello world", 6, 11, marker);
+    const twice = t(once.text, once.start, once.end, marker);
+    assert.equal(twice.text, "hello world");
+    assert.equal(twice.start, 6);
+    assert.equal(twice.end, 11);
+  }
+  // selection that includes the markers unwraps too
+  assert.equal(t("**bold**", 0, 8, "**").text, "bold");
+  assert.equal(t("a ~~x~~ b", 2, 7, "~~").text, "a x b");
+  // ...but two separate spans selected together wrap the whole selection
+  assert.equal(t("**a** x **b**", 0, 13, "**").text, "****a** x **b****");
+  // whitespace at the selection edges stays outside the markers
+  assert.equal(t("hello world", 5, 11, "**").text, "hello **world**");
+  // collapsed caret toggles the word under it
+  assert.equal(t("hello world", 8, 8, "**").text, "hello **world**");
+  assert.equal(t("hello world", 8, 8, "~~").text, "hello ~~world~~");
+  // collapsed caret inside a styled word unwraps that style
+  assert.equal(t("hello **world**", 10, 10, "**").text, "hello world");
+  // stacking styles: italic on a bold word nests, bold on both peels bold
+  assert.equal(t("**bold**", 4, 4, "*").text, "***bold***");
+  assert.equal(t("***bold***", 5, 5, "**").text, "*bold*");
+  assert.equal(t("***bold***", 5, 5, "*").text, "**bold**");
+  // a selection spanning a link wraps around the whole thing
+  const linky = "see [x](https://e.com) now";
+  assert.equal(t(linky, 0, linky.length, "**").text, `**${linky}**`);
+  // nothing to toggle: empty text, whitespace-only, or out-of-range offsets
+  assert.equal(t("", 0, 0, "**"), null);
+  assert.equal(t("   ", 1, 1, "**"), null);
+  assert.equal(t("a b", 0, 0, "**").text, "**a** b");
+  assert.equal(t("a  b", 2, 2, "**"), null);
+});
+
 test("touch drag requires a long press and the board exposes an easy top drop target", async () => {
   const api = await loadBoardApi();
   const html = await readBoard();
