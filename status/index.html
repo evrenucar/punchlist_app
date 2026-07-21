@@ -180,7 +180,13 @@
     background: var(--bg); border-bottom: 1px solid var(--line);
   }
   .graphpane[hidden] { display: none; }
-  .graph-viewport { position: absolute; inset: 0 0 6px 0; overflow: hidden; cursor: grab; touch-action: none; }
+  .graph-viewport {
+    position: absolute; inset: 0 0 6px 0; overflow: hidden; cursor: grab; touch-action: none;
+    /* dot grid for a sense of scale (Evren); JS keeps background-size in step
+       with graphZoom and background-position in step with the pan */
+    background-image: radial-gradient(color-mix(in srgb, var(--line-strong) 55%, transparent) 1.2px, transparent 1.8px);
+    background-size: 26px 26px;
+  }
   .graph-viewport.dragging { cursor: grabbing; }
   .graph-world { position: absolute; left: 0; top: 0; will-change: transform; }
   .graph-world.gliding { transition: transform 700ms ease; }
@@ -195,7 +201,7 @@
   .gnode .gtext { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .gnode.by-user { border-left-color: #2d7d46; }
   .gnode.by-agent { border-left-color: #246bfe; }
-  .gnode.done { opacity: 0.62; border-left-color: var(--done); }
+  .gnode.done { opacity: 0.4; border-left-color: var(--done); }
   .gnode.done .gtext::before { content: "✓ "; color: var(--done); font-weight: 700; }
   /* An item a Claude session completed is checked off in agent-blue, not
      Evren-green: completedBy, NOT by (which marks who raised it). */
@@ -227,7 +233,9 @@
   .graph-viewswitch button.active { background: var(--accent); color: #fff; font-weight: 700; }
   .gnode.active {
     border-color: #7c3aed; border-left-color: #7c3aed;
-    background: color-mix(in srgb, #7c3aed 12%, var(--surface));
+    /* a real tinted fill, not just the left line (Evren) — theme-aware via
+       var(--surface) so it reads in both dark and light */
+    background: color-mix(in srgb, #7c3aed 26%, var(--surface));
     animation: nodeGlow 2.6s ease-in-out infinite;
   }
   @keyframes nodeGlow {
@@ -408,7 +416,7 @@
       <span class="stamp" id="synced" data-local-only></span>
       <span class="workline" id="workline" data-local-only hidden></span>
       <span class="hint" id="hint">↑↓ browse · Tab indents · Ctrl+Enter completes. Braindump is private until you press “Intake”. “Agent_Active” = in progress.</span>
-      <span class="bar-actions" data-local-only><button class="chat-toggle" id="menu-toggle" type="button" title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button><button class="chat-toggle" id="board-toggle" type="button" aria-pressed="true" title="Show or hide the embedded board (sync keeps running)">Board</button><button class="chat-toggle" id="graph-toggle" type="button" aria-pressed="false">Graph</button><button class="chat-toggle" id="chat-toggle" type="button" aria-pressed="false">Chat<span class="chat-badge" id="chat-badge"></span></button></span>
+      <span class="bar-actions" data-local-only><button class="chat-toggle" id="menu-toggle" type="button" aria-pressed="false" title="Show or hide the board sidebar" aria-label="Show or hide the board sidebar">☰</button><button class="chat-toggle" id="board-toggle" type="button" aria-pressed="true" title="Show or hide the embedded board (sync keeps running)">Board</button><button class="chat-toggle" id="graph-toggle" type="button" aria-pressed="false">Graph</button><button class="chat-toggle" id="chat-toggle" type="button" aria-pressed="false">Chat<span class="chat-badge" id="chat-badge"></span></button></span>
     </div>
     <div class="activebar idle" id="activebar">
       <span class="active-label">Active</span>
@@ -749,6 +757,10 @@
   try { agentGhosts = JSON.parse(localStorage.getItem(GHOST_KEY) || "{}") || {}; } catch {}
   function saveGhosts() { localStorage.setItem(GHOST_KEY, JSON.stringify(agentGhosts)); }
   let graphKey = "";
+  // Basis-layout cache for the layout views: positions computed ONCE per
+  // structure at Z=1, then scaled by the current zoom. See renderGraphLayout.
+  let graphBasisKey = "";
+  let graphBasisPos = {};
   let graphPan = { x: 30, y: 10 };
   let lastGraphInteract = 0;
   let activeNodeCenter = null;
@@ -883,20 +895,37 @@
   function renderGraphLayout(state, force) {
     var model = buildGraphModel(state);
     var Z = graphZoom;
-    var NODE_W = Math.round(210 * Z), NODE_H = Math.round(80 * Z);
-    var opts = { nodeW: NODE_W, nodeH: NODE_H, gapX: Math.round(46 * Z), gapY: Math.round(18 * Z) };
+    var NODE_W = Math.round(210 * Z);
     var layoutFn = graphView === "tree" ? layoutTree : graphView === "lanes" ? layoutLanes : layoutForce;
     var key = JSON.stringify([graphView, model.nodes.map(function (n) { return [n.id, n.kind, n.parentId, (n.task && n.task.text || n.text || "").slice(0, 24), n.task && n.task.active]; }), graphZoom, graphSelId, agentsLive, agentGhosts, graphLastVisit]);
     if (!force && key === graphKey) return;
     graphKey = key;
+    // Basis cache (Evren: "zoom super buggy, everything jumps"): the layout ran
+    // on every zoom step with scaled opts, and the force sim is nonlinear, so
+    // each step re-rolled a different shape. Now the layout runs ONCE per
+    // STRUCTURE at a fixed Z=1 basis and zooming only scales those positions —
+    // same shape, smoothly bigger/smaller. The key is view + ids + parents +
+    // order, NOT zoom/selection/agent chips, so live board edits still
+    // re-layout while zooming never does.
+    var basisKey = JSON.stringify([graphView, model.nodes.map(function (n) { return [n.id, n.parentId, n.order]; })]);
+    if (basisKey !== graphBasisKey) {
+      var baseOpts = graphView === "force"
+        ? { nodeW: 210, nodeH: 80, gapX: 64, gapY: 28 }   // roomier basis gaps: fewer edges cutting through unrelated nodes
+        : { nodeW: 210, nodeH: 80, gapX: 46, gapY: 18 };
+      graphBasisPos = (layoutFn(model, baseOpts) || {}).pos || {};
+      graphBasisKey = basisKey;
+    }
     graphWorld.innerHTML = "";
     activeNodeCenter = null;
     var SVGNS = "http://www.w3.org/2000/svg";
     var svg = document.createElementNS(SVGNS, "svg");
     svg.classList.add("graph-links");
     graphWorld.appendChild(svg);
-    var laid = layoutFn(model, opts);
-    var pos = laid.pos || {};
+    var pos = {};
+    model.nodes.forEach(function (n) {
+      var bp = graphBasisPos[n.id];
+      if (bp) pos[n.id] = { x: bp.x * Z, y: bp.y * Z };
+    });
     nodeCtx = { NODE_W: NODE_W, clampLines: (Z >= 1.8 ? "unset" : String(Math.max(1, Math.round(3 * Z)))), isNew: function (t) { return t && t.createdAt && Date.parse(t.createdAt) > graphLastVisit; } };
     var placed = {};
     var firstActiveId = null;
@@ -953,6 +982,14 @@
         path.setAttribute("fill", "none");
         path.style.stroke = hot ? "#7c3aed" : "var(--line-strong)";
         path.setAttribute("stroke-width", hot ? "2.5" : "1.5");
+        // Loose connections read dotted (Evren): anything hanging off a queued
+        // or friction root is not part of the worked path. Keyed on the PARENT
+        // kind, because queue/bucket nodes are trunk roots — they have no
+        // incoming edge, only outgoing ones (a child-kind check never fired).
+        var LOOSE_KINDS = { queue: 1, bucket: 1, friction: 1, pill: 1, idle: 1 };
+        var parentNode = model.nodes.find(function (m) { return m.id === n.parentId; });
+        var loose = LOOSE_KINDS[n.kind] || (parentNode && LOOSE_KINDS[parentNode.kind]);
+        if (loose && !hot) path.setAttribute("stroke-dasharray", Math.max(2, Math.round(4 * Z)) + " " + Math.max(2, Math.round(4 * Z)));
         svg.appendChild(path);
       }
     });
@@ -1019,26 +1056,40 @@
     var dt = 0.9;                   // integration step
     var maxStep = rest;             // clamp per-iteration travel -> never explodes to Infinity
     var gapY = opts.gapY || Math.round(nodeH / 4);
-    var kColumn = 0.03;             // anchor toward the BFS-depth column so hierarchy survives settling
+    var kColumn = 0.05;             // anchor toward the per-root region column so timeline order survives settling
 
     // ---- deterministic structured seed (NO randomness) -------------------------
-    // x = BFS depth (parents always precede children in model.nodes, so a single
-    // pass resolves depth); y = stacking order within that depth. The sim relaxes
-    // from here, so the result reads left-to-right instead of a spiral blob.
+    // The trunk-root order IS the timeline (older done → active → queue →
+    // friction), so each root gets its own column REGION: older roots left,
+    // newer right, with clear space between regions so loosely-related subtrees
+    // read as separate bundles. Within a region, children drift gently right
+    // per depth and stack by (depth, row). The sim relaxes from here and the
+    // column anchor below holds each node near its region, so the settle
+    // preserves left-to-right time AND the bundle separation.
     var idx = {};
     for (var i = 0; i < n; i++) idx[nodes[i].id] = i;
     var px = new Array(n), py = new Array(n);
     var vx = new Array(n), vy = new Array(n);
     var depth = new Array(n), seedX = new Array(n);
-    var depthCount = [];
+    var rootIdx = new Array(n), rootCount = 0;
+    var regionW = Math.round((nodeW + gapX) * 1.6);  // > one box: visible gap between bundles
+    var depthDX = Math.round((nodeW + gapX) / 3);    // gentle right-drift per depth inside a bundle
+    var rowAt = {};
     for (var i = 0; i < n; i++) {
       var pdi = (nodes[i].parentId !== null && nodes[i].parentId !== undefined) ? idx[nodes[i].parentId] : undefined;
-      depth[i] = (pdi !== undefined && depth[pdi] !== undefined) ? depth[pdi] + 1 : 0;
-      var row = depthCount[depth[i]] || 0;
-      depthCount[depth[i]] = row + 1;
-      seedX[i] = depth[i] * (nodeW + gapX);
+      if (pdi !== undefined && depth[pdi] !== undefined) {
+        depth[i] = depth[pdi] + 1;
+        rootIdx[i] = rootIdx[pdi];
+      } else {
+        depth[i] = 0;
+        rootIdx[i] = rootCount++;
+      }
+      var rk = rootIdx[i] + ":" + depth[i];
+      var row = rowAt[rk] || 0;
+      rowAt[rk] = row + 1;
+      seedX[i] = rootIdx[i] * regionW + depth[i] * depthDX;
       px[i] = seedX[i];
-      py[i] = row * (nodeH + gapY);
+      py[i] = depth[i] * (nodeH + gapY) + row * (nodeH + gapY);
       vx[i] = 0; vy[i] = 0;
     }
     // center the seed on the origin so the centering force doesn't drag the columns
@@ -1596,6 +1647,10 @@
     // left the node text sitting off the pixel grid and rendered it blurry
     // (Evren's screenshot). Internal pan stays exact; only the paint snaps.
     graphWorld.style.transform = `translate(${Math.round(graphPan.x)}px, ${Math.round(graphPan.y)}px)`;
+    // dot grid rides with the world: size follows zoom, origin follows pan
+    const dot = Math.max(10, Math.round(26 * graphZoom));
+    graphViewport.style.backgroundSize = dot + "px " + dot + "px";
+    graphViewport.style.backgroundPosition = Math.round(graphPan.x) + "px " + Math.round(graphPan.y) + "px";
     if (glide) setTimeout(() => graphWorld.classList.remove("gliding"), 750);
   }
 
@@ -2275,9 +2330,22 @@
   }
   boardToggle.addEventListener("click", () => setBoardOpen(boardCol.style.display === "none"));
   if (localStorage.getItem(BOARD_OPEN_KEY) === "0") setBoardOpen(false);
-  document.getElementById("menu-toggle").addEventListener("click", () => {
+  // The hamburger stays blue while the board sidebar it toggles is visible
+  // (Evren): same aria-pressed styling as the Board/Graph/Chat toggles. The
+  // sidebar lives inside the iframe, so its visibility is read from the
+  // iframe body's classes; a light poll also catches toggles made in-app.
+  const menuToggle = document.getElementById("menu-toggle");
+  function syncMenuPressed() {
+    const body = frame.contentDocument?.body;
+    if (!body) return;
+    const open = body.classList.contains("sidebar-open") || !body.classList.contains("app-sidebar-collapsed");
+    menuToggle.setAttribute("aria-pressed", open ? "true" : "false");
+  }
+  menuToggle.addEventListener("click", () => {
     frame.contentDocument?.querySelector("[data-sidebar-toggle]")?.click();
+    setTimeout(syncMenuPressed, 150);
   });
+  setInterval(syncMenuPressed, 1000);
   document.getElementById("chat-close").addEventListener("click", () => {
     chatPane.hidden = true;
     document.getElementById("chat-toggle").setAttribute("aria-pressed", "false");
