@@ -683,15 +683,30 @@
       const currentSettings = state.settings;
       const currentIdentity = state.identity || null;
       const currentContacts = state.contacts && typeof state.contacts === "object" ? state.contacts : {};
+      // A pull must not throw the user across the board: keep the selection
+      // when its node survives the pull (decided from DATA, so collapsed-away
+      // nodes count too) and hold the scroller where it was. The old reset to
+      // the first node was Evren's "my viewport is reset".
+      const keepSelection = selectedNode ? { ...selectedNode } : null;
+      const scroller = typeof document.querySelector === "function" ? document.querySelector("main") : null;
+      const keepScrollTop = scroller ? scroller.scrollTop : null;
       state = migrateState(imported, new Date().toISOString(), { includeResearch: false });
       state.settings = currentSettings;
       // A payload from an older build must not wipe the shared key or the
       // contact book; when the remote has them, the remote versions win.
       if (!state.identity && currentIdentity) state.identity = currentIdentity;
       if (!Object.keys(state.contacts || {}).length && Object.keys(currentContacts).length) state.contacts = currentContacts;
-      selectedNode = getVisibleNodes()[0] || null;
-      multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
-      selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
+      const survives = keepSelection
+        && (keepSelection.kind === "group" ? Boolean(findGroup(keepSelection.id)) : Boolean(findTask(keepSelection.id)));
+      if (survives) {
+        selectedNode = keepSelection;
+        multiSelectedNodes = [{ ...keepSelection }];
+        selectionAnchorNode = { ...keepSelection };
+      } else {
+        selectedNode = getVisibleNodes()[0] || null;
+        multiSelectedNodes = selectedNode ? [{ ...selectedNode }] : [];
+        selectionAnchorNode = selectedNode ? { ...selectedNode } : null;
+      }
       syncApplying = true;
       try {
         saveState();
@@ -700,6 +715,7 @@
       }
       syncSettingsControls();
       render();
+      if (survives && scroller && keepScrollTop !== null) scroller.scrollTop = keepScrollTop;
     }
 
     // For embedders (the status/ wrapper): swap in a new whole-board state
@@ -770,6 +786,11 @@
         return;
       }
       syncBusy = true;
+      // A debounced typing save may still be pending; land it NOW so the dirty
+      // flag is truthful before the pull/push decision. Without this, a tab
+      // switch mid-typing read dirty=false and PULLED the remote over the
+      // unsaved edit — Evren's "my most recent change disappears".
+      flushPendingSave();
       setSyncStatus("Syncing…");
       try {
         const branch = syncConfig.branch || "main";
@@ -796,6 +817,14 @@
           dirty: Boolean(syncConfig.dirty),
         });
         if (action === "pull") {
+          // Never yank the board out from under an active caret: retry shortly
+          // instead (the debounce re-runs syncNow; it re-decides from scratch).
+          const active = document.activeElement;
+          if (active && active.isContentEditable && boardEl?.contains?.(active)) {
+            setSyncStatus("Remote changes waiting (finishing your edit first)");
+            scheduleSyncPush();
+            return;
+          }
           applySyncedState(JSON.parse(decodeBase64Utf8(remote.content)));
           saveSyncConfig({ lastSha: remote.sha, dirty: false, lastSyncedAt: new Date().toISOString() });
           showToast("Pulled board changes from GitHub.");
@@ -826,6 +855,11 @@
         setSyncStatus(`Synced ${formatClockTime()}`);
       } catch (error) {
         setSyncStatus(`Sync failed: ${error?.message || error}`);
+        // 409 = the remote moved between our GET and PUT (another device
+        // pushed). A retry re-GETs the fresh sha and re-decides, so it heals
+        // itself; without this the banner sat at "Sync failed: 409" until the
+        // next unrelated trigger (Evren's screenshot).
+        if (String(error?.message || "").includes("409")) scheduleSyncPush();
       } finally {
         syncBusy = false;
         if (syncQueued) {

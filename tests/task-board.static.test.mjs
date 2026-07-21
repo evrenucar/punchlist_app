@@ -2119,6 +2119,72 @@ test("boards past the 1 MB contents cap pull through the blobs API", async () =>
   assert.equal(api.state.groups.some((g) => g.title === "From the blob"), true, "the oversized board pulled and applied instead of erroring");
 });
 
+test("a pending typed save survives a sync while the remote moved (flush before decision)", async () => {
+  const calls = [];
+  const remotePayload = {
+    version: 2,
+    syncedAt: "2026-07-20T02:00:00.000Z",
+    state: { groups: [{ id: "g-remote", title: "Remote board", tasks: [], collapsed: false }], history: [], trash: [] },
+  };
+  const base64 = Buffer.from(JSON.stringify(remotePayload), "utf8").toString("base64");
+  const fetchMock = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || "GET" });
+    if (options.method === "PUT") return { ok: true, status: 200, json: async () => ({ content: { sha: "after-put" } }) };
+    return { ok: true, status: 200, json: async () => ({ sha: "r2", size: 100, content: base64 }) };
+  };
+  const timers = [];
+  const windowStub = {
+    getSelection() { return { rangeCount: 0, addRange() {}, getRangeAt() { return null; }, removeAllRanges() {} }; },
+    setTimeout(fn) { timers.push(fn); return timers.length; },
+    clearTimeout() {},
+  };
+  const api = await loadBoardApi({ fetch: fetchMock, window: windowStub, TextEncoder, TextDecoder, btoa, atob });
+  api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "r1", dirty: false });
+  const today = api.state.groups.find((group) => group.title === "Today");
+  const task = today.tasks[0];
+  // the typed text sits in a DEBOUNCED save: state changed, dirty still false
+  api.updateTaskTextFromEditable(task.id, "typed then tab-switched");
+  await api.syncNow("visible");
+  // without the flush, dirty read false and the remote board replaced the edit
+  const kept = api.state.groups.find((group) => group.title === "Today")?.tasks.find((t) => t.id === task.id);
+  assert.equal(kept?.text, "typed then tab-switched", "the unsaved edit must survive the sync");
+  assert.equal(calls.some((c) => c.method === "PUT"), true, "the decision became a push, not a pull");
+});
+
+test("a pull keeps the selection when the selected task survives", async () => {
+  const api = await loadBoardApi();
+  const today = api.state.groups.find((group) => group.title === "Today");
+  const task = today.tasks[1];
+  api.selectNode({ kind: "task", id: task.id });
+  const remote = {
+    version: 2,
+    syncedAt: "2026-07-20T02:00:00.000Z",
+    state: JSON.parse(JSON.stringify({ groups: api.state.groups, history: [], trash: [] })),
+  };
+  api.applySyncedState(remote);
+  const selected = api.getSelectedNodes();
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].id, task.id, "selection survives a pull whose board still has the node");
+});
+
+test("a 409 on push schedules its own retry", async () => {
+  const timers = [];
+  const fetchMock = async (url, options = {}) => {
+    if (options.method === "PUT") return { ok: false, status: 409, json: async () => ({}) };
+    return { ok: true, status: 200, json: async () => ({ sha: "r3", size: 100, content: "" }) };
+  };
+  const windowStub = {
+    getSelection() { return { rangeCount: 0, addRange() {}, getRangeAt() { return null; }, removeAllRanges() {} }; },
+    setTimeout(fn) { timers.push(fn); return timers.length; },
+    clearTimeout() {},
+  };
+  const api = await loadBoardApi({ fetch: fetchMock, window: windowStub, TextEncoder, TextDecoder, btoa, atob });
+  api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "r1", dirty: true });
+  const before = timers.length;
+  await api.syncNow("edit");
+  assert.equal(timers.length > before, true, "a 409 must arm a retry timer instead of sitting failed");
+});
+
 test("scoped render keeps behavior identical and falls back safely", async () => {
   const api = await loadBoardApi();
   const today = api.state.groups.find((group) => group.title === "Today");
