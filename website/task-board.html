@@ -2854,7 +2854,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.14";
+    const APP_VERSION = "1.5.16";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -6000,25 +6000,152 @@
       return true;
     }
 
+    const INLINE_STYLE_TAGS = { strong: "**", b: "**", em: "*", i: "*", del: "~~", s: "~~", strike: "~~" };
+
+    function serializeEditableNode(node) {
+      if (node.nodeType === 3) return node.nodeValue || "";
+      const tagName = node.tagName?.toLowerCase();
+      if (tagName === "br") return "\n";
+      if (tagName === "a") {
+        const href = node.getAttribute("href") || "";
+        return node.dataset?.autoLink === "true"
+          ? href
+          : `[${node.textContent || href}](${href})`;
+      }
+      const inner = [...(node.childNodes || [])].map(serializeEditableNode).join("");
+      const marker = INLINE_STYLE_TAGS[tagName];
+      return marker ? marker + inner + marker : inner;
+    }
+
     function getMarkdownTextFromEditable(valueOrElement) {
       if (typeof valueOrElement === "string" || !valueOrElement?.childNodes) {
         return getEditableText(valueOrElement);
       }
+      return [...valueOrElement.childNodes].map(serializeEditableNode).join("").replace(/\u00a0/g, " ").trim();
+    }
 
-      function serializeNode(node) {
-        if (node.nodeType === 3) return node.nodeValue || "";
-        const tagName = node.tagName?.toLowerCase();
-        if (tagName === "br") return "\n";
-        if (tagName === "a") {
-          const href = node.getAttribute("href") || "";
-          return node.dataset?.autoLink === "true"
-            ? href
-            : `[${node.textContent || href}](${href})`;
+    // Markdown offset of a DOM point inside a task editable. Rendered text
+    // hides link/style markers, so DOM-range character counts diverge from
+    // markdown offsets (the known caret pinch point); this walks the same
+    // rules as serializeEditableNode, counting an element's opening marker on
+    // the way in and its closing marker only once the point is past it.
+    function getMarkdownCaretOffset(element, container, offsetInContainer) {
+      let offset = 0;
+      let found = false;
+      function walk(node) {
+        if (found) return;
+        if (node.nodeType === 3) {
+          const text = node.nodeValue || "";
+          if (node === container) {
+            offset += Math.max(0, Math.min(text.length, offsetInContainer));
+            found = true;
+          } else {
+            offset += text.length;
+          }
+          return;
         }
-        return [...(node.childNodes || [])].map(serializeNode).join("");
+        const tagName = node.tagName?.toLowerCase();
+        if (tagName === "br") {
+          offset += 1;
+          return;
+        }
+        const styleMarker = INLINE_STYLE_TAGS[tagName];
+        const wrap = tagName === "a" && node.dataset?.autoLink !== "true"
+          ? ["[", `](${node.getAttribute("href") || ""})`]
+          : styleMarker ? [styleMarker, styleMarker] : ["", ""];
+        offset += wrap[0].length;
+        const kids = [...(node.childNodes || [])];
+        const limit = node === container ? Math.max(0, Math.min(offsetInContainer, kids.length)) : kids.length;
+        for (let index = 0; index < limit && !found; index += 1) walk(kids[index]);
+        if (node === container) {
+          found = true;
+          return;
+        }
+        if (!found) offset += wrap[1].length;
       }
+      walk(element);
+      return offset;
+    }
 
-      return [...valueOrElement.childNodes].map(serializeNode).join("").replace(/\u00a0/g, " ").trim();
+    // Toggle an inline style marker over [start, end) of markdown `text`.
+    // Pure. Collapsed selections expand to the word under the caret (marker
+    // chars excluded, so a caret inside **bold** grabs just "bold"). Returns
+    // null when there is nothing to toggle, else { text, start, end, caret }
+    // with markdown offsets; caret sits just past the toggled span.
+    function toggleMarkdownStyle(text, start, end, marker) {
+      const src = String(text || "");
+      const len = marker.length;
+      const ch = marker[0];
+      let from = Math.max(0, Math.min(src.length, Number(start) || 0));
+      let to = Math.max(from, Math.min(src.length, Number(end) || 0));
+      if (from === to) {
+        const isWordChar = (value) => Boolean(value) && !/[\s*~]/.test(value);
+        while (isWordChar(src[from - 1])) from -= 1;
+        while (isWordChar(src[to])) to += 1;
+        if (from === to) return null;
+      }
+      while (from < to && /\s/.test(src[from])) from += 1;
+      while (to > from && /\s/.test(src[to - 1])) to -= 1;
+      if (from === to) return null;
+      // marker-char runs hugging the selection decide presence: for * a run
+      // is italic only when its count is odd (** is bold, *** is both); for
+      // ** and ~~ any run of 2+ carries the style.
+      let before = 0;
+      while (src[from - before - 1] === ch) before += 1;
+      let after = 0;
+      while (src[to + after] === ch) after += 1;
+      const wrapped = len === 2 ? before >= 2 && after >= 2 : before % 2 === 1 && after % 2 === 1;
+      if (wrapped) {
+        const next = src.slice(0, from - len) + src.slice(from, to) + src.slice(to + len);
+        return { text: next, start: from - len, end: to - len, caret: to - len };
+      }
+      const sel = src.slice(from, to);
+      const inner = sel.slice(len, -len);
+      if (sel.length >= len * 2 + 1 && sel.startsWith(marker) && sel.endsWith(marker) && !inner.includes(marker)) {
+        return { text: src.slice(0, from) + inner + src.slice(to), start: from, end: to - len * 2, caret: to - len * 2 };
+      }
+      return {
+        text: src.slice(0, from) + marker + sel + marker + src.slice(to),
+        start: from + len,
+        end: to + len,
+        caret: to + len * 2,
+      };
+    }
+
+    function renderedTextLength(markdown) {
+      const probe = document.createElement?.("div");
+      if (!probe) return String(markdown || "").length;
+      probe.innerHTML = renderInlineMarkdown(markdown);
+      return (probe.textContent || "").length;
+    }
+
+    // Ctrl+B / Ctrl+I / Ctrl+Shift+S inside a task editable (board row or
+    // focus overlay): toggle the marker on the markdown model, re-render just
+    // this editable, and drop the caret after the toggled span.
+    function toggleEditableStyle(editable, marker) {
+      const selection = window.getSelection?.();
+      if (!selection || !selection.rangeCount || !selectionContainsEditableContents(editable)) return false;
+      const id = editable.dataset.taskText || editable.dataset.focusTaskText;
+      const found = id ? findTask(id) : null;
+      if (!found) return false;
+      const range = selection.getRangeAt(0);
+      // untrimmed serialization so the DOM-derived offsets line up
+      const source = [...editable.childNodes].map(serializeEditableNode).join("").replace(/\u00a0/g, " ");
+      const start = getMarkdownCaretOffset(editable, range.startContainer, range.startOffset);
+      const end = getMarkdownCaretOffset(editable, range.endContainer, range.endOffset);
+      const toggled = toggleMarkdownStyle(source, Math.min(start, end), Math.max(start, end), marker);
+      if (!toggled) return false;
+      pushUndoState("board", "Formatted task text");
+      const lead = toggled.text.length - toggled.text.replace(/^\s+/, "").length;
+      const item = resolveTaskItem(found.item);
+      item.text = toggled.text.trim();
+      saveStateDebounced();
+      if (editable.dataset.focusTaskText) boardStaleBehindFocus = true;
+      editable.innerHTML = renderInlineMarkdown(item.text);
+      // caret target in rendered-text coordinates: render the markdown prefix
+      // up to just past the toggled span and measure its visible length
+      placeCaretAtTextOffset(editable, renderedTextLength(item.text.slice(0, Math.max(0, toggled.caret - lead))));
+      return true;
     }
 
     function applyUrlPasteToText(text, start, end, url) {
@@ -6208,10 +6335,10 @@
       if (!selection || !selection.rangeCount) return getMarkdownTextFromEditable(element).length;
       const range = selection.getRangeAt(0);
       if (!selectionContainsEditableContents(element, range)) return getMarkdownTextFromEditable(element).length;
-      const prefix = range.cloneRange();
-      prefix.selectNodeContents(element);
-      prefix.setEnd(range.endContainer, range.endOffset);
-      return prefix.toString().length;
+      // markdown offset, not rendered-text offset: callers feed this into
+      // splits over item.text, and the fallbacks above already return
+      // markdown lengths (the old rendered-domain count drifted past links)
+      return getMarkdownCaretOffset(element, range.endContainer, range.endOffset);
     }
 
     function caretOnBoundaryLine(editable, direction) {
@@ -7159,16 +7286,32 @@
 
     function renderInlineMarkdown(value) {
       const source = String(value || "");
-      const pattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)/gi;
+      // Links and bare URLs first in the alternation (a URL may contain * or
+      // ~, so links must win); style spans (*** ** * ~~) render recursively
+      // so **a [link](u) b** styles both. Closing markers reject a trailing
+      // marker char, otherwise **bold *in*** would close two chars early.
+      // Italic WRAPPING bold (*a **b** c*) is beyond one regex pass and
+      // degrades to literal markers; the common nesting (***both***, bold
+      // around italic) works.
+      const pattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)|\*\*\*(?!\s)(.+?)(?<!\s)\*\*\*(?!\*)|\*\*(?!\s)(.+?)(?<!\s)\*\*(?!\*)|\*(?!\s)(.+?)(?<!\s)\*(?!\*)|~~(?!\s)(.+?)(?<!\s)~~(?!~)/gi;
       let html = "";
       let cursor = 0;
       let match;
       while ((match = pattern.exec(source))) {
         html += escapeHtml(source.slice(cursor, match.index));
-        const label = match[1] || match[3];
-        const url = match[2] || match[3];
-        const autoLink = match[3] ? ' data-auto-link="true"' : "";
-        html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Opens in a new tab"${autoLink}>${escapeHtml(label)}</a>`;
+        const styled = match[4] || match[5] || match[6] || match[7];
+        if (styled) {
+          const inner = renderInlineMarkdown(styled);
+          html += match[4] ? `<strong><em>${inner}</em></strong>`
+            : match[5] ? `<strong>${inner}</strong>`
+            : match[6] ? `<em>${inner}</em>`
+            : `<del>${inner}</del>`;
+        } else {
+          const label = match[1] || match[3];
+          const url = match[2] || match[3];
+          const autoLink = match[3] ? ' data-auto-link="true"' : "";
+          html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Opens in a new tab"${autoLink}>${escapeHtml(label)}</a>`;
+        }
         cursor = pattern.lastIndex;
       }
       return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
@@ -8796,6 +8939,24 @@
         return;
       }
 
+      // Inline formatting (Evren 2026-07-21): Ctrl+B / Ctrl+I / Ctrl+Shift+S
+      // toggle **bold** / *italic* / ~~strike~~ on the markdown model. Task
+      // text only (board rows and the focus overlay); captions, group titles,
+      // search, chat and other inputs keep their browser defaults. !altKey
+      // keeps AltGr (Ctrl+Alt) layouts safe.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
+        const key = event.key.toLowerCase();
+        const marker = !event.shiftKey && key === "b" ? "**"
+          : !event.shiftKey && key === "i" ? "*"
+          : event.shiftKey && key === "s" ? "~~" : null;
+        const styleTarget = marker ? event.target.closest?.("[data-task-text], [data-focus-task-text]") : null;
+        if (styleTarget) {
+          event.preventDefault();
+          toggleEditableStyle(styleTarget, marker);
+          return;
+        }
+      }
+
       if (event.key.toLowerCase() === "z" && event.ctrlKey) {
         if (shouldUseBoardUndo(isEditingText)) {
           event.preventDefault();
@@ -9307,6 +9468,8 @@
       applyUrlPasteToText,
       renderInlineMarkdown,
       getMarkdownTextFromEditable,
+      getMarkdownCaretOffset,
+      toggleMarkdownStyle,
       shouldCancelLongPress,
       armTouchDrag,
       finishTouchDrag,
