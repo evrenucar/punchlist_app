@@ -2749,7 +2749,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.10";
+    const APP_VERSION = "1.5.11";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -2891,6 +2891,7 @@
     let undoActions = [];
     let lastUndoAction = null;
     let suppressFocusSelection = false;
+    let boardPressActive = false;
     let squelchTapUntil = 0;
     let internalClipboard = null;
     let lifecycleSignature = "";
@@ -5764,7 +5765,11 @@
           row.focus({ preventScroll: true });
           suppressFocusSelection = false;
         }
-        if (!focusIsElsewhere) row.scrollIntoView({ block: "nearest" });
+        // Never scroll while a press is in flight: mousedown on a half-visible
+        // row's checkbox focuses it -> focusin selects -> this scroll moved the
+        // row before mouseup, so the click resolved to an ancestor and the
+        // checkbox never toggled (Evren: "only selects, doesn't check").
+        if (!focusIsElsewhere && !boardPressActive) row.scrollIntoView({ block: "nearest" });
       }
     }
 
@@ -7269,6 +7274,12 @@
       }
       return enterFocusMode();
     }
+
+    // Tracks whether a pointer is currently pressed anywhere on the board;
+    // cleared at the window so a release outside the board can't strand it.
+    boardEl.addEventListener("pointerdown", () => { boardPressActive = true; }, true);
+    window.addEventListener?.("pointerup", () => { boardPressActive = false; }, true);
+    window.addEventListener?.("pointercancel", () => { boardPressActive = false; }, true);
 
     boardEl.addEventListener("click", (event) => {
       if (Date.now() < squelchTapUntil) return;

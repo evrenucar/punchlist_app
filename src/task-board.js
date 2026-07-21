@@ -152,6 +152,7 @@
     let undoActions = [];
     let lastUndoAction = null;
     let suppressFocusSelection = false;
+    let boardPressActive = false;
     let squelchTapUntil = 0;
     let internalClipboard = null;
     let lifecycleSignature = "";
@@ -3025,7 +3026,11 @@
           row.focus({ preventScroll: true });
           suppressFocusSelection = false;
         }
-        if (!focusIsElsewhere) row.scrollIntoView({ block: "nearest" });
+        // Never scroll while a press is in flight: mousedown on a half-visible
+        // row's checkbox focuses it -> focusin selects -> this scroll moved the
+        // row before mouseup, so the click resolved to an ancestor and the
+        // checkbox never toggled (Evren: "only selects, doesn't check").
+        if (!focusIsElsewhere && !boardPressActive) row.scrollIntoView({ block: "nearest" });
       }
     }
 
@@ -4530,6 +4535,12 @@
       }
       return enterFocusMode();
     }
+
+    // Tracks whether a pointer is currently pressed anywhere on the board;
+    // cleared at the window so a release outside the board can't strand it.
+    boardEl.addEventListener("pointerdown", () => { boardPressActive = true; }, true);
+    window.addEventListener?.("pointerup", () => { boardPressActive = false; }, true);
+    window.addEventListener?.("pointercancel", () => { boardPressActive = false; }, true);
 
     boardEl.addEventListener("click", (event) => {
       if (Date.now() < squelchTapUntil) return;
