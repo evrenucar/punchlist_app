@@ -329,8 +329,16 @@ test("toggleMarkdownStyle wraps, unwraps, and stays idempotent", async () => {
   // selection that includes the markers unwraps too
   assert.equal(t("**bold**", 0, 8, "**").text, "bold");
   assert.equal(t("a ~~x~~ b", 2, 7, "~~").text, "a x b");
-  // ...but two separate spans selected together wrap the whole selection
-  assert.equal(t("**a** x **b**", 0, 13, "**").text, "****a** x **b****");
+  // A part-bold selection becomes all bold. It used to nest the markers into
+  // "****a** x **b****", which renders literal stars (Evren, 2026-07-26:
+  // "bolding things a second time makes things even bolder").
+  assert.equal(t("**a** x **b**", 0, 13, "**").text, "**a x b**");
+  assert.equal(t("hello **test** world", 0, 20, "**").text, "**hello test world**");
+  assert.equal(t("hello *test* world", 0, 18, "*").text, "*hello test world*");
+  // markers are shared between styles: taking bold off *** leaves the italic
+  assert.equal(t("a ***both*** b", 0, 14, "**").text, "**a *both* b**");
+  // ...and italic over a bold word lifts the italic star only, bold stands
+  assert.equal(t("a ***both*** b", 0, 14, "*").text, "*a **both** b*");
   // whitespace at the selection edges stays outside the markers
   assert.equal(t("hello world", 5, 11, "**").text, "hello **world**");
   // collapsed caret toggles the word under it
@@ -352,6 +360,38 @@ test("toggleMarkdownStyle wraps, unwraps, and stays idempotent", async () => {
   assert.equal(t("a  b", 2, 2, "**"), null);
 });
 
+// Evren, 2026-07-26: "bold ** are sticky at the end of the line". After Ctrl+B
+// the caret sat inside <strong>, so the next character joined the bold.
+test("the caret steps out of a style span at its closing edge", async () => {
+  const api = await loadBoardApi();
+  const el = (tag, kids) => {
+    const node = { tagName: tag, childNodes: kids, lastChild: kids[kids.length - 1] };
+    for (const kid of kids) kid.parentNode = node;
+    return node;
+  };
+  const text = (value) => ({ nodeType: 3, textContent: value, childNodes: [] });
+
+  // "hello <strong>test</strong>" — caret at the end of "test" escapes the strong
+  const bold = text("test");
+  const root = el("div", [text("hello "), el("strong", [bold])]);
+  assert.equal(api.escapeClosingStyleEdge(bold, root).tagName, "strong");
+
+  // nested ***both*** escapes all the way out to the outermost span
+  const inner = text("both");
+  const nested = el("div", [el("strong", [el("em", [inner])])]);
+  assert.equal(api.escapeClosingStyleEdge(inner, nested).tagName, "strong");
+
+  // plain text, and text that only ends a link, stay put
+  const plain = text("hello");
+  assert.equal(api.escapeClosingStyleEdge(plain, el("div", [plain])), null);
+  const linked = text("label");
+  assert.equal(api.escapeClosingStyleEdge(linked, el("div", [el("a", [linked])])), null);
+
+  // mid-span: the caret ends this text node but not the span, so it stays put
+  const head = text("a");
+  assert.equal(api.escapeClosingStyleEdge(head, el("div", [el("strong", [head, text("b")])])), null);
+});
+
 test("touch drag requires a long press and the board exposes an easy top drop target", async () => {
   const api = await loadBoardApi();
   const html = await readBoard();
@@ -360,6 +400,21 @@ test("touch drag requires a long press and the board exposes an easy top drop ta
   assert.equal(api.shouldCancelLongPress(10, 10, 30, 10), true);
   assert.match(html, /data-board-top-drop/);
   assert.match(html, /pointerdown/);
+});
+
+// Evren, 2026-07-26: "some items stay with a low opacity highlight on them even
+// tho I don't have them selected". touch-dragging fades and outlines a row, and
+// it used to be lifted off the remembered source only, behind an early return.
+test("a touch drag cleans its faded row off the whole board, not one element", async () => {
+  const html = await readBoard();
+  const fn = html.match(/function clearTouchDrag\(\)[\s\S]*?\n {4}\}/)?.[0];
+
+  assert.ok(fn, "clearTouchDrag is in the build");
+  assert.match(fn, /querySelectorAll\?\.\("\.touch-dragging"\)/, "sweeps every faded row");
+  assert.ok(
+    fn.indexOf(".touch-dragging") < fn.indexOf("if (!touchDrag) return"),
+    "the sweep runs before the early return, so a cancel with no live drag still cleans up",
+  );
 });
 
 test("focus mode waits for an explicit click before editing", async () => {
@@ -552,6 +607,48 @@ test("delete moves tasks to restorable trash or permanently removes them by poli
   assert.equal(api.deleteTaskWithPolicy(second.id, "2026-07-11T12:01:00.000Z"), null);
   assert.equal(api.state.trash.length, 0);
   assert.equal(group.tasks.some((item) => item.id === second.id), false);
+});
+
+test("history restore picks the right record when two deleted items share a name", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-projects");
+  api.state.settings.deleteMode = "trash";
+  api.state.settings.trashRetentionSeconds = 3600;
+
+  // Two separate items with identical text, deleted a minute apart.
+  const first = group.tasks[0];
+  const second = group.tasks[1];
+  first.text = "Same name";
+  second.text = "Same name";
+  const older = api.deleteTaskWithPolicy(first.id, "2026-07-11T12:00:00.000Z");
+  const newer = api.deleteTaskWithPolicy(second.id, "2026-07-11T12:01:00.000Z");
+  assert.notEqual(older.id, newer.id);
+
+  // A modern entry names its record outright.
+  assert.equal(
+    api.resolveHistoryRestoreId({ text: 'Deleted "Same name"', at: "2026-07-11T12:01:00.000Z", trashId: newer.id }),
+    newer.id,
+  );
+
+  // Legacy entries have no trashId, so the timestamp has to break the tie.
+  assert.equal(
+    api.resolveHistoryRestoreId({ text: 'Deleted "Same name"', at: "2026-07-11T12:00:00.000Z" }),
+    older.id,
+  );
+  assert.equal(
+    api.resolveHistoryRestoreId({ text: 'Deleted "Same name"', at: "2026-07-11T12:01:00.000Z" }),
+    newer.id,
+  );
+
+  // A trashId pointing at a purged record falls back rather than dead-ending.
+  assert.equal(
+    api.resolveHistoryRestoreId({ text: 'Deleted "Same name"', at: "2026-07-11T12:00:00.000Z", trashId: "trash-gone" }),
+    older.id,
+  );
+
+  // Nothing to restore when the name matches no record.
+  assert.equal(api.resolveHistoryRestoreId({ text: 'Deleted "Other name"', at: "2026-07-11T12:00:00.000Z" }), null);
+  assert.equal(api.resolveHistoryRestoreId({ text: "Moved a task", at: "2026-07-11T12:00:00.000Z" }), null);
 });
 
 test("trash retention purges expired records and export inclusion is configurable", async () => {
@@ -2215,14 +2312,22 @@ test("sync pull never wipes the local identity; older payloads keep the key", as
 
 test("built board keeps the DOM hooks the status-board wrapper depends on", async () => {
   const built = await readFile(boardPath, "utf8");
-  for (const hook of ["data-task-row", "data-group-title", "data-sidebar-toggle"]) {
+  // Everything the wrapper reaches for inside the embedded board: nine DOM hooks
+  // plus the three classes its injected stylesheet paints. status/refresh-board.mjs
+  // holds the same list and checks it from the tool's side; the copies are
+  // deliberate, since the tool is meant to survive as a separate repo. Rename a
+  // hook here and update BOARD_HOOKS there in the same commit.
+  for (const hook of [
+    "data-task-row", "data-group-title", "data-sidebar-toggle", "data-group-row",
+    'data-action="toggle-group"', 'data-action="toggle-task"', 'data-action="restore-completed"',
+    "data-task-id", "data-completed-section", "lifecycle-row",
+    'class="task-row', 'class="checkbox', 'class="group-title',
+  ]) {
     assert.equal(built.includes(hook), true, `${hook} is part of the status/ layer contract (CLAUDE.md)`);
   }
   // the wrapper also applies board updates in place through the test API
   const api = await loadBoardApi();
-  for (const hook of ["applyExternalState", "selectNode"]) {
-    assert.equal(typeof api[hook], "function", `taskBoardTestApi.${hook} is part of the status/ layer contract`);
-  }
+  assert.equal(typeof api.applyExternalState, "function", "taskBoardTestApi.applyExternalState is part of the status/ layer contract");
 });
 
 test("applyExternalState swaps the board in place without history noise", async () => {
@@ -2460,6 +2565,56 @@ test("scoped render keeps behavior identical and falls back safely", async () =>
   const linked = api.pasteTaskIds([first.id], { kind: "task", id: second.id }, "alias");
   assert.equal(api.taskIsLinkFree(first), false, "an aliased original is never link-free");
   assert.equal(api.taskIsLinkFree(second), true, "an untouched task is link-free");
+});
+
+// The move repaint went from render() to two <li> swaps (Evren 2026-07-26:
+// "when moving items all flash"), which meant recording where the task landed
+// inside every placement branch. This pins the tree those branches produce.
+test("a moved task lands in the same place now the repaint is scoped", async () => {
+  const api = await loadBoardApi();
+  const mk = (id, kids) => ({ id, text: id, children: kids || [] });
+  const fixture = (collapsed = false) => {
+    api.state.groups = [
+      { id: "g1", title: "One", tasks: [mk("t1"), mk("t2", [mk("t2a")]), mk("t3")] },
+      { id: "g2", title: "Two", collapsed, tasks: [mk("u1")] },
+    ];
+  };
+  const ids = (list) => (list || []).map((t) => t.id);
+
+  // down into a task that has visible children: becomes its first child
+  fixture();
+  assert.equal(api.moveTaskVisually("t1", 1), true);
+  assert.deepEqual(ids(api.state.groups[0].tasks), ["t2", "t3"]);
+  assert.deepEqual(ids(api.state.groups[0].tasks[0].children), ["t1", "t2a"]);
+
+  // up out of a parent that then has no children left
+  fixture();
+  assert.equal(api.moveTaskVisually("t2a", -1), true);
+  assert.deepEqual(ids(api.state.groups[0].tasks), ["t1", "t2a", "t2", "t3"]);
+  assert.deepEqual(ids(api.state.groups[0].tasks[2].children), []);
+
+  // down past the last task of a group: lands on top of the next group
+  fixture();
+  assert.equal(api.moveTaskVisually("t3", 1), true);
+  assert.deepEqual(ids(api.state.groups[0].tasks), ["t1", "t2"]);
+  assert.deepEqual(ids(api.state.groups[1].tasks), ["t3", "u1"]);
+
+  // ...and a collapsed destination group opens to show it
+  fixture(true);
+  assert.equal(api.moveTaskVisually("t3", 1), true);
+  assert.deepEqual(ids(api.state.groups[1].tasks), ["t3", "u1"]);
+  assert.equal(api.state.groups[1].collapsed, false);
+
+  // up is one VISUAL row, so t3 lands above t2a inside t2, not above t2
+  fixture();
+  assert.equal(api.moveTaskVisually("t3", -1), true);
+  assert.deepEqual(ids(api.state.groups[0].tasks), ["t1", "t2"]);
+  assert.deepEqual(ids(api.state.groups[0].tasks[1].children), ["t3", "t2a"]);
+
+  // a move with nowhere to go changes nothing
+  fixture();
+  assert.equal(api.moveTaskVisually("t1", -1), false);
+  assert.deepEqual(ids(api.state.groups[0].tasks), ["t1", "t2", "t3"]);
 });
 
 // Boots the board with a [data-board] element that records its event

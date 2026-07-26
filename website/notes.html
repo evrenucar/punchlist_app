@@ -287,6 +287,31 @@
 
     <article>
       <header>
+        <h2>Moving a task stops repainting the whole board, & bold stops running away</h2>
+        <span class="entry-date">July 26, 2026 · build v1.5.22</span>
+      </header>
+      <p>Four fixes, all things you feel rather than read about.</p>
+      <p><strong>Moving an item used to redraw everything.</strong> Every row on the board was destroyed & rebuilt on each Alt+Arrow, which is why the whole list blinked. Measured on a test board: 26 rows out of 26 thrown away. It now rebuilds one, the row that moved. Your selection & your keyboard focus survive the move as well, which they did not before.</p>
+      <p><strong>Adding a sub item used to flash the item above it.</strong> That item was the parent, & it was being rebuilt along with its child list for no reason. Adding a sub item now touches nothing that already exists on screen, it just inserts the new row. The parent keeps its chevron, its text, & your place in it.</p>
+      <p><strong>Bold no longer sticks.</strong> Press Ctrl+B on a word & keep typing: everything after it came out bold too, because the cursor was left sitting inside the bold text. It now steps out, so what you type next is plain. Backspace & the arrow keys still land on the real character either side, no dead keystroke.</p>
+      <p><strong>And bolding twice no longer doubles up.</strong> Bold a word, then select the whole line & bold that: the markers nested inside each other & you got stray asterisks printed in your text. Bolding a selection that is already part bold now simply makes all of it bold, & bolding it again clears it. The same goes for italic over a bold word.</p>
+      <p><strong>Restore from history could bring back the wrong item.</strong> If you had deleted two items with the same name, every Restore button that mentioned that name pointed at the same deletion, the oldest one. So restoring the newer one quietly handed you the older item instead. Restore now matches on when the deletion actually happened, so each history row brings back its own item.</p>
+      <p>One more, quieter: on a phone, a drag that got cancelled part way could leave the row it touched faded & outlined for the rest of the session. That row now clears properly.</p>
+    </article>
+
+    <article>
+      <header>
+        <h2>The status board became a tool of its own, & the app did not move</h2>
+        <span class="entry-date">July 25, 2026 · no app change, still v1.5.20</span>
+      </header>
+      <p>Nothing in Punchlist changed today. The built file is byte for byte the one from the July 21 build, same version, same behavior. If you use the app, there is nothing here for you & nothing to re-download. This entry is about the workbench beside it.</p>
+      <p>The status board is the local page a coding agent & I share while working on Punchlist: your task board on the left, a graph of what the agent is doing, & a chat channel. It only ever ran inside this repo, because it looked for its files next to its own scripts & served the board pane from a hardcoded path into the app folder. Now it reads whichever project you start it from, & the board pane is looked up in three places instead of one. Copy thirteen files into any project & it runs there, with that project's tasks, on its own port.</p>
+      <p>The board pane is still Punchlist. That is the whole reason this is cheap: Punchlist builds to one HTML file with no dependencies & no network calls, so a second project carries a copy of it & nothing else. A new script keeps that copy current by pulling the published build over HTTP, & it refuses to install a file that is missing anything the wrapper reaches for. The server now reports which build the pane is running every time it starts.</p>
+      <p>One real bug fell out of the survey. The graph's timeline view looked for a group by a fixed name, that group was renamed during a recent cleanup, & the view had been quietly blank ever since. It now works out which group to show from the board itself.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Sync can no longer roll your board back to an old version</h2>
         <span class="entry-date">July 21, 2026 · build v1.5.20</span>
       </header>

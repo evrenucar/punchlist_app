@@ -2854,7 +2854,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.20";
+    const APP_VERSION = "1.5.22";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -5060,11 +5060,18 @@
       moved = moveEntriesInList(state.groups, groupEntries, direction) || moved;
 
       const taskLists = new Map();
+      // reordering never changes a task's parent, so the container each moved id
+      // lives in is the only thing that has to repaint
+      const scopes = new Map();
       nodes.filter((node) => node.kind === "task").forEach((node) => {
         const found = findTask(node.id);
         if (!found) return;
         if (!taskLists.has(found.list)) taskLists.set(found.list, []);
         taskLists.get(found.list).push({ index: found.index });
+        const parentId = found.parent?.id ?? null;
+        const key = `${found.group.id}/${parentId || ""}`;
+        if (!scopes.has(key)) scopes.set(key, { groupId: found.group.id, parentId, ids: [] });
+        scopes.get(key).ids.push(node.id);
       });
 
       taskLists.forEach((entries, list) => {
@@ -5076,7 +5083,15 @@
         return;
       }
       saveState();
-      render();
+      // a group reorder moves every article; nothing smaller than a full render
+      if (groupEntries.length) {
+        render();
+        return;
+      }
+      scopes.forEach((scope) => {
+        if (scope.parentId) renderChildrenInPlace(scope.parentId, scope.groupId, scope.ids);
+        else renderTopLevelInPlace(scope.groupId, scope.ids);
+      });
     }
 
     function countTaskDescendants(id) {
@@ -5455,11 +5470,16 @@
     }
 
     function clearTouchDrag() {
-      if (!touchDrag) return;
-      if (touchDrag.timer) window.clearTimeout?.(touchDrag.timer);
-      touchDrag.source?.classList.remove("touch-dragging");
+      // Sweep the board, not just the remembered source. A cancel arriving once
+      // touchDrag is already null took the early return and left the dragged row
+      // faded and outlined for good — Evren, "some items stay with a low opacity
+      // highlight on them even tho I don't have them selected". The mouse drag
+      // path has swept globally all along; this one only cleaned one element.
+      document.querySelectorAll?.(".touch-dragging").forEach((element) => element.classList.remove("touch-dragging"));
       boardEl.classList.remove("is-dragging-group", "is-touch-dragging");
       clearDropIndicators();
+      if (!touchDrag) return;
+      if (touchDrag.timer) window.clearTimeout?.(touchDrag.timer);
       // auto-scroll belongs to whichever gesture is live: the drag-to-select
       // handover at 1.5s must not stall a scroll the sweep keeps using
       if (!touchSelect?.armed) stopDragAutoScroll();
@@ -5724,6 +5744,10 @@
       if (!target) return false;
 
       pushUndoState("move", `Moved "${shortText(resolveTaskItem(found.item)?.text)}"`);
+      // the two lists this move touches, so the repaint can be two <li> swaps
+      // instead of a board rebuild (Evren: "when moving items all flash")
+      const from = { groupId: found.group.id, parentId: found.parent?.id ?? null };
+      let to = null;
       const [item] = found.list.splice(found.index, 1);
 
       let placed = false;
@@ -5732,6 +5756,8 @@
           const group = findGroup(target.id);
           if (group) {
             group.tasks.unshift(item);
+            // expanding a collapsed group changes the whole article
+            to = { groupId: group.id, parentId: null, whole: group.collapsed };
             group.collapsed = false;
             placed = true;
           }
@@ -5740,8 +5766,10 @@
           if (dest) {
             if ((dest.item.children || []).length && !dest.item.collapsed) {
               dest.item.children.unshift(item);
+              to = { groupId: dest.group.id, parentId: dest.item.id };
             } else {
               dest.list.splice(dest.index + 1, 0, item);
+              to = { groupId: dest.group.id, parentId: dest.parent?.id ?? null };
             }
             placed = true;
           }
@@ -5751,6 +5779,7 @@
         const previousGroup = state.groups[groupIndex - 1];
         if (previousGroup) {
           previousGroup.tasks.push(item);
+          to = { groupId: previousGroup.id, parentId: null, whole: previousGroup.collapsed };
           previousGroup.collapsed = false;
           placed = true;
         }
@@ -5758,6 +5787,7 @@
         const dest = findTask(target.id);
         if (dest) {
           dest.list.splice(dest.index, 0, item);
+          to = { groupId: dest.group.id, parentId: dest.parent?.id ?? null };
           placed = true;
         }
       }
@@ -5769,8 +5799,23 @@
       }
       setSingleSelection({ kind: "task", id });
       saveState();
-      render();
+      repaintMovedTask(id, from, to);
       return true;
+    }
+
+    // Repaint the list the task left and the list it joined, nothing else. Same
+    // container twice is one call; a destination that needs its whole article
+    // (a group that just expanded) takes the group render.
+    function repaintMovedTask(id, from, to) {
+      const key = (scope) => (scope ? `${scope.groupId}/${scope.parentId || ""}` : "");
+      const paint = (scope) => {
+        if (!scope) return;
+        if (scope.whole) renderGroupInPlace(scope.groupId);
+        else if (scope.parentId) renderChildrenInPlace(scope.parentId, scope.groupId, [id]);
+        else renderTopLevelInPlace(scope.groupId, [id]);
+      };
+      paint(from);
+      if (key(to) !== key(from)) paint(to);
     }
 
     function addTask(groupId, parentId = null) {
@@ -5806,8 +5851,9 @@
       }
       setSingleSelection({ kind: "task", id: item.id });
       saveState();
-      if (scopedOk) renderScoped(parentId || null, groupId, [item.id]);
-      else renderLinkedPlacements(findTask(parentId)?.item || item, parentId || null, groupId);
+      if (!scopedOk) renderLinkedPlacements(findTask(parentId)?.item || item, parentId || null, groupId);
+      else if (parentId) renderChildrenInPlace(parentId, groupId, [item.id]);
+      else renderScoped(null, groupId, [item.id]);
       focusTaskText(item.id);
       return item;
     }
@@ -6065,11 +6111,19 @@
       focusEditableText(document.querySelector(selector));
     }
 
+    // Editable text carries two chars the model must never see: the nbsp
+    // contenteditable leaves behind, and the zero-width caret boundary
+    // placeCaretAtTextOffset parks past a style span.
+    const CARET_BOUNDARY = "\u200b";
+    function normalizeEditableText(value) {
+      return String(value || "").replace(/\u00a0/g, " ").split(CARET_BOUNDARY).join("");
+    }
+
     function getEditableText(valueOrElement) {
       const value = typeof valueOrElement === "string"
         ? valueOrElement
         : valueOrElement?.textContent || "";
-      return value.replace(/\u00a0/g, " ").trim();
+      return normalizeEditableText(value).trim();
     }
 
     function isEditableTextEmpty(valueOrElement) {
@@ -6111,7 +6165,7 @@
       if (typeof valueOrElement === "string" || !valueOrElement?.childNodes) {
         return getEditableText(valueOrElement);
       }
-      return [...valueOrElement.childNodes].map(serializeEditableNode).join("").replace(/\u00a0/g, " ").trim();
+      return normalizeEditableText([...valueOrElement.childNodes].map(serializeEditableNode).join("")).trim();
     }
 
     // Markdown offset of a DOM point inside a task editable. Rendered text
@@ -6125,13 +6179,12 @@
       function walk(node) {
         if (found) return;
         if (node.nodeType === 3) {
+          // caret boundaries are invisible to the markdown model, so they must
+          // not shift the offsets we hand back
           const text = node.nodeValue || "";
-          if (node === container) {
-            offset += Math.max(0, Math.min(text.length, offsetInContainer));
-            found = true;
-          } else {
-            offset += text.length;
-          }
+          const upto = node === container ? Math.max(0, Math.min(text.length, offsetInContainer)) : text.length;
+          offset += normalizeEditableText(text.slice(0, upto)).length;
+          if (node === container) found = true;
           return;
         }
         const tagName = node.tagName?.toLowerCase();
@@ -6194,11 +6247,21 @@
       if (sel.length >= len * 2 + 1 && sel.startsWith(marker) && sel.endsWith(marker) && !inner.includes(marker)) {
         return { text: src.slice(0, from) + inner + src.slice(to), start: from, end: to - len * 2, caret: to - len * 2 };
       }
+      // Wrapping a selection that ALREADY carries this style somewhere inside
+      // just nests the markers: bolding all of "hello **test** world" produced
+      // "**hello **test** world**", which renders literal stars (Evren,
+      // 2026-07-26: "bolding things a second time makes things even bolder").
+      // Take this style off the runs inside first, so bolding a part-bold
+      // selection makes all of it bold. Runs are shared — *** is bold AND
+      // italic — so lift only this marker's chars and leave the rest standing.
+      const body = sel.replace(new RegExp(`\\${ch}+`, "g"), (run) => (len === 2
+        ? (run.length >= 2 ? ch.repeat(run.length - 2) : run)
+        : (run.length % 2 === 1 ? ch.repeat(run.length - 1) : run)));
       return {
-        text: src.slice(0, from) + marker + sel + marker + src.slice(to),
+        text: src.slice(0, from) + marker + body + marker + src.slice(to),
         start: from + len,
-        end: to + len,
-        caret: to + len * 2,
+        end: from + len + body.length,
+        caret: from + len * 2 + body.length,
       };
     }
 
@@ -6220,7 +6283,7 @@
       if (!found) return false;
       const range = selection.getRangeAt(0);
       // untrimmed serialization so the DOM-derived offsets line up
-      const source = [...editable.childNodes].map(serializeEditableNode).join("").replace(/\u00a0/g, " ");
+      const source = normalizeEditableText([...editable.childNodes].map(serializeEditableNode).join(""));
       const start = getMarkdownCaretOffset(editable, range.startContainer, range.startOffset);
       const end = getMarkdownCaretOffset(editable, range.endContainer, range.endOffset);
       const toggled = toggleMarkdownStyle(source, Math.min(start, end), Math.max(start, end), marker);
@@ -6306,6 +6369,41 @@
       return false;
     }
 
+    // A rendered offset that lands on a style span's closing edge is ambiguous:
+    // inside the span or just past it. Chrome keeps the caret inside, so the
+    // next character joins the bold (Evren: "bold ** are sticky at the end of
+    // the line"). Step outside instead — leaving a style should end it.
+    // Moving the range out is not enough: Chrome takes the typing style from
+    // the character BEFORE the caret wherever the range sits, so the caret
+    // needs a character of its own to stand after. That is CARET_BOUNDARY, a
+    // zero-width node the serializers already strip and the next render drops.
+    function escapeClosingStyleEdge(node, element) {
+      let edge = node;
+      while (edge.parentNode && edge.parentNode !== element
+        && edge.parentNode.lastChild === edge
+        && INLINE_STYLE_TAGS[edge.parentNode.tagName?.toLowerCase()]) edge = edge.parentNode;
+      return edge === node ? null : edge;
+    }
+
+    // ...and the boundary must never spend a keystroke of its own. Backspace
+    // eating an invisible character reads as a dead key, so any non-typing key
+    // drops it first and inherits its spot.
+    function dropCaretBoundary() {
+      const selection = window.getSelection?.();
+      if (!selection || !selection.rangeCount || !selection.isCollapsed) return;
+      const range = selection.getRangeAt(0);
+      const node = range.startContainer;
+      if (node.nodeType !== 3 || node.nodeValue !== CARET_BOUNDARY || range.startOffset !== 1) return;
+      const parent = node.parentNode;
+      const at = [...parent.childNodes].indexOf(node);
+      parent.removeChild(node);
+      const next = document.createRange();
+      next.setStart(parent, at);
+      next.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(next);
+    }
+
     function placeCaretAtTextOffset(element, offset) {
       element.focus();
       const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -6315,6 +6413,12 @@
         if (remaining <= node.textContent.length) {
           const range = document.createRange();
           range.setStart(node, remaining);
+          const edge = remaining === node.textContent.length ? escapeClosingStyleEdge(node, element) : null;
+          if (edge) {
+            const boundary = document.createTextNode(CARET_BOUNDARY);
+            edge.parentNode.insertBefore(boundary, edge.nextSibling);
+            range.setStart(boundary, 1);
+          }
           range.collapse(true);
           const selection = window.getSelection();
           selection.removeAllRanges();
@@ -6858,6 +6962,30 @@
       `;
     }
 
+    // Which trash record does a history entry's Restore button act on?
+    // Modern entries carry trashId. Legacy ones only quote the item's name, so
+    // same-named deletions tie; break the tie on time, since the entry was
+    // written at delete time and the right record's deletedAt sits closest.
+    function resolveHistoryRestoreId(entry) {
+      if (entry.trashId && state.trash.some((record) => record.id === entry.trashId)) return entry.trashId;
+      if (!/^Deleted /.test(entry.text || "")) return null;
+      const quoted = entry.text.match(/"(.+)"$/)?.[1];
+      if (!quoted) return null;
+      const entryAt = Date.parse(entry.at);
+      const distance = (record) => {
+        const deletedAt = Date.parse(record.deletedAt);
+        if (!Number.isFinite(entryAt) || !Number.isFinite(deletedAt)) return Infinity;
+        return Math.abs(deletedAt - entryAt);
+      };
+      const match = state.trash
+        .filter((record) => {
+          const label = record.kind === "group" ? record.item.title : (resolveTaskItem(record.item)?.text || record.item.text || "");
+          return shortText(label) === quoted;
+        })
+        .sort((a, b) => distance(a) - distance(b))[0];
+      return match?.id || null;
+    }
+
     function renderHistoryList() {
       if (!historyListEl || !historyMenuEl?.open) return;
       const today = localDateString();
@@ -6874,17 +7002,7 @@
           : "Unknown time";
         const kindLabel = entry.kind && entry.kind !== "board" ? ` · ${entry.kind}` : "";
         const deviceLabel = entry.deviceId ? deviceDisplayName(entry.deviceId) : "";
-        let restoreId = entry.trashId && state.trash.some((record) => record.id === entry.trashId) ? entry.trashId : null;
-        if (!restoreId && /^Deleted /.test(entry.text)) {
-          const quoted = entry.text.match(/"(.+)"$/)?.[1];
-          if (quoted) {
-            const match = state.trash.find((record) => {
-              const label = record.kind === "group" ? record.item.title : (resolveTaskItem(record.item)?.text || record.item.text || "");
-              return shortText(label) === quoted;
-            });
-            restoreId = match?.id || null;
-          }
-        }
+        const restoreId = resolveHistoryRestoreId(entry);
         const restorable = Boolean(restoreId);
         return `
           <details class="history-row">
@@ -7385,22 +7503,52 @@
         renderGroupInPlace(groupId);
         return;
       }
+      reconcileListInPlace(ul, group.tasks, groupId, taskIds);
+      // ...and the last task leaving has to bring that empty state back
+      if (!ul.querySelector(':scope > li[data-task]')) renderGroupInPlace(groupId);
+    }
+
+    // Reconcile ONLY the named ids inside one already-rendered <ul>. An id the
+    // model no longer holds loses its li; an id it holds gets its li swapped in
+    // place, or inserted after the nearest preceding sibling that has one.
+    // Every other li in the list keeps its DOM — that is what stops the flash.
+    function reconcileListInPlace(ul, tasks, groupId, taskIds) {
       for (const id of taskIds) {
         const li = ul.querySelector(`:scope > li[data-task="${id}"]`);
-        const index = group.tasks.findIndex((t) => t.id === id);
+        const index = tasks.findIndex((t) => t.id === id);
         if (li) li.remove();
-        if (index < 0) continue; // left the top level (indent/merge)
-        const html = renderTask(group.tasks[index], groupId, "");
+        if (index < 0) continue; // left this list (indent/merge/move away)
+        const html = renderTask(tasks[index], groupId, "");
         if (!html) continue; // hidden — nothing to show
         let anchor = null;
         for (let i = index - 1; i >= 0 && !anchor; i--) {
-          anchor = ul.querySelector(`:scope > li[data-task="${group.tasks[i].id}"]`);
+          anchor = ul.querySelector(`:scope > li[data-task="${tasks[i].id}"]`);
         }
         if (anchor) anchor.insertAdjacentHTML("afterend", html);
         else ul.insertAdjacentHTML("afterbegin", html);
       }
       lifecycleSignature = getLifecycleSignature();
       if (selectedNode) renderSelection();
+    }
+
+    // Sub-item surgery: patch a parent's child <ul> and leave the parent's own
+    // ROW alone. A subtree swap rebuilt that row too, which is what Evren saw
+    // as "when creating a sub item the item above flashes" (2026-07-26) — the
+    // item above being the parent. Only safe while the parent row itself cannot
+    // have changed: it had a rendered, expanded child list and still has one.
+    // First child, a collapse flip, or the last child leaving all fall back.
+    function renderChildrenInPlace(parentId, groupId, taskIds) {
+      const ul = document.querySelector?.(`li[data-task="${parentId}"] > ul.child-list`);
+      const found = ul ? findTask(parentId) : null;
+      const query = searchEl?.value?.trim() || "";
+      if (!found || boardEl.hidden || query || found.item.collapsed) {
+        renderTaskSubtreeInPlace(parentId, groupId);
+        return;
+      }
+      const children = found.item.linkType === "reference" ? [] : (found.item.children || []);
+      reconcileListInPlace(ul, children, found.group?.id || groupId, taskIds);
+      // the row's chevron and child drop-zone hang off having visible children
+      if (!ul.querySelector(':scope > li[data-task]')) renderTaskSubtreeInPlace(parentId, groupId);
     }
 
     // A linked task's edit repaints the edited scope plus every other placement
@@ -9071,6 +9219,7 @@
     });
 
     document.addEventListener("keydown", (event) => {
+      if (event.key.length !== 1) dropCaretBoundary();
       if (event.key === "Escape" && lightboxView) {
         event.preventDefault();
         closeLightbox();
@@ -9694,6 +9843,7 @@
       getMarkdownTextFromEditable,
       getMarkdownCaretOffset,
       toggleMarkdownStyle,
+      escapeClosingStyleEdge,
       shouldCancelLongPress,
       armTouchDrag,
       finishTouchDrag,
@@ -9782,6 +9932,7 @@
       restoreCompletedTask,
       deleteTaskWithPolicy,
       restoreTrashRecord,
+      resolveHistoryRestoreId,
       purgeTrashRecord,
       purgeExpiredTrash,
       getCompletedEntries,
