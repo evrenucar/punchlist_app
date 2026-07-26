@@ -4817,18 +4817,27 @@
       // Italic WRAPPING bold (*a **b** c*) is beyond one regex pass and
       // degrades to literal markers; the common nesting (***both***, bold
       // around italic) works.
-      const pattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)|\*\*\*(?!\s)(.+?)(?<!\s)\*\*\*(?!\*)|\*\*(?!\s)(.+?)(?<!\s)\*\*(?!\*)|\*(?!\s)(.+?)(?<!\s)\*(?!\*)|~~(?!\s)(.+?)(?<!\s)~~(?!~)/gi;
+      // Underscore forms (___both___ __bold__ _italic_) come last so the star
+      // and link branches keep their existing precedence. They carry flanking
+      // guards the star forms do not need: an underscore run only opens or
+      // closes at a non-word edge, so snake_case_names, file_name.js and
+      // __dunder__ inside a word stay literal. That is CommonMark's intraword
+      // rule, and without it every identifier in a task would turn italic.
+      const pattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)|\*\*\*(?!\s)(.+?)(?<!\s)\*\*\*(?!\*)|\*\*(?!\s)(.+?)(?<!\s)\*\*(?!\*)|\*(?!\s)(.+?)(?<!\s)\*(?!\*)|~~(?!\s)(.+?)(?<!\s)~~(?!~)|(?<![\w_])___(?!\s)(.+?)(?<!\s)___(?![\w_])|(?<![\w_])__(?!\s)(.+?)(?<!\s)__(?![\w_])|(?<![\w_])_(?!\s)(.+?)(?<!\s)_(?![\w_])/gi;
       let html = "";
       let cursor = 0;
       let match;
       while ((match = pattern.exec(source))) {
         html += escapeHtml(source.slice(cursor, match.index));
-        const styled = match[4] || match[5] || match[6] || match[7];
+        const bothStyles = match[4] || match[8];
+        const boldOnly = match[5] || match[9];
+        const italicOnly = match[6] || match[10];
+        const styled = bothStyles || boldOnly || italicOnly || match[7];
         if (styled) {
           const inner = renderInlineMarkdown(styled);
-          html += match[4] ? `<strong><em>${inner}</em></strong>`
-            : match[5] ? `<strong>${inner}</strong>`
-            : match[6] ? `<em>${inner}</em>`
+          html += bothStyles ? `<strong><em>${inner}</em></strong>`
+            : boldOnly ? `<strong>${inner}</strong>`
+            : italicOnly ? `<em>${inner}</em>`
             : `<del>${inner}</del>`;
         } else {
           const label = match[1] || match[3];

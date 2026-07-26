@@ -259,6 +259,30 @@ test("inline markdown renders bold, italic, and strikethrough", async () => {
   assert.equal(api.renderInlineMarkdown("a ** b"), "a ** b");
   // markup in content stays escaped
   assert.equal(api.renderInlineMarkdown("**<i>**"), "<strong>&lt;i&gt;</strong>");
+
+  // Underscore emphasis (Evren 2026-07-26: "_italic_ and __bold__ should render")
+  assert.equal(api.renderInlineMarkdown("a _italic_ b"), "a <em>italic</em> b");
+  assert.equal(api.renderInlineMarkdown("a __bold__ b"), "a <strong>bold</strong> b");
+  assert.equal(api.renderInlineMarkdown("___both___"), "<strong><em>both</em></strong>");
+  assert.equal(api.renderInlineMarkdown("__a _b_ c__"), "<strong>a <em>b</em> c</strong>");
+  // mixed markers nest the same way stars do
+  assert.equal(api.renderInlineMarkdown("**a _b_ c**"), "<strong>a <em>b</em> c</strong>");
+
+  // The intraword guard. Without it every identifier in a task turns italic,
+  // which is exactly why CommonMark treats _ and * differently here.
+  assert.equal(api.renderInlineMarkdown("snake_case_name"), "snake_case_name");
+  assert.equal(api.renderInlineMarkdown("build_task_board.mjs"), "build_task_board.mjs");
+  assert.equal(api.renderInlineMarkdown("a__b__c"), "a__b__c");
+  assert.equal(api.renderInlineMarkdown("__init__ and __main__"), "<strong>init</strong> and <strong>main</strong>");
+  // stars still emphasise intraword, unchanged behaviour
+  assert.equal(api.renderInlineMarkdown("a*b*c"), "a<em>b</em>c");
+  // underscores in a URL are part of the URL, the link branch still wins
+  assert.match(api.renderInlineMarkdown("https://e.com/a_b_c"), /data-auto-link="true"/);
+  assert.doesNotMatch(api.renderInlineMarkdown("https://e.com/a_b_c"), /<em>/);
+  assert.doesNotMatch(api.renderInlineMarkdown("[x](https://e.com/a_b_c)"), /<em>/);
+  // spaced-out underscores are not emphasis, same rule the stars follow
+  assert.equal(api.renderInlineMarkdown("a _ b _ c"), "a _ b _ c");
+  assert.equal(api.renderInlineMarkdown("a __ b"), "a __ b");
 });
 
 function fakeText(value) {
@@ -291,6 +315,14 @@ test("styled DOM serializes back to the same markdown (paste/export round-trip)"
   assert.equal(api.getMarkdownTextFromEditable(editable), "a **bold *in*** then ~~gone~~ [x](https://e.com)");
   // legacy browser tags map too (execCommand leftovers)
   assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("B", [fakeText("b")]), fakeEl("S", [fakeText("s")])])), "**b**~~s~~");
+
+  // Underscore emphasis normalises to the star form on the next edit, and that
+  // is deliberate. _italic_ and *italic* both render to <em>, and <em> has one
+  // serialisation. Preserving which marker the author typed would mean marking
+  // up the DOM to remember it, for zero visual difference. Pinning it here so
+  // the normalisation is a decision on the record, not a surprise later.
+  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("EM", [fakeText("i")])])), "*i*");
+  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("STRONG", [fakeText("b")])])), "**b**");
 });
 
 test("markdown caret offsets map through links and style tags", async () => {

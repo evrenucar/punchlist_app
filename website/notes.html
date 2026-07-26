@@ -287,6 +287,16 @@
 
     <article>
       <header>
+        <h2>Underscores make text italic & bold now, without wrecking your file names</h2>
+        <span class="entry-date">July 27, 2026 · build v1.5.24</span>
+      </header>
+      <p>Until today only asterisks worked. <code>_like this_</code> just sat there as literal underscores. Now <code>_this_</code> is italic, <code>__this__</code> is bold, & <code>___this___</code> is both, matching the asterisk forms you already had.</p>
+      <p>The part that took the actual thought: an underscore in the middle of a word is not formatting. If it were, then <code>build_task_board.mjs</code> would turn into build<em>task</em>board.mjs the moment you typed it, & so would every snake_case name & every <code>__init__</code> you ever paste in. So an underscore only starts or ends emphasis at the edge of a word. Asterisks keep working mid-word, because that is the rule everywhere else too.</p>
+      <p>One thing to expect: underscores are stored as asterisks. Type <code>_italic_</code>, edit the line again, & you will see <code>*italic*</code>. It looks exactly the same on screen. Both spellings mean one thing, & keeping track of which one you typed would buy you nothing.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Moving a task stops repainting the whole board, & bold stops running away</h2>
         <span class="entry-date">July 26, 2026 · build v1.5.23</span>
       </header>
