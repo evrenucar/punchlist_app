@@ -288,7 +288,7 @@
     <article>
       <header>
         <h2>Moving a task stops repainting the whole board, & bold stops running away</h2>
-        <span class="entry-date">July 26, 2026 · build v1.5.22</span>
+        <span class="entry-date">July 26, 2026 · build v1.5.23</span>
       </header>
       <p>Four fixes, all things you feel rather than read about.</p>
       <p><strong>Moving an item used to redraw everything.</strong> Every row on the board was destroyed & rebuilt on each Alt+Arrow, which is why the whole list blinked. Measured on a test board: 26 rows out of 26 thrown away. It now rebuilds one, the row that moved. Your selection & your keyboard focus survive the move as well, which they did not before.</p>
