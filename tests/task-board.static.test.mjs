@@ -2192,6 +2192,67 @@ test("github sync: decision table and utf8 base64 roundtrip", async () => {
   assert.equal(api.decodeBase64Utf8(wrapped), text, "GitHub newline-wrapped base64 decodes");
 });
 
+// 2026-07-28 data-loss fix. The rev counter ranks HOW MANY edits a device made,
+// never how RECENTLY, so a device sitting on many stale offline edits outranked
+// one holding a few fresh ones: it pushed over the newer board, and the newer
+// device then pulled that older board down over its own work. Evren hit this on
+// the device he had just been working on. The stamps are now cross-checked, and
+// a disagreement between the two signals asks instead of picking silently.
+test("github sync: edit stamps stop a stale-but-busier device winning on count", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
+  const LAST_WEEK = "2026-07-21T09:00:00.000Z";
+  const A_MINUTE_AGO = "2026-07-28T11:59:00.000Z";
+  const diverged = { remoteExists: true, remoteSha: "b", lastSha: "a", base: 100 };
+
+  // The exact sequence from his report, both sides of it.
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: false, localRev: 102, remoteRev: 150,
+    localEditedAt: A_MINUTE_AGO, remoteEditedAt: LAST_WEEK,
+  }), "conflict", "fewer edits but newer content must not be silently replaced by a busier stale board");
+
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: true, localRev: 150, remoteRev: 102,
+    localEditedAt: LAST_WEEK, remoteEditedAt: A_MINUTE_AGO,
+  }), "conflict", "the stale-but-busier device must not clobber the newer board either");
+
+  // Agreement still resolves silently: no new dialogs on a normal two-device day.
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: false, localRev: 102, remoteRev: 150,
+    localEditedAt: LAST_WEEK, remoteEditedAt: A_MINUTE_AGO,
+  }), "pull", "more edits AND newer content is a genuine pull");
+
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: true, localRev: 150, remoteRev: 102,
+    localEditedAt: A_MINUTE_AGO, remoteEditedAt: LAST_WEEK,
+  }), "push", "more edits AND newer content is a genuine push");
+
+  // Boards written before this fix carry no stamp: fall back to the counter
+  // rather than invent a date, which is exactly the old behaviour.
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: true, localRev: 102, remoteRev: 150, localEditedAt: A_MINUTE_AGO, remoteEditedAt: null,
+  }), "pull", "a missing remote stamp falls back to the counter");
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: true, localRev: 150, remoteRev: 102, localEditedAt: null, remoteEditedAt: LAST_WEEK,
+  }), "push", "a missing local stamp falls back to the counter");
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: true, localRev: 102, remoteRev: 150,
+    localEditedAt: "not a date", remoteEditedAt: LAST_WEEK,
+  }), "pull", "an unparseable stamp is treated as unknown, never as time zero");
+
+  // Identical stamps carry no ranking information, so the counter still decides.
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: true, localRev: 102, remoteRev: 150,
+    localEditedAt: LAST_WEEK, remoteEditedAt: LAST_WEEK,
+  }), "pull", "equal stamps rank nothing; the counter decides");
+
+  // A remote that regressed below our base is still healed by pushing.
+  assert.equal(api.syncDecision({
+    ...diverged, dirty: false, localRev: 100, remoteRev: 20,
+    localEditedAt: LAST_WEEK, remoteEditedAt: A_MINUTE_AGO,
+  }), "push", "healing a regressed remote still wins over the stamps");
+});
+
+
 test("github sync payload is lossless; token stays out of exports; demo never syncs", async () => {
   const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
 

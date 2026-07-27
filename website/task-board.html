@@ -2854,7 +2854,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.24";
+    const APP_VERSION = "1.5.25";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -3222,7 +3222,14 @@
       // fix). This single counter is what lets sync tell a genuinely newer
       // board from a stale one, with no wall clock to be fooled by. Pulls run
       // under syncApplying, so adopting a remote board never inflates our rev.
-      if (syncable) state.rev = (Number(state.rev) || 0) + 1;
+      // editedAt is stamped alongside it (2026-07-28): the counter ranks how
+      // MANY edits a device made and never how RECENTLY, so a device sitting on
+      // many old offline edits outranked one with a few fresh ones and the
+      // newer board lost. syncDecision cross-checks the two.
+      if (syncable) {
+        state.rev = (Number(state.rev) || 0) + 1;
+        state.editedAt = new Date().toISOString();
+      }
       saveStateToLocalStorage();
       if (syncable) {
         saveSyncConfig({ dirty: true });
@@ -3513,6 +3520,14 @@
       return new TextDecoder().decode(base64ToBytes(base64));
     }
 
+    // Same shape the History panel uses for a full stamp. Boards from builds
+    // before 2026-07-28 carry no stamp, and saying so beats printing a fake date.
+    function describeEditStamp(iso) {
+      const at = new Date(Date.parse(iso));
+      if (!Number.isFinite(at.getTime())) return "unknown (synced by an older version)";
+      return `${at.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })} ${formatClockTime(at)}`;
+    }
+
     // Pure decision core: given where local and remote stand, one action.
     // Divergence (the remote moved since our last sync) is resolved by the
     // logical rev counter, never by the dirty flag or a wall clock — a stale
@@ -3520,14 +3535,30 @@
     // fix). base = our rev at the last agreed sync. Missing rev fails safe to
     // pull. The one conflict neither counter can rank — an exact tie with local
     // edits — returns "conflict" so the caller can ask (Evren's blend).
-    function syncDecision({ remoteExists, remoteSha, lastSha, dirty, base, localRev, remoteRev }) {
+    //
+    // The counter alone was not enough (2026-07-28 data-loss fix). It ranks how
+    // MANY edits a device made, never how RECENTLY: a phone holding fifty
+    // week-old offline edits outranked the laptop edited a minute ago, so the
+    // phone won, pushed over the fresh work, and the laptop then pulled that
+    // older board down on top of itself. Both signals are now read, and when
+    // they disagree about who is newer neither one can be trusted, so the
+    // caller asks instead of silently picking a side. Agreement is the common
+    // case and still resolves silently, so this adds no new dialogs to a normal
+    // two-device day. Missing stamps (older builds) fall back to the counter.
+    function syncDecision({ remoteExists, remoteSha, lastSha, dirty, base, localRev, remoteRev, localEditedAt, remoteEditedAt }) {
       if (!remoteExists) return "create";
       if (remoteSha === lastSha) return dirty ? "push" : "none";
       const knownRemote = Number.isFinite(remoteRev);
       const knownBase = Number.isFinite(base);
+      const localTime = Date.parse(localEditedAt);
+      const remoteTime = Date.parse(remoteEditedAt);
+      // Equal stamps carry no ranking information, so they count as unknown.
+      const ranked = Number.isFinite(localTime) && Number.isFinite(remoteTime) && localTime !== remoteTime;
       if (knownRemote && knownBase && remoteRev < base) return "push"; // remote regressed below our base -> heal it
-      if (knownRemote && localRev > remoteRev) return "push";          // we have more edits -> we win, remote kept in git
-      if (knownRemote && localRev < remoteRev) return "pull";          // remote has more edits -> adopt it
+      // more edits, but the other board was edited later -> the counters lie, ask
+      if (knownRemote && localRev > remoteRev) return ranked && remoteTime > localTime ? "conflict" : "push";
+      // fewer edits, but ours was edited later -> the 2026-07-28 bug, ask
+      if (knownRemote && localRev < remoteRev) return ranked && localTime > remoteTime ? "conflict" : "pull";
       if (knownRemote && dirty) return "conflict";                     // exact tie with local edits -> ask
       return "pull";                                                   // unknown rev / nothing local to lose -> fail safe
     }
@@ -3692,6 +3723,8 @@
           base: Number(syncConfig.lastRev),
           localRev: Number(state.rev) || 0,
           remoteRev: Number(remotePayload?.state?.rev),
+          localEditedAt: state.editedAt,
+          remoteEditedAt: remotePayload?.state?.editedAt,
         });
         // A true two-sided tie (equal rev, different board) is the only case
         // neither counter can rank, so it is the only one that asks (Evren's
@@ -3704,7 +3737,14 @@
             setSyncStatus("Conflict: both devices changed. Press Sync now to choose.");
             return;
           }
-          resolved = window.confirm("This device and another both changed since the last sync, and neither is clearly newer. Keep THIS device's version? (Cancel keeps the other device's version. Either way the other stays in Undo and the repo history.)")
+          // Naming both edit times is the point of the dialog (2026-07-28): the
+          // old wording asked which board to keep while showing nothing to
+          // decide on, so the answer was a coin flip on the board's real data.
+          resolved = window.confirm(
+            "Both boards changed since the last sync.\n\n"
+            + `THIS device last edited:  ${describeEditStamp(state.editedAt)}\n`
+            + `The other device last edited:  ${describeEditStamp(remotePayload?.state?.editedAt)}\n\n`
+            + "Keep THIS device's version? Cancel keeps the other one. Either way the other stays in Undo and the repo history.")
             ? "push"
             : "pull";
         }
@@ -6744,6 +6784,13 @@
       // Logical sync counter (2026-07-21 data-loss fix): floor of 0 so every
       // board carries one and cross-version comparisons never hit undefined.
       boardState.rev = Number.isFinite(Number(boardState.rev)) && Number(boardState.rev) >= 0 ? Number(boardState.rev) : 0;
+      // Wall-clock stamp of the last local edit: the recency half of the sync
+      // ranking (2026-07-28). Boards written by older builds have none, which is
+      // why syncDecision treats a missing stamp as unknown and falls back to the
+      // counter alone rather than guessing a date.
+      boardState.editedAt = typeof boardState.editedAt === "string" && Number.isFinite(Date.parse(boardState.editedAt))
+        ? boardState.editedAt
+        : null;
       boardState.example = Boolean(boardState.example);
       boardState.settings = {
         ...DEFAULT_SETTINGS,
