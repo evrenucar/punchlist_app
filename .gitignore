@@ -1,6 +1,10 @@
 # Stray/experimental app copies not produced by the build
 website/punchlist/
 
+# The development interface's board pane, re-pinned by every build from the
+# same output. A generated duplicate of website/task-board.html, never edited.
+status/board.html
+
 # Exported board backups (personal task data must never be committed)
 *.punchlist.json
 *-backup.json

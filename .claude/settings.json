@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "node status/statusline.mjs"
+    "command": "node ../aide-board/statusline.mjs"
   },
   "hooks": {
     "SessionStart": [
@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node status/ensure-server.mjs",
+            "command": "node ../aide-board/ensure-server.mjs",
             "timeout": 15,
             "statusMessage": "Launching the live status board"
           }

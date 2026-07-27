@@ -4,7 +4,9 @@ Canonical instructions for EVERY agent, whatever the harness — Claude Code arr
 
 ## Session start (every agent, every harness)
 
-Run `node status/ensure-server.mjs` (Claude Code automates this via a SessionStart hook; other harnesses run it by hand — same command, same result). It brings the development interface up at **http://localhost:4173/**, announces your session in its chat, and prints next steps. Introduce yourself there by your own agent name; every presence feature takes whatever name you register.
+Run `node ../aide-board/ensure-server.mjs` (Claude Code automates this via a SessionStart hook; other harnesses run it by hand — same command, same result). It brings the development interface up at **http://localhost:4173/**, announces your session in its chat, and prints next steps. Introduce yourself there by your own agent name; every presence feature takes whatever name you register.
+
+**The interface is a separate tool now** (2026-07-27). It lives in its own checkout at `../aide-board`, so every script is `node ../aide-board/<script>.mjs` — `say.mjs`, `ask.mjs`, `agent-heartbeat.mjs`, the lot. What it READS and WRITES still lives here, in `punchlist_app/status/`: the board JSON, the chat log, prefs, and the review pages. Scripts there, data here. If `../aide-board` is missing, clone it from https://github.com/evrenucar/aide-board and nothing else changes.
 
 Then open http://localhost:4173/ as a normal tab in the browser YOU control (Claude Code: the Chrome DevTools MCP window), never Evren's default browser — his request, 2026-07-18. He works in that window, so test links you want him to see open as new tabs right next to the board. App testing still happens in isolated contexts, not in his tab.
 
@@ -50,7 +52,7 @@ node --test tests/task-board.static.test.mjs   # full suite; must pass before an
 - `outputs/task-board.html` — the distributable (generated)
 - `website/` — static landing page + fresh app copy (generated on build)
 - `tests/` — static vm-based suite (real-browser acceptance runs through the Chrome DevTools MCP)
-- `status/` — the development interface (wrapper, server, scripts) — never contains app code
+- `status/` — the development interface's DATA for this project: board JSON, chat log, prefs, review pages. Never app code, and since 2026-07-27 no tool code either — the tool is its own checkout at `../aide-board` (documented in `../aide-board/README.md`), and `status/board.html` is the board pane the build re-pins on every run (gitignored)
 - `docs/` — handoff, roadmap, agent interface, original spec and plan under `docs/superpowers/`
 
 The user (Evren) gives feedback as voice-dictated batches; expect transcription noise and confirm anything that looks like a mangled name before renaming things broadly. Feedback email inside the app: evrenucar1999@gmail.com (Settings → Give feedback).

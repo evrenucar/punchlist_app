@@ -1,4 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -53,6 +54,15 @@ await writeFile(outputPath, output, "utf8");
 const websiteCopy = path.join(root, "website", "task-board.html");
 await mkdir(path.dirname(websiteCopy), { recursive: true });
 await writeFile(websiteCopy, output, "utf8");
+
+// The development interface renders its board pane from a BUILT app file, and
+// it takes the project's own pinned copy ahead of the one vendored beside the
+// tool. Once the tool lives in a separate checkout, that vendored copy is the
+// only thing it would find, and nothing refreshes it — the pane would silently
+// freeze on whatever build shipped with the tool. Writing the pin here means
+// the pane can never lag the build. Gitignored: it is a generated duplicate.
+const statusDir = path.join(root, "status");
+if (existsSync(statusDir)) await writeFile(path.join(statusDir, "board.html"), output, "utf8");
 
 // Stamp the same version and the built file's real byte count into the landing
 // page so its version chips and "N KB" can never drift or lie. The patterns
