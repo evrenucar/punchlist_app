@@ -27,6 +27,31 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
+### Session delta 2026-07-28 (Opus 5 — READ THIS FIRST; sync back-in-time fixed v1.5.25, then STOPPED by Evren with a 19-item batch triaged but NOT started)
+
+**Stopped deliberately.** Evren hit stop right after answering the triage. Nothing is half-edited: the working tree has no app changes pending, 134 tests pass, and every decision he made is recorded below.
+
+**Shipped:**
+- `2ea0b1a` **v1.5.25 — sync no longer travels back in time.** His report: on the device he had just been editing, sync said the board was out of date and replaced it with an older one. Cause: the rev counter from the 2026-07-21 fix ranks how MANY edits a device made, never how RECENTLY, so a phone holding 50 week-old offline edits outranked a laptop edited a minute ago, pushed over it, and the laptop then pulled that older board down. `state.editedAt` is now stamped beside the counter bump in `saveState`, and `syncDecision` cross-checks both. Agreement resolves silently exactly as before (no new dialogs on a normal day); disagreement returns `conflict` and asks. The confirm dialog now names both edit times. Boards without the stamp fall back to the counter, so no migration. 134 tests pass, up from 133.
+- `2d3a7ab` deleted `docs/REUSE.md`, superseded by `../aide-board/README.md` after the split.
+
+**The one thing that is NOT finished about the sync fix:** it only protects when BOTH devices run v1.5.25+. An old client pushes with no stamp, so the new device falls back to counter-only and the original bug is intact; the old client never reads the stamp at all and is fully exposed. A third case: an old client can pull a stamped board, edit it, and push it back with the stamp frozen, so the stamp lies — that one fails safe (the new device sees a disagreement and asks). **Deploying to his clients is the other half of this fix, and he agreed it goes first.**
+
+**His decisions, 2026-07-28, from `/triage` — act on these, they are answered and binding:**
+1. **Formatting: stop RENDERING only.** Text is untouched, `**bold**` shows literal asterisks again. He explicitly did NOT pick the destructive option that strips markers from stored text. A future-work note is still required.
+2. **Identity: keep BOTH username and device name**, make device name mandatory, and explain the difference in the UI. (He called the pair confusing twice, but chose to keep both.)
+3. **Checkmark shortcut: Ctrl+Enter already works.** Do not invent a new key. The work is only surfacing it on hover. (My Space proposal is dead.)
+4. **Deploy first**, before any of the UI batch.
+5. **Leading batch: keyboard.** Checkmark shortcut hover tip, settings arrow-key browsing, sidebar shortcut, hover tips on buttons, and the cheatsheet page.
+
+**Where the work list lives:** board group To-do, parent item `Evren batch 2026-07-28`, 19 children, none started. Live pages: `/triage` (his answers), `/test` (the standing test-checklist workflow he asked to standardise), `/sync-bug` (full diagnosis, flow diagram, proof), `/next` (the earlier ponytail plan).
+
+**Still unanswered by him:** whether the sync loss showed as a dialog he clicked or a silent toast. Recovery of the clobbered board is dropped — he said he had backups and does not care much.
+
+**Standing process change (his words, treat as binding):** every batch of changes ships with a live local HTML checklist where he ticks what he tested and adds per-item feedback, then sends it back as one message. `/test` is that page; rebuild it per batch from `status/review-specs.json`.
+
+**Also queued by him, not yet done:** a ponytail pass over the test suite together ("make sure tests are correct and up to date", "later we'll go through the tests currently being conducted together with ponytail").
+
 ### Session delta 2026-07-21 (Opus 4.8 — READ THIS FIRST; sync data-loss found, fixed, shipped v1.5.20)
 
 Triggered by Evren: "my main personal board went to a 2 day old backup, I lost my board data." Root-caused, fixed, shipped, documented, then a sync setup guide. Ended by his "prepare a handoff and stop."
