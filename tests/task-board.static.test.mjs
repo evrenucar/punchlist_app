@@ -3072,3 +3072,177 @@ test("image resolution changes never touch stored images and explain themselves"
   assert.match(api.describeImageResolutionChange("original", "low"), /will be smaller/);
   assert.match(api.describeImageResolutionChange("original", "low"), /not downscaled/);
 });
+
+test("every row control names its own shortcut on hover", async () => {
+  // Evren, 2026-07-28: he found Ctrl+Enter by accident and asked for the
+  // shortcuts to be discoverable on the buttons themselves. aria-label is for
+  // screen readers; title is what a hover shows, so both have to be there.
+  const html = await readBoard();
+  assert.match(html, /title="\$\{resolved\?\.done \? "Mark not done" : "Mark done"\} \(Ctrl\+Enter\)"/, "checkbox names Ctrl+Enter");
+  assert.match(html, /title="Add a subtask \(Enter, then Tab\)"/);
+  assert.match(html, /title="Delete task \(Backspace\)"/);
+  assert.match(html, /title="Add a task \(Enter\)"/);
+  assert.match(html, /title="Drag to move; hold on touch screens \(Alt\+arrows\)"/);
+  assert.match(html, /\(Ctrl\+\$\{expanded \? "Up" : "Down"\}\)/, "task chevron names the collapse pair");
+  assert.match(html, /\(Ctrl\+\$\{collapsed \? "Down" : "Up"\}\)/, "group chevron names the collapse pair");
+  assert.match(html, /title="Show or hide the sidebar \(Alt\+S\)"/, "hamburger names its new shortcut");
+
+  // The tips have to stay true: the keys they promise must still be handled.
+  assert.match(html, /event\.key === "Enter" && \(event\.ctrlKey \|\| event\.metaKey\)/, "Ctrl+Enter still completes");
+  assert.match(html, /event\.key\.toLowerCase\(\) === "s"/, "Alt+S still toggles the sidebar");
+});
+
+async function loadSidebarHarness() {
+  const handlers = [];
+  const focused = [];
+  const doc = { activeElement: null };
+  const stub = (extra = {}) => ({
+    offsetParent: {},
+    tagName: "BUTTON",
+    addEventListener() {},
+    focus() {
+      focused.push(this.name);
+      doc.activeElement = this;
+    },
+    closest() {
+      return null;
+    },
+    ...extra,
+  });
+
+  // Settings, with one nested section, exactly the shape the real sidebar has.
+  const settings = { open: false };
+  const sync = { open: false };
+  const summary = stub({ name: "settings-summary", tagName: "SUMMARY", closest: () => settings });
+  const darkMode = stub({ name: "dark-mode", tagName: "INPUT", type: "checkbox", closest: () => settings });
+  const pasteMode = stub({ name: "paste-mode", tagName: "SELECT", closest: () => settings });
+  const syncSummary = stub({ name: "sync-summary", tagName: "SUMMARY", closest: () => sync });
+  const repoField = stub({ name: "repo", tagName: "INPUT", type: "text", closest: () => sync });
+  settings.querySelector = () => summary;
+  sync.querySelector = () => syncSummary;
+  settings.parentElement = { closest: () => null };
+  sync.parentElement = { closest: () => settings };
+
+  // Only what is on screen is walkable: a closed disclosure hides its children.
+  const visibleStops = () => [
+    summary,
+    ...(settings.open ? [darkMode, pasteMode, syncSummary] : []),
+    ...(settings.open && sync.open ? [repoField] : []),
+  ];
+
+  const sidebarEl = {
+    addEventListener: (type, fn) => type === "keydown" && handlers.push(fn),
+    querySelectorAll: () => visibleStops(),
+  };
+  const sidebarToggleEl = stub({ name: "hamburger" });
+  const pane = (name) => stub({ name, innerHTML: "", textContent: "", value: "", dataset: {}, classList: { add() {}, remove() {} }, contains: () => false, scrollIntoView() {} });
+  const elements = new Map([
+    [".sidebar", sidebarEl],
+    ["[data-sidebar-toggle]", sidebarToggleEl],
+    ["[data-board]", pane("board")],
+    ["[data-section-nav]", pane("nav")],
+    ["[data-total-count]", pane("total")],
+    ["[data-done-count]", pane("done")],
+    ["[data-search]", pane("search")],
+  ]);
+
+  Object.assign(doc, {
+    querySelector: (selector) => elements.get(selector) || null,
+    querySelectorAll: () => [],
+    addEventListener() {},
+    createRange: () => ({ collapse() {}, deleteContents() {}, insertNode() {}, selectNodeContents() {}, setStartAfter() {} }),
+  });
+
+  await loadBoardApi({
+    document: doc,
+    window: {
+      getSelection: () => ({ rangeCount: 0, addRange() {}, getRangeAt: () => null, removeAllRanges() {} }),
+    },
+  });
+
+  const press = (target, key, modifiers = {}) => {
+    doc.activeElement = target;
+    let prevented = false;
+    const event = {
+      key,
+      target,
+      currentTarget: sidebarEl,
+      altKey: false,
+      ctrlKey: false,
+      metaKey: false,
+      ...modifiers,
+      preventDefault() {
+        prevented = true;
+      },
+    };
+    for (const handler of handlers) handler(event);
+    return prevented;
+  };
+
+  return { press, focused, settings, sync, summary, darkMode, pasteMode, syncSummary, repoField };
+}
+
+test("the sidebar browses with arrows the way the board does", async () => {
+  // Evren, 2026-07-28: "Settings is not browsable with arrow keys / ctrl like
+  // the rest of the board." Arrows walked the sidebar already, but nothing
+  // could open a disclosure and the walk skipped every field inside one.
+  const bar = await loadSidebarHarness();
+
+  // Right opens a closed disclosure instead of leaving for the board.
+  assert.equal(bar.press(bar.summary, "ArrowRight"), true);
+  assert.equal(bar.settings.open, true, "Right opens Settings");
+  bar.press(bar.summary, "ArrowLeft");
+  assert.equal(bar.settings.open, false, "Left closes it again");
+
+  // Ctrl+Down/Up mirror the board's own expand and collapse.
+  bar.press(bar.summary, "ArrowDown", { ctrlKey: true });
+  assert.equal(bar.settings.open, true);
+  bar.press(bar.summary, "ArrowUp", { ctrlKey: true });
+  assert.equal(bar.settings.open, false);
+
+  // The walk only sees what is open: closed Settings has nowhere below it.
+  bar.press(bar.summary, "ArrowDown");
+  assert.deepEqual(bar.focused, ["settings-summary"], "closed, there is nothing below it, so focus stays put");
+
+  bar.settings.open = true;
+  bar.press(bar.summary, "ArrowDown");
+  assert.equal(bar.focused.at(-1), "dark-mode", "open, Down reaches the first setting");
+  bar.press(bar.darkMode, "ArrowDown");
+  assert.equal(bar.focused.at(-1), "paste-mode", "and keeps going through the fields");
+  bar.press(bar.pasteMode, "ArrowUp");
+  assert.equal(bar.focused.at(-1), "dark-mode");
+  bar.press(bar.summary, "ArrowUp");
+  assert.equal(bar.focused.at(-1), "hamburger", "past the top lands on the hamburger");
+
+  // A text field keeps left and right for its caret but still walks up and down.
+  bar.sync.open = true;
+  assert.equal(bar.press(bar.repoField, "ArrowLeft"), false, "the caret keeps left");
+  assert.equal(bar.press(bar.repoField, "ArrowRight"), false, "and right");
+  assert.equal(bar.press(bar.repoField, "ArrowUp"), true, "up still walks out");
+  assert.equal(bar.focused.at(-1), "sync-summary");
+
+  // Left closes the nested section, then climbs to the section that holds it.
+  bar.press(bar.syncSummary, "ArrowLeft");
+  assert.equal(bar.sync.open, false, "Left on an open nested summary closes it");
+  bar.press(bar.syncSummary, "ArrowLeft");
+  assert.equal(bar.focused.at(-1), "settings-summary", "then climbs to the parent");
+
+  // Alt and Meta stay global, so Alt+S still toggles the sidebar from inside it.
+  assert.equal(bar.press(bar.summary, "ArrowDown", { altKey: true }), false);
+});
+
+test("the shortcut cheatsheet ships, is self-contained, and is linked from both places", async () => {
+  const sheet = await readFile(path.join(root, "website", "shortcuts.html"), "utf8");
+  // The whole point of the page is that it is true, so pin the keys it promises.
+  for (const keys of ["Ctrl</kbd><i>+</i><kbd>Enter", "Alt</kbd><i>+</i><kbd>S", "Alt</kbd><i>+</i><kbd>A", "Ctrl</kbd><i>+</i><kbd>Alt</kbd><i>+</i><kbd>F"]) {
+    assert.ok(sheet.includes(keys), `cheatsheet lists ${keys}`);
+  }
+  // Zero external requests is a product rule, not a preference.
+  assert.equal(/<(script|iframe)\b/.test(sheet), false, "no scripts or frames");
+  assert.equal(/(src|href)="(https?:)?\/\//.test(sheet), false, "nothing loads off this origin");
+
+  const site = await readFile(path.join(root, "website", "index.html"), "utf8");
+  assert.match(site, /href="shortcuts\.html"/, "the landing page links it");
+  const html = await readBoard();
+  assert.match(html, /punchlist_app\/shortcuts\.html/, "the in-app help menu links it");
+});

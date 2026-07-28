@@ -70,6 +70,7 @@
     const appVersionEl = document.querySelector("[data-app-version]");
     if (appVersionEl) appVersionEl.textContent = "v" + APP_VERSION;
     const exampleBannerHostEl = document.querySelector("[data-example-banner-host]");
+    const sidebarEl = document.querySelector(".sidebar");
     const sidebarToggleEl = document.querySelector("[data-sidebar-toggle]");
     const sidebarBackdropEl = document.querySelector("[data-sidebar-backdrop]");
     const viewsNavEl = document.querySelector("[data-views-nav]");
@@ -4105,19 +4106,19 @@
         <li class="task" data-task="${item.id}">
           <div class="drop-zone" data-drop-target="${item.id}" data-position="before" aria-hidden="true"></div>
           <div class="task-row ${resolved?.done ? "done" : ""} ${item.linkType ? `linked ${item.linkType}` : ""} ${isSelected("task", item.id) ? "selected" : ""}" data-task-row="${item.id}" data-node-kind="task" data-node-id="${item.id}" data-drag-kind="task" draggable="true" tabindex="0">
-            <button class="chevron ${hasChildren ? "" : "hidden"}" type="button" data-action="toggle-task" data-task-id="${item.id}" aria-label="${expanded ? "Collapse" : "Expand"} task" aria-expanded="${expanded ? "true" : "false"}">
+            <button class="chevron ${hasChildren ? "" : "hidden"}" type="button" data-action="toggle-task" data-task-id="${item.id}" title="${expanded ? "Collapse" : "Expand"} task (Ctrl+${expanded ? "Up" : "Down"})" aria-label="${expanded ? "Collapse" : "Expand"} task" aria-expanded="${expanded ? "true" : "false"}">
               ${renderIcon("chevron")}
             </button>
-            <button class="checkbox ${resolved?.done ? "done" : ""}" type="button" data-action="toggle-done" data-task-id="${item.id}" aria-label="${resolved?.done ? "Mark not done" : "Mark done"}">
+            <button class="checkbox ${resolved?.done ? "done" : ""}" type="button" data-action="toggle-done" data-task-id="${item.id}" title="${resolved?.done ? "Mark not done" : "Mark done"} (Ctrl+Enter)" aria-label="${resolved?.done ? "Mark not done" : "Mark done"}">
               ${resolved?.done ? renderIcon("check") : ""}
             </button>
             <div class="task-text" data-task-text="${item.id}" contenteditable="true" spellcheck="true">${renderInlineMarkdown(resolved?.text || item.text)}</div>
             ${renderTaskLinkBadge(item, resolved)}
             <div class="task-actions">
               ${item.linkType ? "" : renderPolicyMenu("task", item.id, item.policyOverrides)}
-              <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" data-touch-drag aria-label="Drag task; hold on touch screens">${renderIcon("grip")}</button>
-              <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" aria-label="Add subtask">${renderIcon("plus")}</button>
-              <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" aria-label="Delete task">${renderIcon("trash")}</button>
+              <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" data-touch-drag title="Drag to move; hold on touch screens (Alt+arrows)" aria-label="Drag task; hold on touch screens">${renderIcon("grip")}</button>
+              <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
+              <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
             </div>
           </div>
           ${imagesHtml}
@@ -4140,7 +4141,7 @@
         <article class="group" id="${group.id}" data-group-card="${group.id}" style="${groupStyleVars(group, index)}">
           <header class="group-header ${isSelected("group", group.id) ? "selected" : ""}" data-group-row="${group.id}" data-node-kind="group" data-node-id="${group.id}" data-drag-kind="group" data-touch-drag draggable="true" tabindex="0">
             <div class="group-heading">
-              <button class="chevron" type="button" data-action="toggle-group" data-group-id="${group.id}" aria-label="${collapsed ? "Expand" : "Collapse"} group" aria-expanded="${collapsed ? "false" : "true"}">${renderIcon("chevron")}</button>
+              <button class="chevron" type="button" data-action="toggle-group" data-group-id="${group.id}" title="${collapsed ? "Expand" : "Collapse"} group (Ctrl+${collapsed ? "Down" : "Up"})" aria-label="${collapsed ? "Expand" : "Collapse"} group" aria-expanded="${collapsed ? "false" : "true"}">${renderIcon("chevron")}</button>
               <div class="group-title" data-group-title="${group.id}" contenteditable="true" spellcheck="true">${escapeHtml(group.title)}</div>
               <span class="group-count">${count}</span>
             </div>
@@ -4153,7 +4154,7 @@
                 </span>` : ""}
               ${renderPolicyMenu("group", group.id, group.policyOverrides)}
               <input class="color-picker" type="color" value="${palette.color}" data-group-color="${group.id}" aria-label="Change group color">
-              <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" aria-label="Add task">${renderIcon("plus")}</button>
+              <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" title="Add a task (Enter)" aria-label="Add task">${renderIcon("plus")}</button>
             </div>
           </header>
           <ul class="task-list ${collapsed ? "is-hidden" : ""}" data-group-list="${group.id}">
@@ -6011,6 +6012,11 @@
       }
     });
 
+    function leaveSidebarForBoard() {
+      if (selectedNode) renderSelection(true);
+      else selectNode(getVisibleNodes()[0]);
+    }
+
     historyMenuEl?.addEventListener("toggle", renderHistoryList);
 
     let lightboxView = null;
@@ -6566,6 +6572,14 @@
         return;
       }
 
+      // Alt+S mirrors the hamburger exactly, click and all, so the drawer/collapse
+      // split stays in one place. Allowed mid-edit: it inserts nothing.
+      if (event.altKey && !event.ctrlKey && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        sidebarToggleEl?.click();
+        return;
+      }
+
       if (event.ctrlKey && event.shiftKey && (event.key === "ArrowDown" || event.key === "ArrowUp") && !isEditingText) {
         event.preventDefault();
         setEveryCollapsed(event.key === "ArrowUp");
@@ -6779,13 +6793,33 @@
       }
     });
 
-    document.querySelector(".sidebar")?.addEventListener("keydown", (event) => {
-      const tag = event.target.tagName;
-      // selects and text inputs own their arrow keys; checkboxes don't
-      if (tag === "SELECT" || (tag === "INPUT" && event.target.type !== "checkbox")) return;
-      const sidebar = event.currentTarget;
+    // Evren, 2026-07-28: "Settings is not browsable with arrow keys / ctrl like
+    // the rest of the board." Arrows already walked the sidebar, but nothing could
+    // OPEN a disclosure and the walk skipped every text field and select, so the
+    // settings themselves were mouse-or-Tab only. Board keys now: arrows walk,
+    // Right opens, Left closes then climbs, Ctrl+arrows expand and collapse.
+    // Arrows are taken from a select the way a list takes them from a row; Alt+Down
+    // still drops its menu open, which is how you change one from the keyboard.
+    sidebarEl?.addEventListener("keydown", (event) => {
+      const target = event.target;
+      const tag = target.tagName;
+      if (tag === "TEXTAREA") return;
+      // A text caret owns left and right; up and down are free to walk out.
+      const isTextField = tag === "INPUT" && target.type !== "checkbox";
+      if (isTextField && (event.key === "ArrowLeft" || event.key === "ArrowRight")) return;
+
+      const details = target.closest?.("details");
+
+      if ((event.key === "ArrowDown" || event.key === "ArrowUp") && event.ctrlKey && details) {
+        event.preventDefault();
+        details.open = event.key === "ArrowDown";
+        return;
+      }
+      if (event.ctrlKey || event.altKey || event.metaKey) return; // Alt+S stays global
+
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-        const focusables = [...sidebar.querySelectorAll("a, button, summary, input[type='checkbox']")].filter((el) => el.offsetParent !== null);
+        const focusables = [...event.currentTarget.querySelectorAll("a, button, summary, input, select")]
+          .filter((el) => el.offsetParent !== null);
         const focusIndex = focusables.indexOf(document.activeElement);
         if (focusIndex < 0) return;
         event.preventDefault();
@@ -6797,10 +6831,26 @@
         focusables[Math.min(focusables.length - 1, Math.max(0, next))]?.focus();
         return;
       }
-      if (event.key === "ArrowRight" || event.key === "Escape") {
+
+      if (event.key === "ArrowRight") {
         event.preventDefault();
-        if (selectedNode) renderSelection(true);
-        else selectNode(getVisibleNodes()[0]);
+        if (tag === "SUMMARY" && details && !details.open) details.open = true;
+        else leaveSidebarForBoard();
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        if (tag === "SUMMARY" && details?.open) details.open = false;
+        // Otherwise climb: out of a section to its own summary, or up one level.
+        else (tag === "SUMMARY" ? details?.parentElement?.closest("details") : details)
+          ?.querySelector(":scope > summary")?.focus();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        leaveSidebarForBoard();
       }
     });
 

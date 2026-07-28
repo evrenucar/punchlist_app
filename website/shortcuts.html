@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Punchlist keyboard shortcuts</title>
+  <meta name="description" content="Every keyboard shortcut in Punchlist, grouped by what you are trying to do.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f7f2;
+      --surface: #ffffff;
+      --surface-2: #eef4f1;
+      --ink: #202422;
+      --muted: #65716b;
+      --line: #d8ded8;
+      --accent: #246bfe;
+      --accent-soft: #e9f0ff;
+      --g-red: #c92a2a;
+      --g-green: #2f6f4e;
+      --key-face: #ffffff;
+      --key-edge: #c3ccc4;
+      --shadow: 0 18px 48px rgba(26, 38, 33, 0.10);
+      --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151716;
+        --surface: #202321;
+        --surface-2: #292d2a;
+        --ink: #f1f4ef;
+        --muted: #a8b2aa;
+        --line: #3a403c;
+        --accent-soft: #1f315f;
+        --key-face: #2f3431;
+        --key-edge: #171a18;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    a { color: var(--accent); }
+
+    .wrap {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px 60px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 10px 20px;
+    }
+
+    .brand-mark {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: #191b1a;
+      color: #fff;
+      transform: rotate(-4deg);
+      flex: none;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      border: 2px solid var(--surface);
+      background: var(--g-red);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .brand-mark { background: #f1f4ef; color: #191b1a; }
+    }
+
+    .brand-name {
+      font-weight: 900;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+    }
+
+    .topbar .page-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .topbar .back {
+      margin-left: auto;
+      font-size: 14px;
+    }
+
+    h1 {
+      font-size: 30px;
+      letter-spacing: -0.02em;
+      margin: 40px 0 6px;
+    }
+
+    .lede {
+      color: var(--muted);
+      margin: 0 0 28px;
+      max-width: 62ch;
+    }
+
+    /* The five that carry a whole session, given the space to be memorised. */
+    .core {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+      gap: 12px;
+      margin: 0 0 34px;
+    }
+
+    .core div {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 16px 14px 14px;
+      text-align: center;
+    }
+
+    /* One line per card: a wrapped "Ctrl + Alt + F" reads as two shortcuts. */
+    .core .keys { justify-content: center; flex-wrap: nowrap; gap: 3px; margin-bottom: 8px; }
+    .core kbd { min-width: 20px; padding: 3px 5px; font-size: 12px; }
+    .core .keys i { flex: none; padding: 0; }
+    .core span { display: block; font-size: 14px; color: var(--muted); }
+
+    section {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 8px 24px 18px;
+      margin: 0 0 22px;
+    }
+
+    section h2 {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 18px 0 4px;
+    }
+
+    dl { margin: 0; }
+
+    /* Keys left, plain English right; the row rule keeps long lists scannable. */
+    .row {
+      display: grid;
+      grid-template-columns: minmax(190px, 240px) 1fr;
+      gap: 8px 20px;
+      align-items: baseline;
+      padding: 9px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .row:first-of-type { border-top: 0; }
+
+    dd { margin: 0; }
+    dd small { display: block; color: var(--muted); font-size: 13px; }
+
+    .keys {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+    }
+
+    kbd {
+      display: inline-block;
+      min-width: 26px;
+      padding: 3px 8px;
+      border: 1px solid var(--key-edge);
+      border-bottom-width: 3px;
+      border-radius: 6px;
+      background: var(--key-face);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 1.5;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .keys i {
+      font-style: normal;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 0 1px;
+    }
+
+    .note {
+      border: 1px solid var(--line);
+      border-left: 4px solid var(--accent);
+      border-radius: 8px;
+      background: var(--surface-2);
+      padding: 10px 14px;
+      margin: 14px 0 0;
+      font-size: 15px;
+    }
+
+    footer {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 30px;
+    }
+
+    @media (max-width: 620px) {
+      .row { grid-template-columns: 1fr; gap: 4px; }
+      section { padding: 8px 18px 16px; }
+      h1 { font-size: 25px; }
+    }
+
+    @media print {
+      .topbar, footer { display: none; }
+      section, .core div { box-shadow: none; break-inside: avoid; }
+      body { background: #fff; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="m5 13 4.2 4.2L19 6.8"/></svg>
+      </div>
+      <div class="brand-name">Punchlist</div>
+      <div class="page-name">shortcuts</div>
+      <a class="back" href="index.html">Back to the site</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <h1>Keyboard shortcuts</h1>
+    <p class="lede">Punchlist is built to run without the mouse. These five carry a whole session; everything below them is there for when you need it. Ctrl is Cmd on a Mac.</p>
+
+    <div class="core">
+      <div>
+        <div class="keys"><kbd>Enter</kbd></div>
+        <span>New task</span>
+      </div>
+      <div>
+        <div class="keys"><kbd>Tab</kbd></div>
+        <span>Make it a subtask</span>
+      </div>
+      <div>
+        <div class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Enter</kbd></div>
+        <span>Tick it off</span>
+      </div>
+      <div>
+        <div class="keys"><kbd>Alt</kbd><i>+</i><kbd>↑</kbd><kbd>↓</kbd></div>
+        <span>Move it anywhere</span>
+      </div>
+      <div>
+        <div class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Alt</kbd><i>+</i><kbd>F</kbd></div>
+        <span>Focus on one thing</span>
+      </div>
+    </div>
+
+    <section>
+      <h2>Writing</h2>
+      <dl>
+        <div class="row">
+          <dt class="keys"><kbd>Enter</kbd></dt>
+          <dd>Adds a task below the one you are on.<small>With the caret at the start of a line that already has text, the new task goes above instead.</small></dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Shift</kbd><i>+</i><kbd>Enter</kbd></dt>
+          <dd>A line break inside the same task.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Tab</kbd><i>/</i><kbd>Shift</kbd><i>+</i><kbd>Tab</kbd></dt>
+          <dd>Indent or outdent.<small>Works on a whole multi-selection at once.</small></dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Alt</kbd><i>+</i><kbd>A</kbd></dt>
+          <dd>New group.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Backspace</kbd><i>/</i><kbd>Delete</kbd></dt>
+          <dd>Delete what is selected.<small>Recoverable from Trash, and Ctrl+Z brings it straight back.</small></dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Z</kbd></dt>
+          <dd>Undo the last board change.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section>
+      <h2>Getting around</h2>
+      <dl>
+        <div class="row">
+          <dt class="keys"><kbd>↑</kbd><kbd>↓</kbd></dt>
+          <dd>Previous or next row.<small>Inside a task with several lines, they move the caret first and only then change row.</small></dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>←</kbd></dt>
+          <dd>Climb one level: subtask to parent, parent to group header, group header to the sidebar.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>↑</kbd></dt>
+          <dd>From the very top task, reaches the search box.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Shift</kbd><i>+</i><kbd>↑</kbd><kbd>↓</kbd></dt>
+          <dd>Extend the selection to more rows.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Esc</kbd></dt>
+          <dd>Clears the search box, closes focus mode, cancels a delete confirmation.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section>
+      <h2>Moving and folding</h2>
+      <dl>
+        <div class="row">
+          <dt class="keys"><kbd>Alt</kbd><i>+</i><kbd>↑</kbd><kbd>↓</kbd></dt>
+          <dd>Move the task itself.<small>It travels through subtrees and across groups, not just between siblings.</small></dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Alt</kbd><i>+</i><kbd>←</kbd><kbd>→</kbd></dt>
+          <dd>Change its depth without moving it up or down.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>↓</kbd><i>/</i><kbd>↑</kbd></dt>
+          <dd>Expand or collapse what is selected.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>↓</kbd><i>/</i><kbd>↑</kbd></dt>
+          <dd>Expand or collapse everything on the board.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section>
+      <h2>Doing the work</h2>
+      <dl>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Enter</kbd></dt>
+          <dd>Tick the selected task off, or untick it.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>D</kbd></dt>
+          <dd>Put a copy of the selected task in Today.<small>A linked copy unless Settings says otherwise, so ticking either one ticks both.</small></dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Alt</kbd><i>+</i><kbd>F</kbd></dt>
+          <dd>Focus mode on the selection, one task and its children alone on screen.<small>Works on a group too. Esc leaves.</small></dd>
+        </div>
+      </dl>
+    </section>
+
+    <section>
+      <h2>Formatting a task</h2>
+      <dl>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>B</kbd></dt>
+          <dd>Bold.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>I</kbd></dt>
+          <dd>Italic.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>S</kbd></dt>
+          <dd>Strikethrough.</dd>
+        </div>
+      </dl>
+      <p class="note">These write plain Markdown into the task, so a copy or an export carries the formatting with it. Pressing the same pair again takes it back off.</p>
+    </section>
+
+    <section>
+      <h2>Copy and paste</h2>
+      <dl>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>C</kbd></dt>
+          <dd>Copy the selection as clean Markdown, ready for anywhere else.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>X</kbd></dt>
+          <dd>Cut. Paste it somewhere else to move it.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>V</kbd></dt>
+          <dd>Paste. Inside the board this makes a linked copy by default; Settings changes that.<small>Markdown pasted from outside becomes real tasks, nesting and all.</small></dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>Shift</kbd><i>+</i><kbd>V</kbd></dt>
+          <dd>Paste an independent copy, whatever the setting says.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section>
+      <h2>The sidebar and settings</h2>
+      <dl>
+        <div class="row">
+          <dt class="keys"><kbd>Alt</kbd><i>+</i><kbd>S</kbd></dt>
+          <dd>Show or hide the sidebar.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>←</kbd></dt>
+          <dd>From a group header, hands focus to the sidebar.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>↑</kbd><kbd>↓</kbd></dt>
+          <dd>Walk the sidebar, straight through the settings inside an open section.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>→</kbd></dt>
+          <dd>Open the section you are on. On anything else, hands focus back to the board.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>←</kbd></dt>
+          <dd>Close the section you are on, then climb to the one that holds it.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Ctrl</kbd><i>+</i><kbd>↓</kbd><i>/</i><kbd>↑</kbd></dt>
+          <dd>Open or close a section outright, the same pair the board uses.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Space</kbd></dt>
+          <dd>Flip the checkbox you are on.</dd>
+        </div>
+        <div class="row">
+          <dt class="keys"><kbd>Alt</kbd><i>+</i><kbd>↓</kbd></dt>
+          <dd>Drop open the menu you are on, then arrows pick and Enter takes it.</dd>
+        </div>
+      </dl>
+      <p class="note">A text field keeps <kbd>←</kbd> and <kbd>→</kbd> for its own caret, so typing a repository name works normally. Up and down still walk out of it.</p>
+    </section>
+
+    <footer>
+      <p>This page loads nothing from third parties and runs no scripts. Print it if you want it on the wall. <a href="index.html">Punchlist</a> &middot; <a href="updating.html">Updating a downloaded copy</a></p>
+    </footer>
+  </div>
+</body>
+</html>
