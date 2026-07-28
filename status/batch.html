@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Batch progress — Evren, 2026-07-28</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #f6f7f2; --surface: #ffffff; --surface-2: #eef4f1;
+      --ink: #202422; --muted: #65716b; --line: #d8ded8;
+      --accent: #246bfe; --done: #2f6f4e; --wait: #d9480f; --open: #65716b;
+      --shadow: 0 18px 48px rgba(26, 38, 33, 0.10);
+      --mono: ui-monospace, "Cascadia Mono", Consolas, "SF Mono", monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #151716; --surface: #202321; --surface-2: #292d2a;
+        --ink: #f1f4ef; --muted: #a8b2aa; --line: #3a403c;
+        --done: #51cf66; --wait: #ff922b; --open: #a8b2aa;
+        --shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      font-size: 16px; line-height: 1.5;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 28px 20px 70px; }
+
+    header.page { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+    h1 { font-size: 27px; letter-spacing: -0.02em; margin: 0; }
+    .live {
+      font-family: var(--mono); font-size: 11px; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 20px; padding: 2px 9px;
+    }
+    .live b { color: var(--done); }
+    p.lede { color: var(--muted); margin: 0 0 20px; max-width: 66ch; }
+
+    /* One bar, three states, so the shape of the batch reads in a glance. */
+    .bar { display: flex; height: 12px; border-radius: 7px; overflow: hidden; background: var(--surface-2); margin-bottom: 10px; }
+    .bar i { display: block; transition: width 300ms ease; }
+    .bar .s-done { background: var(--done); }
+    .bar .s-wait { background: var(--wait); }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 26px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+    .dot.s-done { background: var(--done); }
+    .dot.s-wait { background: var(--wait); }
+    .dot.s-open { background: var(--open); opacity: 0.5; }
+
+    section { margin: 0 0 26px; }
+    section > h2 {
+      font-size: 12px; letter-spacing: 0.09em; text-transform: uppercase;
+      color: var(--muted); margin: 0 0 10px;
+    }
+    section > h2 b { color: var(--ink); }
+
+    ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    li {
+      border: 1px solid var(--line); border-left-width: 4px; border-radius: 10px;
+      background: var(--surface); box-shadow: var(--shadow); padding: 12px 16px;
+    }
+    li.s-done { border-left-color: var(--done); }
+    li.s-wait { border-left-color: var(--wait); }
+    li.s-open { border-left-color: var(--line); box-shadow: none; }
+    .row { display: flex; align-items: baseline; gap: 10px; }
+    .num { font-family: var(--mono); font-size: 12px; color: var(--muted); flex: none; min-width: 20px; }
+    .title { font-weight: 650; }
+    li.s-done .title { font-weight: 600; }
+    .detail { color: var(--muted); font-size: 14px; margin: 5px 0 0 30px; }
+    .tag {
+      font-family: var(--mono); font-size: 11px; border-radius: 5px;
+      padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); flex: none;
+    }
+    li.s-done .tag { color: var(--done); border-color: currentColor; }
+    li.s-wait .tag { color: var(--wait); border-color: currentColor; }
+
+    .links { border-top: 1px solid var(--line); padding-top: 16px; font-size: 14px; color: var(--muted); }
+    .links a { margin-right: 14px; }
+    .err { color: var(--wait); font-family: var(--mono); font-size: 13px; }
+    @media (max-width: 560px) {
+      .detail { margin-left: 0; }
+      h1 { font-size: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="page">
+      <h1>Your batch, 28 July</h1>
+      <span class="live" data-live>reading the board…</span>
+    </header>
+    <p class="lede">Everything from the voice batch you sent, straight off the live board. This page re-reads it every few seconds, so it is never a snapshot I forgot to update. Colour is the state: shipped, waiting on you, not started.</p>
+
+    <div class="bar" data-bar></div>
+    <div class="legend">
+      <span><i class="dot s-done"></i> shipped</span>
+      <span><i class="dot s-wait"></i> waiting on you</span>
+      <span><i class="dot s-open"></i> not started</span>
+    </div>
+
+    <div data-sections></div>
+
+    <p class="links">
+      <a href="/test">Test checklist</a>
+      <a href="/triage">Your triage answers</a>
+      <a href="/sync-bug">The sync bug writeup</a>
+      <a href="/">Board and chat</a>
+    </p>
+  </div>
+
+  <script>
+    const BATCH_ID = "task-b28-5tmwyy9";
+    const sectionsEl = document.querySelector("[data-sections]");
+    const barEl = document.querySelector("[data-bar]");
+    const liveEl = document.querySelector("[data-live]");
+
+    // The board is the only source here. Nothing about this batch is typed into
+    // this page, so it cannot drift from what the agent actually closed.
+    function findBatch(node) {
+      if (node.id === BATCH_ID || /Evren batch 2026-07-28/i.test(node.text || "")) return node;
+      for (const child of node.children || []) {
+        const hit = findBatch(child);
+        if (hit) return hit;
+      }
+      return null;
+    }
+
+    // "Waiting on you" is a real state and has to come from the item, not from a
+    // list I keep here: the agent writes it into the text when it parks one.
+    function stateOf(item) {
+      if (item.done) return "done";
+      if (/\bBLOCKED\b|waiting on (you|evren)/i.test(item.text || "")) return "wait";
+      return "open";
+    }
+
+    // Board items lead with a front-loaded title, then the detail. Break on a
+    // real sentence end, never mid-sentence: a title that stops at "attach them"
+    // and a detail reading "automatically." is worse than one long line.
+    const LIMIT = 200;
+    function splitText(text) {
+      const clean = String(text || "").replace(/\s+/g, " ").trim();
+      const cut = clean.search(/(?<=[a-z0-9)\]"])\.(?=\s)/);
+      if (cut > 0 && cut < LIMIT) return [clean.slice(0, cut + 1), clean.slice(cut + 2)];
+      if (clean.length <= LIMIT) return [clean, ""];
+      const space = clean.lastIndexOf(" ", LIMIT);
+      const at = space > 60 ? space : LIMIT;
+      return [clean.slice(0, at) + "…", clean.slice(at).trim()];
+    }
+
+    const GROUPS = [
+      { key: "done", label: "Shipped" },
+      { key: "wait", label: "Waiting on you" },
+      { key: "open", label: "Not started" },
+    ];
+
+    function render(batch) {
+      const items = (batch.children || []).map((item, index) => ({ item, index, state: stateOf(item) }));
+      const counts = { done: 0, wait: 0, open: 0 };
+      for (const row of items) counts[row.state] += 1;
+      const total = items.length || 1;
+
+      barEl.innerHTML = ["done", "wait", "open"]
+        .map((key) => `<i class="s-${key}" style="width:${(counts[key] / total) * 100}%"></i>`)
+        .join("");
+
+      // Built as nodes, not markup: the text is his words and mine, and neither
+      // of us is escaping quotes by hand to get a task onto a status page.
+      const make = (tag, cls, text) => {
+        const el = document.createElement(tag);
+        if (cls) el.className = cls;
+        if (text) el.textContent = text;
+        return el;
+      };
+      const TAGS = { done: "shipped", wait: "your move", open: "queued" };
+
+      sectionsEl.replaceChildren(...GROUPS.flatMap(({ key, label }) => {
+        const rows = items.filter((row) => row.state === key);
+        if (!rows.length) return [];
+        const section = make("section");
+        const heading = make("h2", null, label + " ");
+        heading.append(make("b", null, String(rows.length)));
+        const list = make("ol");
+        for (const { item, index, state } of rows) {
+          const [title, detail] = splitText(item.text);
+          const li = make("li", "s-" + state);
+          const row = make("div", "row");
+          row.append(make("span", "num", String(index + 1)), make("span", "title", title), make("span", "tag", TAGS[state]));
+          li.append(row);
+          if (detail) li.append(make("p", "detail", detail));
+          list.append(li);
+        }
+        section.append(heading, list);
+        return [section];
+      }));
+
+      liveEl.replaceChildren(make("b", null, String(counts.done)), document.createTextNode(` of ${items.length} done`));
+    }
+
+    async function tick() {
+      try {
+        const board = await fetch("/state", { cache: "no-store" }).then((r) => r.json());
+        let batch = null;
+        for (const group of board.groups || []) {
+          for (const task of group.tasks || []) {
+            batch = batch || findBatch(task);
+          }
+        }
+        if (!batch) throw new Error("batch not on the board");
+        render(batch);
+      } catch (error) {
+        liveEl.replaceChildren(Object.assign(document.createElement("span"), { className: "err", textContent: error.message }));
+      }
+    }
+
+    tick();
+    setInterval(tick, 4000);
+  </script>
+</body>
+</html>
