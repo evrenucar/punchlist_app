@@ -78,6 +78,12 @@ Between turns nothing reads the chat, so his messages sit unseen until he types 
 
 The ⏸ and ⏹ buttons post user messages ("⏸ PAUSE …", "⏹ STOP …") that arrive through the same watcher as any chat line. On PAUSE: finish the tool step in flight, acknowledge in chat, deregister the heartbeat, and start NO new work until he writes resume (or anything else that is an instruction). On STOP: post a short state log (what shipped, what is mid-flight, where it is written down), deregister, verify `/agents` is `[]`, and end the session's work — he is closing the laptop. Neither can interrupt a step already running; say so in the ack if the gap was noticeable.
 
+## Notes become board items in the same turn (his complaint, 2026-07-28)
+
+"I feel like we seem to forget previous items I note down." He was right. His best thinking arrives in the `(note: ...)` half of a test-round reply or trailing a chat message, and those were being answered conversationally and then lost when the turn ended.
+
+**Rule: every note inside a chat message or a review-page reply becomes a board item BEFORE any code is written that turn.** Not after shipping, not "if it still matters" — first, in his words, quoted. A note that is already covered still gets a reply saying which item covers it. `/batch` renders every open item on the board grouped and counted, so he can check nothing is sitting unboarded without asking.
+
 ## Chat conduct
 
 Style: humanizer rules — no em-dashes, short sentences, concrete facts, a few lines per message (see the chat-style memory). Name the layer of every change: the app (`src/`) or the development interface (`status/`); ambiguous mentions get "(for the development interface)". During long tasks, update the heartbeat status at every phase change and drop one-line phase notes in chat — silence reads as nothing happening. Grill design decisions before building; tentative phrasing ("maybe", "?") is a grill trigger, not a spec. Token counts are not visible to local scripts — never fake a number.
