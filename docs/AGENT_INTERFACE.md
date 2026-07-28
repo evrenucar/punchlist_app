@@ -84,6 +84,16 @@ The ⏸ and ⏹ buttons post user messages ("⏸ PAUSE …", "⏹ STOP …") tha
 
 **Rule: every note inside a chat message or a review-page reply becomes a board item BEFORE any code is written that turn.** Not after shipping, not "if it still matters" — first, in his words, quoted. A note that is already covered still gets a reply saying which item covers it. `/batch` renders every open item on the board grouped and counted, so he can check nothing is sitting unboarded without asking.
 
+## The overview tab is part of session start (his instruction, 2026-07-28)
+
+"Also don't forget to launch a process overview interface in the same window." Open **`/batch`** as a tab beside the board in the one automated Chrome window, at session start, without being asked. It reads `/state` every few seconds and renders the Focus group, the current batch with its bar, everything closed today, and every other open item grouped and counted, so a glance answers "where are we" without him asking. He was asked in the v1.5.32 round whether he wants that or live phase-by-phase agent progress instead; until he answers, `/batch` is the tab.
+
+## Review pages are step-by-step (his instruction, 2026-07-28)
+
+"Have step by step questionnaires we setup before after things are completed or when you are grilling me." Three occasions, one harness: a **grill before** the work, a **test round after** it, and any **design decision** in between. The stepped flow lives in `../aide-board/review-harness.template.html`, so it comes free with every page `build-review-pages.mjs` generates — one question on screen, Back/Next, a progress bar, Alt+arrows, the position stored beside the answers, and a final "Everything you said" list with a Change button per line before anything is sent. Skipping is allowed and skipped items never reach the message.
+
+Write the spec into `status/review-specs.json` and regenerate; never hand-edit a generated page.
+
 ## Chat conduct
 
 Style: humanizer rules — no em-dashes, short sentences, concrete facts, a few lines per message (see the chat-style memory). Name the layer of every change: the app (`src/`) or the development interface (`status/`); ambiguous mentions get "(for the development interface)". During long tasks, update the heartbeat status at every phase change and drop one-line phase notes in chat — silence reads as nothing happening. Grill design decisions before building; tentative phrasing ("maybe", "?") is a grill trigger, not a spec. Token counts are not visible to local scripts — never fake a number.
