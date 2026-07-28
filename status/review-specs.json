@@ -1197,5 +1197,662 @@
         }
       ]
     }
+  },
+  {
+    "key": "decisions",
+    "spec": {
+      "title": "Needs your call",
+      "intro": "Everything I could not decide for you, plus the calls I did make on my own so you can veto them. Click the answers that fit, add notes where it matters, hit Send. It all comes back to me in chat.",
+      "sendLabel": "Send to Claude",
+      "chatPrefix": "Decisions from /decisions:",
+      "storageKey": "punchlist-decisions-2026-07-25",
+      "sections": [
+        {
+          "heading": "The split — these decide whether Stage B happens",
+          "items": [
+            {
+              "id": "pane-or-not",
+              "title": "In another project, do you want the embedded board pane?",
+              "body": "This is the one I cannot answer for you, and it changes how much Punchlist the tool carries.\n\nWith the pane: the tool ships one built Punchlist file. Cheap, but it is a copy to keep fresh.\nWithout it: six coupling wires vanish, the tool is ~1,900 lines of graph and chat over a JSON file, and nothing you hand to someone else has your app in it.",
+              "answers": {
+                "options": [
+                  "Board pane too, same as here",
+                  "Graph and chat only, no pane",
+                  "Both: pane for my projects, pane-less build for anything I share"
+                ]
+              },
+              "placeholder": "If it depends on the project, say what it depends on."
+            },
+            {
+              "id": "project-2",
+              "title": "Is there a real project #2, or is this someday?",
+              "body": "Stage A already makes status/ copyable into any folder, so a second project works today by copying 13 files. Stage B (the separate repo) only pays for itself once you are tired of fixing the same bug in two copies.",
+              "answers": {
+                "options": [
+                  "Yes, a real one, soon",
+                  "Someday. Stage A is enough for now",
+                  "No, Punchlist is the only one"
+                ]
+              },
+              "placeholder": "If it is real, what is the project? That changes what I test against."
+            },
+            {
+              "id": "repo-visibility",
+              "title": "If we split: public or private repo?",
+              "body": "It changes nothing technically, because the extraction copies files rather than history, which keeps your task data out of it either way. It does decide whether the ten Punchlist review pages can ever move there. They cannot, if it is public.",
+              "answers": {
+                "options": [
+                  "Public",
+                  "Private",
+                  "Decide when we get there"
+                ]
+              },
+              "placeholder": "Name it too, if you have a preference. I have been calling it agent-board."
+            }
+          ]
+        },
+        {
+          "heading": "Calls I made without asking — veto any of these",
+          "items": [
+            {
+              "id": "trunk-group",
+              "title": "The graph trunk now picks its group instead of hardcoding one",
+              "body": "Your staircase was blank because it looked for a group called group-inbox, which the recategorization deleted.\n\nNew rule: the group holding the active task, else group-inbox where it still exists, else the first group with open work. Braindump is skipped, since it sits at the top of your board and is private staging.\n\nOn your board right now that resolves to Focus.",
+              "answers": {
+                "options": [
+                  "Focus is right",
+                  "Should be Now",
+                  "Should be To-do",
+                  "I want to pin the trunk group myself"
+                ]
+              },
+              "placeholder": "Reload your tab and look at the Stairs view before answering."
+            },
+            {
+              "id": "port-flag",
+              "title": "I added a PORT override that was not in the plan",
+              "body": "Without it, starting a board in a second project finds 4173 already answering, reports success, and hands you the first project's board. Silent and confusing. Cost was one line in five files.",
+              "answers": {
+                "options": [
+                  "Good, keep it",
+                  "Drop it, out of scope"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "lane-labels",
+              "title": "Graph nodes still say DEVELOPMENT INTERFACE and APP",
+              "body": "The lane tags on graph nodes. Accurate here, odd in any other project. I left them alone rather than renaming something you read every day.",
+              "answers": {
+                "options": [
+                  "Leave them, I read them fine",
+                  "Rename to something neutral",
+                  "Make the two labels configurable per project"
+                ]
+              },
+              "placeholder": "If renaming, what should the two lanes be called?"
+            },
+            {
+              "id": "selectnode-drop",
+              "title": "I dropped selectNode from the layer-contract test",
+              "body": "The test asserted the wrapper depends on it. Nothing in the wrapper calls it. I replaced that assertion with the seven hooks the wrapper actually uses and had no test for.",
+              "answers": {
+                "options": [
+                  "Fine",
+                  "Put it back, I want it reserved"
+                ]
+              },
+              "placeholder": ""
+            }
+          ]
+        },
+        {
+          "heading": "Loose ends, yes or no",
+          "items": [
+            {
+              "id": "commit",
+              "title": "Nothing from this session is committed",
+              "body": "12 changed files, 216 lines added, 54 removed. App suite 129/129. Plus three new files: status/README.md, status/refresh-board.mjs, status/split-plan.html.",
+              "answers": {
+                "options": [
+                  "Commit it all now",
+                  "Commit after I have read the README",
+                  "Leave it uncommitted"
+                ]
+              },
+              "placeholder": "Say if you want it split into more than one commit."
+            },
+            {
+              "id": "board-item",
+              "title": "This work is still not on the board",
+              "body": "My write got refused by the permission classifier, twice. I did not try to work around it.",
+              "answers": {
+                "options": [
+                  "Retry the write",
+                  "I will add it myself",
+                  "Skip it, the README is the record"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "notes-page",
+              "title": "website/notes.html: add an entry for this session?",
+              "body": "The standing rule is one note per session. This session changed the development interface, not the app, and notes.html is user-facing. Your call whether tooling work belongs there.",
+              "answers": {
+                "options": [
+                  "Add a note",
+                  "Skip it, no app change shipped",
+                  "Add it but keep it short"
+                ]
+              },
+              "placeholder": ""
+            }
+          ]
+        },
+        {
+          "heading": "Things I would delete but did not",
+          "items": [
+            {
+              "id": "dir-a-friction",
+              "title": "The friction-bucket code keyed on group-dir-a",
+              "body": "Six lines in the graph that look for a group called group-dir-a and a task starting with 'Friction list', then read P1/P2/P3 children off it. That group is gone from your board, so the code does nothing today.",
+              "answers": {
+                "options": [
+                  "Leave it, I may bring that group back",
+                  "Delete it"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "artifact-script",
+              "title": "build-status-artifact.mjs",
+              "body": "Bakes a hosted snapshot of the board. Banned from routine use by your own rule, since it produces exactly the kind of thing you told me never to publish. It still ships with the tool.",
+              "answers": {
+                "options": [
+                  "Keep it with the tool",
+                  "Keep it, but it stays with Punchlist",
+                  "Delete it"
+                ]
+              },
+              "placeholder": ""
+            }
+          ]
+        },
+        {
+          "heading": "Anything else",
+          "items": [
+            {
+              "id": "freeform",
+              "title": "Whatever I missed",
+              "body": "Anything about Stage A, the README, the plan page, or what I should pick up next.",
+              "placeholder": "Type freely. This reaches me as a chat message."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "key": "decisions-2",
+    "spec": {
+      "title": "Round 2: the artifact script, and a name",
+      "intro": "Three things left from your answers. New page on purpose, so sending this does not re-send round 1.",
+      "sendLabel": "Send to Claude",
+      "chatPrefix": "Decisions from /decisions-2:",
+      "storageKey": "punchlist-decisions2-2026-07-25",
+      "sections": [
+        {
+          "heading": "build-status-artifact.mjs, explained properly",
+          "items": [
+            {
+              "id": "artifact-what",
+              "title": "What it actually does",
+              "body": "It bakes a DEAD COPY of your status board into one self-contained HTML file.\n\nIt reads three things: the wrapper's header markup, the built Punchlist app, and status-board.json. Then it welds them into a single file where the app rides in an iframe srcdoc with your tasks baked in, the active bar is frozen to whatever was active at bake time, and the graph is a static SVG drawn once.\n\nThe point was to have something shareable: a page anyone can open that shows the state of the work, with no server and no localhost. That is also exactly the problem. It strips out every line marked data-local-only and swaps the hint text to say 'Published snapshot', which tells you what it was built to be. Published.\n\nYour own rule from 2026-07-17 then banned it: LOCAL ONLY, never publish or link artifacts, the localhost page is the artifact. So it has sat unused since, still importing the app, still reading your board.",
+              "answers": {
+                "options": [
+                  "Got it, next question"
+                ]
+              },
+              "placeholder": "Ask if any of that is still unclear."
+            },
+            {
+              "id": "artifact-facts",
+              "title": "Three facts that should decide it",
+              "body": "1. It bakes your whole board into a file meant to be handed out. Every task, every note. On a public repo that is one careless command away from being a problem.\n\n2. It is already half broken. Its graph function still looks for group-inbox and group-dir-a, the two groups your recategorization deleted, so it would bake an empty graph today. I did not fix it, because fixing a script we may delete is wasted work.\n\n3. Deleting it costs nothing you cannot undo. It is 135 lines in git history. If you ever want a shareable snapshot again, it is one `git show` away, and honestly it would want rewriting anyway.",
+              "answers": {
+                "options": [
+                  "Understood"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "artifact-call",
+              "title": "So: what happens to it?",
+              "body": "My recommendation is delete. It is banned by your own rule, it is already stale, its only purpose conflicts with how you have decided to work, and it is the one file in the tool that would bake private data into a shareable page. That is a bad thing to carry into a public repo.",
+              "answers": {
+                "options": [
+                  "Delete it (my recommendation)",
+                  "Keep it, but it stays with Punchlist, not the tool",
+                  "Keep it with the tool and fix its stale graph"
+                ]
+              },
+              "placeholder": ""
+            }
+          ]
+        },
+        {
+          "heading": "The name",
+          "items": [
+            {
+              "id": "the-name",
+              "title": "aide_board?",
+              "body": "Your idea, and I think it is good: 'aide' reads as helper, and it is one letter off 'aid' without being cute about it. Repo naming convention question though. Punchlist is punchlist_app with an underscore, but GitHub URLs and npx both read hyphens more naturally.\n\nI have been writing agent-board in the plan and README. Whatever you pick, I will do one pass and make it consistent everywhere before we split.",
+              "answers": {
+                "options": [
+                  "aide_board, match punchlist_app",
+                  "aide-board, hyphen for the URL",
+                  "aide, just that",
+                  "Something else, see my note"
+                ]
+              },
+              "placeholder": "If something else, write it here."
+            },
+            {
+              "id": "when-split",
+              "title": "When do I actually do Stage B?",
+              "body": "You said project #2 is real and soon, board pane included, public repo. That is all three conditions for Stage B. The question is only whether I do it now or when project #2 actually exists.\n\nDoing it now means the split is done and tested before you need it. Doing it then means I know what the second project needs and can test against something real instead of my scratch folder.",
+              "answers": {
+                "options": [
+                  "Now, get it done",
+                  "When project #2 exists, so it gets a real test",
+                  "Now, but do not delete anything from punchlist until it works"
+                ]
+              },
+              "placeholder": "If you tell me what project #2 is, I can aim for it."
+            }
+          ]
+        },
+        {
+          "heading": "Anything else",
+          "items": [
+            {
+              "id": "freeform2",
+              "title": "Whatever I missed",
+              "body": "",
+              "placeholder": "Type freely."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "key": "next",
+    "spec": {
+      "title": "What to build next: the ponytail plan",
+      "intro": "I ran the whole queue through ponytail. Two things I want to cut, two that are already built and need a spec from you instead of a build from me, two that are real work, and four that just need a word. Click what fits, add notes, send it all to chat.",
+      "sendLabel": "Send plan answers",
+      "chatPrefix": "Next plan:",
+      "storageKey": "punchlist-next-plan-v1",
+      "sections": [
+        {
+          "heading": "1. Cut these",
+          "items": [
+            {
+              "id": "cut-audit",
+              "title": "The structured mobile audit: cut it?",
+              "body": "DIRECTIONS.md argues that work items from your lived friction beat items the agent invents. The very next line asks me to run an invented audit at 390x844 across every control and flow. It is the only unchecked box left in Direction A and it has sat there since 2026-07-16. Meanwhile your braindump has never stopped producing real frictions. I think the audit is the weaker signal and it costs a day.",
+              "answers": {
+                "options": [
+                  "Cut it, my reports are the audit",
+                  "Keep it but narrow it to the flows I touch daily",
+                  "Run the full pass, I want the blind spots I never report"
+                ]
+              },
+              "placeholder": "If you want it narrowed, name the flows worth a pass."
+            },
+            {
+              "id": "cut-graph",
+              "title": "The graph: delete it instead of overhauling it? (development interface, not the app)",
+              "body": "You said on 2026-07-25 that it is not useful as it stands, and in Notes you wrote that you only look at braindump and chat. The board carries an open overhaul item that is days of work: rip out the hardcoded done/active/queue/step vocabulary, pick one of the four layouts that exist because none of them answered the question, redo the punchlist-only lane labels. Deleting it is minutes, and it takes the two graph items at the top of Braindump with it.",
+              "answers": {
+                "options": [
+                  "Delete it, I live in braindump and chat",
+                  "Leave it exactly as is, spend time on neither",
+                  "Overhaul it, it should be useful and is not"
+                ]
+              },
+              "placeholder": "If you want it kept, one sentence on what you would use it FOR unblocks the rest."
+            }
+          ]
+        },
+        {
+          "heading": "2. Already built. Tell me what is broken so I do not rebuild it.",
+          "items": [
+            {
+              "id": "search-spec",
+              "title": "Search and Ctrl+F: what actually breaks?",
+              "body": "Focus says 'improve the search and ctrl F behavior'. Search already exists and filters the entire board, and Ctrl+F already focuses it (task-board.js:6670). So this is a fix and not a build, and I cannot tell from the item what the fix is. Pick everything that bites.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "The browser's own find bar steals Ctrl+F",
+                  "I lose my place, I cannot tell which group a hit belongs to",
+                  "It filters the board when I wanted to jump hit to hit",
+                  "It matches the wrong things (case, sub-items, done items)"
+                ]
+              },
+              "placeholder": "Or describe the moment it annoyed you last."
+            },
+            {
+              "id": "outline-spec",
+              "title": "The left outline: what does it do that search does not?",
+              "body": "Three Focus items are really one problem: it is hard to know what is where and how to get to groups. Before I build a panel, note that the cheap versions already ship: global search, and collapsing groups. An outline earns its place only if it does something those two cannot. Pick what you actually want from it.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "A map I can see without typing anything",
+                  "Jump to a group without scrolling to it",
+                  "Show me where I currently am while I scroll",
+                  "Skip the panel, make collapse and search better instead"
+                ]
+              },
+              "placeholder": "If you have a picture in your head, describe it here."
+            }
+          ]
+        },
+        {
+          "heading": "3. Real work, in this order",
+          "items": [
+            {
+              "id": "toggle-fix",
+              "title": "Mobile group-toggle delay: I found the cause, confirm the approach",
+              "body": "The JS is already fixed and is now a single class flip, and the hide is plain display:none with no animation. So the delay that is left is the browser laying out and painting an entire huge group the instant it opens. That is exactly why sub-item toggles feel fine to you: those subtrees are small. The native fix is one CSS property, content-visibility, which lets the browser skip work for rows that are offscreen. A group-toggle fix already shipped once and the delay survived it, so I want to measure at phone width before touching anything rather than guess a second time.",
+              "answers": {
+                "options": [
+                  "Measure first, then the one-line CSS fix",
+                  "Just try the CSS property, revert it if it does nothing",
+                  "Leave it, the delay is tolerable"
+                ]
+              },
+              "placeholder": "Which group is the worst offender? That is the one I will measure."
+            },
+            {
+              "id": "logo",
+              "title": "Logo and logomark: when?",
+              "body": "Two Focus items ask for this and the icon is still just the letter P. It is pure design, it is unrelated to the defensive mandate, and it is the only item in this whole plan I cannot finish without your taste in the loop.",
+              "answers": {
+                "options": [
+                  "After the toggle fix, and sit with me for a round",
+                  "Later, it is cosmetic",
+                  "Now, the P bothers me every day"
+                ]
+              },
+              "placeholder": "Focus mentions 'there is a idea on it'. What was the idea?"
+            }
+          ]
+        },
+        {
+          "heading": "4. One word each and these stop blocking",
+          "items": [
+            {
+              "id": "unblock",
+              "title": "Four things are waiting on you, not on me",
+              "body": "None of these need work from me. Release v1.5.24 is one command that is ready to run. Ctrl+U was asked on 2026-07-26 and never answered: underscore is already italic in markdown, so a shortcut that wraps in underscores just duplicates Ctrl+I, and real underline needs an invented marker no other tool reads. The stuck low-opacity highlight got a fix on 2026-07-26 and nobody ever confirmed it was the right cause. The board honesty sweep at /sweep has been pending since 2026-07-25.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Cut the v1.5.24 release",
+                  "The stuck highlight is gone, close it",
+                  "The stuck highlight is still there",
+                  "Ctrl+U: I will explain in the note"
+                ]
+              },
+              "placeholder": "The sweep at /sweep is the one that needs a real look. It closes about 197 stale-open items and surfaces 29 buried bugs."
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "key": "triage",
+    "spec": {
+      "title": "Your batch: 18 items, 5 decisions I should not guess",
+      "intro": "I logged everything you sent. Most of it is unambiguous and I will just build it. These five are the ones where guessing wrong costs real time or real data, so they get asked first. Click, add notes, send.",
+      "sendLabel": "Send decisions",
+      "chatPrefix": "Batch triage:",
+      "storageKey": "punchlist-batch-triage-v1",
+      "sections": [
+        {
+          "heading": "Blocking, and one reading is destructive",
+          "items": [
+            {
+              "id": "formatting-scope",
+              "title": "\"Get rid of all formatting inside text\" — which one do you mean?",
+              "body": "This one I will not guess at, because one reading permanently edits your board text. Markdown rendering shipped 8 days ago at your request (v1.5.24), so I also want to be sure you mean to pull it rather than fix it. Whichever you pick, I write the note for future work either way.",
+              "answers": {
+                "options": [
+                  "Stop RENDERING it. Your text is untouched, **bold** just shows as literal asterisks again",
+                  "Stop rendering AND strip the markers from my stored text (this rewrites your board, cannot be undone except via Undo)",
+                  "Keep rendering, just kill the auto-pairing and caret behaviour that keeps breaking",
+                  "Leave it alone, I will live with it, fix the bugs instead"
+                ]
+              },
+              "placeholder": "If it is the bugs that annoy you rather than the feature, describing one of them may be faster than removing the whole thing."
+            }
+          ]
+        },
+        {
+          "heading": "Design calls",
+          "items": [
+            {
+              "id": "identity-model",
+              "title": "Username and device name: what should actually exist?",
+              "body": "You said twice that having both is confusing, and separately that device name should be mandatory for sync. Those pull in slightly different directions, so tell me the end state you want. Right now: username identifies YOU across devices in history and contacts, device name identifies WHICH machine pushed a sync commit.",
+              "answers": {
+                "options": [
+                  "Device name only, drop username entirely",
+                  "Keep both but make device name mandatory and explain the difference in the UI",
+                  "One field: name the device, derive everything else from it",
+                  "Keep both, just fix the labels and the layout"
+                ]
+              },
+              "placeholder": "What do you actually want to see in History and in the sync commit list?"
+            },
+            {
+              "id": "checkmark-shortcut",
+              "title": "Shortcut for checking off a task: which key?",
+              "body": "My pick is the first one. Space is the platform convention for toggling the focused thing, it is one key, it needs no modifier, and nothing on the board currently uses it while a row is selected rather than being edited. The risk is that Space types a space when you are mid-edit, so it would only fire on a selected-not-editing row, exactly like Enter already does.",
+              "answers": {
+                "options": [
+                  "Space on the selected row (my pick)",
+                  "Ctrl+Enter",
+                  "Ctrl+D",
+                  "Alt+X"
+                ]
+              },
+              "placeholder": "If you already have muscle memory from another app, say which and I will match it."
+            }
+          ]
+        },
+        {
+          "heading": "Order of work",
+          "items": [
+            {
+              "id": "deploy-first",
+              "title": "Your stale clients are now the other half of the sync fix",
+              "body": "The v1.5.25 fix only protects you when BOTH devices have it. An old client pushing has no edit stamp, so the newer device falls back to the counter and your original bug is intact. The old device itself is fully exposed. That makes updating your deployed clients the thing that actually closes the bug, not a cosmetic chore. You did say to hold off on testing the deploy, so I want your call.",
+              "answers": {
+                "options": [
+                  "Deploy first, before any of the UI batch",
+                  "Deploy after the UI batch lands, one release for everything",
+                  "Deploy now but do not touch the landing page version chips yet"
+                ]
+              },
+              "placeholder": "Which devices are actually on old versions? That tells me how urgent this is."
+            },
+            {
+              "id": "batch-order",
+              "title": "What do you want first out of the other 15?",
+              "body": "Pick as many as you like and I will do them in that order. The rest still get done, this is just what leads. My own read: the data-safety one (example-board restore) leads, because it is the only item on the list that can destroy your board in one misclick.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Example-board restore: tiny button, double confirm, export-JSON button in the dialog",
+                  "Bug report flow: two fields, autofilled issue, image paste, email button",
+                  "Settings: static fields with Edit and Save, arrow directions, consistent heights",
+                  "Keyboard: checkmark shortcut, settings arrow-key browsing, sidebar shortcut, hover tips, cheatsheet page"
+                ]
+              },
+              "placeholder": "Anything here you would rather I drop entirely?"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "key": "test",
+    "spec": {
+      "title": "Test round — tick what works, tell me what does not",
+      "intro": "The standing checklist for anything I ship that you need to verify. One row per change: mark it, add a note if it misbehaves, then send the whole thing back as one message. Rebuilt every time a batch lands, so it always shows the current round.",
+      "sendLabel": "Send test results",
+      "chatPrefix": "Test round:",
+      "storageKey": "punchlist-test-round-v1",
+      "sections": [
+        {
+          "heading": "Round of 2026-07-28 — v1.5.26, the keyboard batch",
+          "items": [
+            {
+              "id": "k-hover-tips",
+              "title": "Hover a row button and it names its shortcut",
+              "body": "Your ask: the checkmark should show Ctrl+Enter on hover. Every row control got the same treatment, so hover each one and see whether the key it names is the key you would have guessed. The checkbox says Ctrl+Enter, both chevrons name the Ctrl+arrow that matches their current state, the plus says Enter then Tab, the bin says Backspace, the grip says Alt+arrows. Windows waits about a second before showing these.",
+              "answers": {
+                "options": [
+                  "All correct, and useful",
+                  "They show, but some of the wording is off",
+                  "One or more shows nothing on hover",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If the wording is off, which button and what would you call it instead?"
+            },
+            {
+              "id": "k-alt-s",
+              "title": "Alt+S shows and hides the sidebar",
+              "body": "New shortcut, I picked it to sit next to Alt+A for a new group. It does exactly what clicking the hamburger does, which means on a narrow window it slides the drawer rather than collapsing the column. It also works while you are typing in a task, since it inserts nothing. If Alt+S fights something on your keyboard layout, say so and I will move it: Ctrl+backslash is the other obvious candidate.",
+              "answers": {
+                "options": [
+                  "Works, and Alt+S is the right key",
+                  "Works, but pick a different key",
+                  "Does nothing",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If you want a different key, name it."
+            },
+            {
+              "id": "k-settings-arrows",
+              "title": "Settings browses with the arrow keys now",
+              "body": "Your words: not browsable with arrow keys or ctrl like the rest of the board. Try it from the board: press Left until focus lands in the sidebar, arrow down to Settings, press Right to open it. Now Down walks through every setting including the dropdowns and text fields, which it used to skip. Left closes a section and pressing it again climbs to the section that holds it. Ctrl+Down and Ctrl+Up open and close outright, same pair the board uses.",
+              "answers": {
+                "options": [
+                  "Behaves like the board now",
+                  "Better, but something still traps me or gets skipped",
+                  "Barely different",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If something traps you: which control, and which key did nothing?"
+            },
+            {
+              "id": "k-select-arrows",
+              "title": "The dropdowns inside Settings",
+              "body": "One deliberate call worth your eye. Arrow keys now walk PAST a dropdown instead of changing its value, the way arrow keys move between rows on the board rather than editing them. To change one from the keyboard, press Alt+Down to drop it open, then arrows pick and Enter takes it. If you would rather arrows changed the value directly and Tab moved on, tell me and I will flip it back.",
+              "answers": {
+                "options": [
+                  "Walking past is right, Alt+Down is fine for changing one",
+                  "No, arrows should change the value like a normal dropdown",
+                  "Did not notice either way",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "k-cheatsheet",
+              "title": "The cheatsheet page",
+              "body": "Every shortcut on one page, grouped by what you are trying to do, with five picked out at the top as the ones worth memorising. It prints cleanly if you want it on the wall. Linked from the landing page footer and from Help inside the app. Open it from the app: Help in the sidebar, then the keyboard shortcuts link at the end of the Board shortcuts line. On its own it is file:///C:/Users/evren/Documents/GitHub/punchlist_app/website/shortcuts.html, and it goes live on the site with the next push.",
+              "answers": {
+                "options": [
+                  "Good, and I found what I wanted",
+                  "Right idea, wrong grouping or wording",
+                  "Something on it is wrong or missing",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "Anything wrong or missing, and anything you expected to find that is not there."
+            }
+          ]
+        },
+        {
+          "heading": "Still open from the last round",
+          "items": [
+            {
+              "id": "k-release",
+              "title": "The release needs one command from you",
+              "body": "This is the deploy you ranked first, and it is the half of the sync fix I cannot finish. The website was never the problem, it auto-deploys and is already current. The GitHub RELEASE is: the newest one is v1.5.1 from July 19, and the in-app update check reads exactly that, so every device of yours on 1.5.1 or newer has never been told an update exists. Twenty-four builds went out silently. My sandbox blocks publishing a release, so the command is waiting for you in chat.",
+              "answers": {
+                "options": [
+                  "Ran it, the release is out",
+                  "Ran it and something failed",
+                  "Not yet"
+                ]
+              },
+              "placeholder": "If it failed, paste what it said."
+            },
+            {
+              "id": "t-old-clients",
+              "title": "Which of your devices are still on an old version?",
+              "body": "Not a test so much as the thing that decides how urgent the deploy is. The v1.5.25 fix only protects you when BOTH sides of a sync have it. Any device still on an older build keeps the original bug with no protection, and it drags the newer device back to counter-only ranking whenever it pushes.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Phone is on an old version",
+                  "Laptop is on an old version",
+                  "A hosted or downloaded copy somewhere else is old",
+                  "Everything is current"
+                ]
+              },
+              "placeholder": "Version numbers if you can see them, they are in the app topbar."
+            }
+          ]
+        },
+        {
+          "heading": "How this page works from now on",
+          "items": [
+            {
+              "id": "t-workflow",
+              "title": "Is this the shape you wanted?",
+              "body": "Your ask: a live local file listing what you should test, per-item feedback when something is off, sent back in one go. That is this page. It lives at /test, it is rebuilt whenever a batch ships, and your answers land straight in the chat. Older rounds move out rather than piling up, so opening it never shows you a wall of things you already checked.",
+              "answers": {
+                "options": [
+                  "Yes, keep doing exactly this",
+                  "Close, but keep old rounds visible below the current one",
+                  "I want it to show what changed in the code too, not just what to test",
+                  "Different shape, note below"
+                ]
+              },
+              "placeholder": "Anything you want added to every round by default?"
+            }
+          ]
+        }
+      ]
+    }
   }
 ]

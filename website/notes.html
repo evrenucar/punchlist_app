@@ -287,6 +287,30 @@
 
     <article>
       <header>
+        <h2>Every button tells you its shortcut, & Settings works from the keyboard</h2>
+        <span class="entry-date">July 28, 2026 · build v1.5.26</span>
+      </header>
+      <p>Punchlist has always been meant for the keyboard. The problem was finding out what the keys were.</p>
+      <p><strong>Hover a button & it names its key.</strong> The checkbox says Ctrl+Enter. A chevron names the Ctrl+arrow that matches whether it is open or closed. The plus says Enter then Tab, the bin says Backspace, the grip says Alt+arrows. Nothing new happens, these were all already there; you just had to know.</p>
+      <p><strong>Alt+S shows & hides the sidebar.</strong> It sits next to Alt+A for a new group. On a narrow window it slides the drawer instead, same as tapping the hamburger, & it works while you are typing.</p>
+      <p><strong>Settings browses like the board does.</strong> Arrows walked the sidebar before, but they could not open a section & they skipped straight over every dropdown & text field inside one, so the settings themselves were mouse-only in practice. Now arrows walk everything on screen, Right opens a section, Left closes it & then climbs to the section holding it, & Ctrl+arrows expand & collapse the same way they do on the board.</p>
+      <p>One deliberate choice in there: arrows walk <em>past</em> a dropdown rather than changing its value, the way arrows move between rows instead of editing them. Alt+Down drops it open when you do want to change it.</p>
+      <p><strong>There is a cheatsheet now.</strong> <a href="shortcuts.html">Every shortcut on one page</a>, grouped by what you are trying to do, with five picked out at the top. It prints. It is linked from Help inside the app too.</p>
+    </article>
+
+    <article>
+      <header>
+        <h2>Sync stopped travelling back in time</h2>
+        <span class="entry-date">July 27, 2026 · build v1.5.25</span>
+      </header>
+      <p>If you sync across devices, this is the build to be on, & so is every other device you own.</p>
+      <p>When two devices disagreed about the board, Punchlist picked the winner by counting how many edits each one had made. Counting, not timing. So a phone sitting on fifty edits from last week outranked the laptop you touched a minute ago, pushed its old board over your fresh work, & the laptop then pulled that old board down onto itself. That is the trip back in time.</p>
+      <p>Every edit now stamps the time beside the counter, & sync reads both. When they agree it resolves silently exactly as before, so an ordinary day gets no new dialogs. When they disagree, which is precisely the case that used to lose work, it stops & asks, & the dialog names both edit dates so the choice is obvious instead of blind.</p>
+      <p>The catch worth saying plainly: this only protects you when both sides of a sync have it. A device on an older build sends no stamp, so the newer one falls back to counting, & the old device has no protection at all. <a href="updating.html">Update every device</a>, not just one.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Underscores make text italic & bold now, without wrecking your file names</h2>
         <span class="entry-date">July 27, 2026 · build v1.5.24</span>
       </header>
