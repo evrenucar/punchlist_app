@@ -304,8 +304,10 @@
       transition: transform 140ms ease;
     }
 
+    /* Open points DOWN, not up (Evren, 2026-07-28): the arrow says where the
+       content is, and the content is below. Up read as "collapse me". */
     .sidebar details[open] > summary.nav-row::after {
-      transform: rotate(-45deg); /* ^ */
+      transform: rotate(135deg); /* v */
     }
 
     /* Focus/Export/Import are actions, not toggles (Evren 2026-07-17) */

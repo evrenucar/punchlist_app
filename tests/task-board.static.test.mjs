@@ -3121,17 +3121,35 @@ async function loadSidebarHarness() {
   });
 
   // Settings, with one nested section, exactly the shape the real sidebar has.
-  const settings = { open: false };
-  const sync = { open: false };
-  const summary = stub({ name: "settings-summary", tagName: "SUMMARY", closest: () => settings });
-  const darkMode = stub({ name: "dark-mode", tagName: "INPUT", type: "checkbox", closest: () => settings });
-  const pasteMode = stub({ name: "paste-mode", tagName: "SELECT", closest: () => settings });
-  const syncSummary = stub({ name: "sync-summary", tagName: "SUMMARY", closest: () => sync });
-  const repoField = stub({ name: "repo", tagName: "INPUT", type: "text", closest: () => sync });
+  const settings = { open: false, outer: null };
+  const sync = { open: false, outer: settings };
+
+  // Chrome leaves an offsetParent on the content of a CLOSED <details>, so the
+  // app asks the disclosure instead. Model that here or the harness would pass
+  // a walk the browser cannot do: closest("details:not([open])") returns the
+  // nearest enclosing disclosure that is shut.
+  const shutAncestor = (box) => {
+    for (let node = box; node; node = node.outer) if (!node.open) return node;
+    return null;
+  };
+  // Two different questions get asked of closest(): which disclosure am I in,
+  // and is any disclosure around me shut.
+  const inside = (box) => (selector) => (selector.includes(":not([open])") ? shutAncestor(box) : box);
+
+  const summary = stub({ name: "settings-summary", tagName: "SUMMARY", closest: inside(settings) });
+  const darkMode = stub({ name: "dark-mode", tagName: "INPUT", type: "checkbox", closest: inside(settings) });
+  const pasteMode = stub({ name: "paste-mode", tagName: "SELECT", closest: inside(settings) });
+  const syncSummary = stub({ name: "sync-summary", tagName: "SUMMARY", closest: inside(sync) });
+  const repoField = stub({ name: "repo", tagName: "INPUT", type: "text", closest: inside(sync) });
   settings.querySelector = () => summary;
   sync.querySelector = () => syncSummary;
-  settings.parentElement = { closest: () => null };
-  sync.parentElement = { closest: () => settings };
+  // A summary is judged by what encloses its OWN details, hence the extra hop.
+  // From there the same two questions apply, one level out.
+  const outsideOf = (box) => (selector) => (box.outer ? inside(box.outer)(selector) : null);
+  settings.parentElement = { closest: outsideOf(settings) };
+  sync.parentElement = { closest: outsideOf(sync) };
+  summary.parentElement = settings;
+  syncSummary.parentElement = sync;
 
   // Only what is on screen is walkable: a closed disclosure hides its children.
   const visibleStops = () => [
@@ -3239,6 +3257,42 @@ test("the sidebar browses with arrows the way the board does", async () => {
 
   // Alt and Meta stay global, so Alt+S still toggles the sidebar from inside it.
   assert.equal(bar.press(bar.summary, "ArrowDown", { altKey: true }), false);
+});
+
+// Evren, 2026-07-28, on the first cut of the walk: "still can't go all the way
+// down on the menu", and "with enter should be able to toggle toggles, for
+// example currently dark light mode toggle doesn't work".
+test("the walk skips what a closed section hides, and Enter flips a toggle", async () => {
+  const bar = await loadSidebarHarness();
+
+  // Chrome leaves an offsetParent on the contents of a closed <details>, so a
+  // walk that trusts layout alone tries to focus settings nobody can see. The
+  // focus call does nothing and the whole sidebar reads as frozen on that row.
+  bar.settings.open = false;
+  bar.press(bar.summary, "ArrowDown");
+  assert.notEqual(bar.focused.at(-1), "dark-mode", "a hidden setting is never a stop");
+
+  // Open the section and the very same key reaches straight into it.
+  bar.settings.open = true;
+  bar.press(bar.summary, "ArrowDown");
+  assert.equal(bar.focused.at(-1), "dark-mode");
+
+  // A nested section that is shut hides its own fields but keeps its own row.
+  bar.sync.open = false;
+  bar.press(bar.pasteMode, "ArrowDown");
+  assert.equal(bar.focused.at(-1), "sync-summary", "the row that opens it stays walkable");
+
+  // Enter on a checkbox toggles it. Space does this natively and Enter does not,
+  // which is a form-submit convention with no form here.
+  let clicked = 0;
+  bar.darkMode.click = () => { clicked += 1; };
+  assert.equal(bar.press(bar.darkMode, "Enter"), true, "Enter is taken, not passed to the browser");
+  assert.equal(clicked, 1, "and it flips the toggle");
+
+  // Enter is left alone everywhere it already does something: a summary opens
+  // its section natively, a button fires natively.
+  assert.equal(bar.press(bar.summary, "Enter"), false);
+  assert.equal(bar.press(bar.pasteMode, "Enter"), false);
 });
 
 test("the shortcut cheatsheet ships, is self-contained, and is linked from both places", async () => {

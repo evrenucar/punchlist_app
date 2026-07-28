@@ -5913,6 +5913,20 @@
       else selectNode(getVisibleNodes()[0]);
     }
 
+    // Evren, 2026-07-28: "still can't go all the way down on the menu". Chrome
+    // hides a closed <details>'s content with content-visibility on the details
+    // slot, and that leaves every child reporting an offsetParent. So the walk
+    // list was full of settings nobody could see, .focus() did nothing on them,
+    // and the walk looked frozen on the Settings row. Ask the disclosure, not
+    // the layout. offsetParent still earns its place: it catches [hidden] and a
+    // collapsed sidebar. A summary is judged by what encloses its OWN details,
+    // or a closed section would hide the very row that opens it.
+    function sidebarStopIsVisible(el) {
+      if (el.offsetParent === null) return false;
+      const from = el.tagName === "SUMMARY" ? el.parentElement?.parentElement : el;
+      return !from?.closest("details:not([open])");
+    }
+
     historyMenuEl?.addEventListener("toggle", renderHistoryList);
 
     let lightboxView = null;
@@ -6702,7 +6716,7 @@
 
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         const focusables = [...event.currentTarget.querySelectorAll("a, button, summary, input, select")]
-          .filter((el) => el.offsetParent !== null);
+          .filter(sidebarStopIsVisible);
         const focusIndex = focusables.indexOf(document.activeElement);
         if (focusIndex < 0) return;
         event.preventDefault();
@@ -6728,6 +6742,17 @@
         // Otherwise climb: out of a section to its own summary, or up one level.
         else (tag === "SUMMARY" ? details?.parentElement?.closest("details") : details)
           ?.querySelector(":scope > summary")?.focus();
+        return;
+      }
+
+      // Evren, 2026-07-28: "with enter should be able to toggle toggles, for
+      // example currently dark light mode toggle doesn't work". Space toggles a
+      // checkbox natively and Enter does not, which is a form-submit convention
+      // with no form here. On a board you walk with arrows, the key under your
+      // finger is Enter.
+      if (event.key === "Enter" && tag === "INPUT" && target.type === "checkbox") {
+        event.preventDefault();
+        target.click();
         return;
       }
 
