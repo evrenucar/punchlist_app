@@ -84,9 +84,20 @@ The ⏸ and ⏹ buttons post user messages ("⏸ PAUSE …", "⏹ STOP …") tha
 
 **Rule: every note inside a chat message or a review-page reply becomes a board item BEFORE any code is written that turn.** Not after shipping, not "if it still matters" — first, in his words, quoted. A note that is already covered still gets a reply saying which item covers it. `/batch` renders every open item on the board grouped and counted, so he can check nothing is sitting unboarded without asking.
 
-## The overview tab is part of session start (his instruction, 2026-07-28)
+## The tabs he expects at session start (his instructions, 2026-07-28)
 
-"Also don't forget to launch a process overview interface in the same window." Open **`/batch`** as a tab beside the board in the one automated Chrome window, at session start, without being asked. It reads `/state` every few seconds and renders the Focus group, the current batch with its bar, everything closed today, and every other open item grouped and counted, so a glance answers "where are we" without him asking. He was asked in the v1.5.32 round whether he wants that or live phase-by-phase agent progress instead; until he answers, `/batch` is the tab.
+Open all of these in the ONE automated Chrome window, without being asked. His words, both from the same evening: "don't forget to launch a process overview interface in the same window", and "can you remember to launch a punchlist instance where the other tabs are (the same chrome window)".
+
+| Tab | URL | Why |
+|---|---|---|
+| the board | `http://localhost:4173/` | chat, graph, board |
+| the overview | `http://localhost:4173/batch` | reads `/state` every few seconds: Focus group, the batch with its bar, everything closed today, every open item grouped and counted |
+| the current round | `http://localhost:4173/<review page>` | whatever grill or test round is live |
+| **Punchlist itself** | `https://evrenucar.github.io/punchlist_app/task-board.html` | the app, so he can try a change the moment it ships |
+
+**Use the hosted copy for that last one**, not `outputs/task-board.html`. Two reasons: Pages auto-deploys on every push so it is always the newest build, and its storage under the `github.io` origin holds the example board. The `file://` copy in the repo holds the DEVELOPMENT board (Braindump, Agent_Active, Ship log) which is live data, and this window is one an agent automates. If he ever names the path of his own downloaded copy, that supersedes this.
+
+App TESTING still happens in a throwaway isolated context, opened and closed in the same step. This tab is for him, not for the harness.
 
 ## Review pages are step-by-step (his instruction, 2026-07-28)
 
