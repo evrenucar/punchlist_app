@@ -1719,118 +1719,102 @@
   {
     "key": "test",
     "spec": {
-      "title": "Test round — tick what works, tell me what does not",
-      "intro": "The standing checklist for anything I ship that you need to verify. One row per change: mark it, add a note if it misbehaves, then send the whole thing back as one message. Rebuilt every time a batch lands, so it always shows the current round.",
-      "sendLabel": "Send test results",
+      "title": "Test round — v1.5.31, and what I do next",
+      "intro": "Two halves. The top is what shipped since you last tested, tick what works. The bottom is the eight things left in your batch: tell me the order and I will work down it. Every field takes a pasted screenshot now, as many as you like.",
+      "sendLabel": "Send results and priorities",
       "chatPrefix": "Test round:",
       "storageKey": "punchlist-test-round-v1",
       "sections": [
         {
-          "heading": "Round of 2026-07-28 — v1.5.30, your three reports fixed",
+          "heading": "Shipped since your last round — v1.5.31",
           "items": [
             {
-              "id": "r-walk-bottom",
-              "title": "The sidebar walk goes all the way down now",
-              "body": "Your report: still cannot get past Settings down to Help and further. The cause was not what I expected. Chrome hides a closed sections contents by skipping them rather than removing them, so they still looked present to the code, and the walk kept trying to land on settings nobody could see. It asks the section whether it is open now. Try it from the board: press Left into the sidebar, then hold Down. It should run from Get latest all the way to History, through an open Settings and out the other side.",
+              "id": "v31-forget-device",
+              "title": "Forgetting a device from the sync list",
+              "body": "Your ask, and it was small enough to build rather than write down. Settings, Sync: hover a device in the list and press the x. It goes from the list on every device at the next sync, and Ctrl+Z brings it back. The device you are on has no x, because it would re-add itself on the next save and the button would look broken. The line under the list, and the sync guide it links to, are careful about one thing: forgetting TIDIES the list, it does not revoke access. A device still holding the token rejoins when it syncs.",
               "answers": {
                 "options": [
-                  "Goes all the way down, both with Settings open and closed",
-                  "Still stops somewhere",
+                  "Works, and the difference between forgetting and revoking is clear",
+                  "Works, but the wording about revoking is confusing",
+                  "Something is wrong with it",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "If it stops: which row was highlighted when it stopped?"
+              "placeholder": "Screenshot welcome, just paste it here."
             },
             {
-              "id": "r-enter-toggle",
-              "title": "Enter flips a toggle",
-              "body": "Your report: dark light mode toggle does not work with Enter. It does now. Walk to Dark mode with the arrows and press Enter. Space still works too, that is the browser default. Enter is left alone on the section headers and buttons, where it already did the right thing.",
+              "id": "v31-image-paste",
+              "title": "Pasting images into these fields — test it right here",
+              "body": "Your ask, and this page is the test. Copy any screenshot and paste it into this box. It should appear as a thumbnail with an x to remove it, and you can add as many as you like, to any question on the page. Big screenshots get shrunk on the way in so they actually send. When you press send, your answers go first and each image follows captioned with the question it belongs to.",
               "answers": {
                 "options": [
-                  "Enter flips toggles now",
-                  "Works on some but not others",
+                  "Pasted fine, and the images came through",
+                  "Pasted, but something about it is awkward",
+                  "Could not get an image in",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "If some do not respond, name one."
+              "placeholder": "Paste a screenshot here to test it, any screenshot will do."
             },
             {
-              "id": "r-arrow-down",
-              "title": "Open sections point their arrow down",
-              "body": "Your report: the arrow still points up when open. Fixed for Settings, Help, Views and History in one go. Closed points right, open points down, because that is where the content is.",
+              "id": "v31-regression",
+              "title": "Anything from today that got worse",
+              "body": "Eleven changes went out today across seven builds. Everything I could test I tested, but you are the one using it. This is the catch-all: anything that felt fine yesterday and does not now, whether or not it is on this list.",
               "answers": {
                 "options": [
-                  "All of them point the right way now",
-                  "One of them still points up",
-                  "Not tested yet"
+                  "Nothing got worse",
+                  "Something did, see my note",
+                  "Have not used it enough to say"
+                ]
+              },
+              "placeholder": "What changed for the worse, and where."
+            }
+          ]
+        },
+        {
+          "heading": "What I do next — pick the order",
+          "items": [
+            {
+              "id": "next-order",
+              "title": "Eight left in your batch. Which do I take first?",
+              "body": "Pick as many as you want, in the order you care about. Four of these are the bug-report dialog, which I would rather do as one job than four: two fields with the GitHub issue autofilling both, images pasted into the description riding along into the issue, the email path as a big obvious button under small text, and the text clearing when you are done. Say \"bug report\" and I take all four together.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Bug report, all four as one job",
+                  "Data safety: the restore-example-board button is far too easy to press",
+                  "Settings go static once configured, with an Edit and a Save button",
+                  "Settings: views/history/help buttons need equal heights and spacing",
+                  "Help menu: scrolling is dead while the cursor is over the text",
+                  "Drag and drop: the drop indicator should be a clean straight line"
+                ]
+              },
+              "placeholder": "Order them if you have one, or just tell me what is annoying you most right now."
+            },
+            {
+              "id": "next-how",
+              "title": "How should I work through them?",
+              "body": "You have had seven builds today, each one needing you to update a file and test it. That is a lot of interruption. I can also batch several and hand you one round at the end.",
+              "answers": {
+                "options": [
+                  "Keep shipping each one as it lands, I like the fast loop",
+                  "Batch them, one round when the whole group is done",
+                  "Ship small ones straight away, batch anything that needs my eyes"
                 ]
               },
               "placeholder": ""
             },
             {
-              "id": "r-device-name",
-              "title": "Naming your devices, because sync stops without it",
-              "body": "From the last round, and worth doing before anything else. You said everything is current, but your devices look unnamed to me: the roster shows the fallback like device a07y. On v1.5.29 and up an unnamed device stops syncing, by your own call that the device name should be mandatory. Each device needs a name typed once, in Settings. You get a toast on open telling you if one is paused.",
+              "id": "next-beyond",
+              "title": "Anything not on the board that is bothering you?",
+              "body": "The batch is what you dictated on the 28th. If something else has been irritating you since, this is the fastest way to get it in front of me. Screenshots go in here too.",
               "answers": {
                 "options": [
-                  "Named them all, sync is running",
-                  "Named them and something is off",
-                  "Not yet"
+                  "Nothing new, work the batch",
+                  "Yes, see my note"
                 ]
               },
-              "placeholder": "What did you call them? Handy for me when a sync dialog names two."
-            }
-          ]
-        },
-        {
-          "heading": "Still open from the last round",
-          "items": [
-            {
-              "id": "k-release",
-              "title": "The release needs one command from you",
-              "body": "This is the deploy you ranked first, and it is the half of the sync fix I cannot finish. The website was never the problem, it auto-deploys and is already current. The GitHub RELEASE is: the newest one is v1.5.1 from July 19, and the in-app update check reads exactly that, so every device of yours on 1.5.1 or newer has never been told an update exists. Twenty-four builds went out silently. My sandbox blocks publishing a release, so the command is waiting for you in chat.",
-              "answers": {
-                "options": [
-                  "Ran it, the release is out",
-                  "Ran it and something failed",
-                  "Not yet"
-                ]
-              },
-              "placeholder": "If it failed, paste what it said."
-            },
-            {
-              "id": "t-old-clients",
-              "title": "Which of your devices are still on an old version?",
-              "body": "Not a test so much as the thing that decides how urgent the deploy is. The v1.5.25 fix only protects you when BOTH sides of a sync have it. Any device still on an older build keeps the original bug with no protection, and it drags the newer device back to counter-only ranking whenever it pushes.",
-              "answers": {
-                "multi": true,
-                "options": [
-                  "Phone is on an old version",
-                  "Laptop is on an old version",
-                  "A hosted or downloaded copy somewhere else is old",
-                  "Everything is current"
-                ]
-              },
-              "placeholder": "Version numbers if you can see them, they are in the app topbar."
-            }
-          ]
-        },
-        {
-          "heading": "How this page works from now on",
-          "items": [
-            {
-              "id": "t-workflow",
-              "title": "Is this the shape you wanted?",
-              "body": "Your ask: a live local file listing what you should test, per-item feedback when something is off, sent back in one go. That is this page. It lives at /test, it is rebuilt whenever a batch ships, and your answers land straight in the chat. Older rounds move out rather than piling up, so opening it never shows you a wall of things you already checked.",
-              "answers": {
-                "options": [
-                  "Yes, keep doing exactly this",
-                  "Close, but keep old rounds visible below the current one",
-                  "I want it to show what changed in the code too, not just what to test",
-                  "Different shape, note below"
-                ]
-              },
-              "placeholder": "Anything you want added to every round by default?"
+              "placeholder": "Anything at all, rough is fine, I will turn it into board items."
             }
           ]
         }
