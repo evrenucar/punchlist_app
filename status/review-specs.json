@@ -1726,8 +1726,35 @@
       "storageKey": "punchlist-test-round-v1",
       "sections": [
         {
-          "heading": "Round of 2026-07-28 — v1.5.26, the keyboard batch",
+          "heading": "Round of 2026-07-28 — v1.5.27, keyboard batch and formatting pulled",
           "items": [
+            {
+              "id": "f-formatting-gone",
+              "title": "Formatting is gone, and your text is exactly as you left it",
+              "body": "You picked the non-destructive option, so I did not touch a single character you stored. **bold** shows its asterisks again because nothing renders them, not because anything was rewritten. Scroll your real board and check the tasks where you had used it: the markers should be back, sitting in the text where you typed them. Nothing else about those tasks should have changed. Links still work, they are not formatting.",
+              "answers": {
+                "options": [
+                  "Markers are back and my text is untouched",
+                  "My text looks changed somewhere",
+                  "Something that should still render is not rendering",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If anything looks changed, name the task and what it says now."
+            },
+            {
+              "id": "f-ctrl-b",
+              "title": "I also removed Ctrl+B, Ctrl+I and Ctrl+Shift+S. Right call?",
+              "body": "This one I decided rather than asking, so overrule me freely. Those keys only ever wrote the markers that nothing renders any more, so keeping them would mean pressing Ctrl+B and watching asterisks appear in your task. That felt worse than not having them. If you still want them for writing Markdown you will export later, say so and they come back in one block.",
+              "answers": {
+                "options": [
+                  "Right call, they should go with the rendering",
+                  "Bring them back, I write Markdown for export",
+                  "Do not care"
+                ]
+              },
+              "placeholder": ""
+            },
             {
               "id": "k-hover-tips",
               "title": "Hover a row button and it names its shortcut",

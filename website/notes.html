@@ -287,6 +287,19 @@
 
     <article>
       <header>
+        <h2>Text formatting is gone, & nothing you wrote was touched to do it</h2>
+        <span class="entry-date">July 28, 2026 · build v1.5.27</span>
+      </header>
+      <p>Bold, italic & strikethrough are pulled. They had too many rough edges to be worth what they gave you, so <code>**bold**</code> shows its asterisks again.</p>
+      <p><strong>Read this part if you used it.</strong> There were two ways to do this. One strips the markers out of everything you have stored, so your text comes out clean & the change is permanent. The other stops rendering & leaves every character exactly where you typed it. This build does the second one. Nothing was rewritten, no migration ran, & the markers are back in your text because they never left it.</p>
+      <p>That also means a Markdown export still carries them, so <code>**bold**</code> means bold again the moment it lands in Notion or Obsidian.</p>
+      <p>Ctrl+B, Ctrl+I & Ctrl+Shift+S went with it. They only ever typed those markers, & a shortcut that promises bold & delivers asterisks is worse than no shortcut.</p>
+      <p>Links are not formatting & stay exactly as they were: <code>[label](url)</code>, bare URLs, & pasting a URL over selected text.</p>
+      <p>One thing this quietly fixed: pasting bold text in from a browser or a document used to add asterisks to your task, because the pasted styling was converted to markers on the way in. It arrives as plain text now.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Every button tells you its shortcut, & Settings works from the keyboard</h2>
         <span class="entry-date">July 28, 2026 · build v1.5.26</span>
       </header>
