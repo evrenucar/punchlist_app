@@ -426,6 +426,40 @@
       line-height: 1.4;
     }
 
+    .device-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .device-row .device-forget {
+      margin-left: auto;
+      width: 20px;
+      height: 20px;
+      flex: 0 0 auto;
+      font-size: 15px;
+      line-height: 1;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity 120ms ease, color 120ms ease;
+    }
+
+    /* Hover reveals it on a mouse; touch has no hover, so a coarse pointer gets
+       it permanently rather than an unreachable control (the mistake the image
+       delete button already made). */
+    .device-row:hover .device-forget,
+    .device-row .device-forget:focus-visible {
+      opacity: 1;
+    }
+
+    .device-row .device-forget:hover {
+      color: var(--danger);
+    }
+
+    @media (pointer: coarse) {
+      .device-row .device-forget { opacity: 1; }
+    }
+
     /* Sync cannot run without a device name, so an empty one is an error state
        rather than a blank field you are left to guess about. */
     .settings-row input.needed {

@@ -437,6 +437,40 @@
       line-height: 1.4;
     }
 
+    .device-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .device-row .device-forget {
+      margin-left: auto;
+      width: 20px;
+      height: 20px;
+      flex: 0 0 auto;
+      font-size: 15px;
+      line-height: 1;
+      color: var(--muted);
+      opacity: 0;
+      transition: opacity 120ms ease, color 120ms ease;
+    }
+
+    /* Hover reveals it on a mouse; touch has no hover, so a coarse pointer gets
+       it permanently rather than an unreachable control (the mistake the image
+       delete button already made). */
+    .device-row:hover .device-forget,
+    .device-row .device-forget:focus-visible {
+      opacity: 1;
+    }
+
+    .device-row .device-forget:hover {
+      color: var(--danger);
+    }
+
+    @media (pointer: coarse) {
+      .device-row .device-forget { opacity: 1; }
+    }
+
     /* Sync cannot run without a device name, so an empty one is an error state
        rather than a blank field you are left to guess about. */
     .settings-row input.needed {
@@ -2716,6 +2750,7 @@
                 </button>
                 <p class="sync-status" data-sync-status></p>
                 <div data-sync-devices title="Devices that have saved to this board, per the synced roster"></div>
+                <p class="sync-status">Hover a device to forget it. That tidies the list; it does not revoke access. <a href="https://evrenucar.github.io/punchlist_app/sync-guide.html#devices" target="_blank" rel="noopener">Managing devices</a></p>
               </div>
             </details>
             <details class="settings-section" data-updates-section>
@@ -2888,7 +2923,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.30";
+    const APP_VERSION = "1.5.31";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -3109,10 +3144,29 @@
         .sort(([, a], [, b]) => String(b?.lastSeenAt || "").localeCompare(String(a?.lastSeenAt || "")))
         .map(([id, info]) => {
           const seen = describeRelativeDateTime(info?.lastSeenAt);
-          const self = id === deviceIdentity.id ? " (this device)" : "";
-          return `<p class="sync-status">${escapeHtml(deviceDisplayName(id))}${self}${seen ? escapeHtml(` · ${seen}`) : ""}</p>`;
+          const isSelf = id === deviceIdentity.id;
+          const name = deviceDisplayName(id);
+          // This device is not removable: it would re-add itself on the next
+          // save, so the button would look broken rather than principled.
+          const drop = isSelf ? "" : `<button class="icon-button device-forget" type="button" data-forget-device="${escapeHtml(id)}" title="Forget ${escapeHtml(name)}. It rejoins by itself if that device syncs again." aria-label="Forget ${escapeHtml(name)}">×</button>`;
+          return `<p class="sync-status device-row">${escapeHtml(name)}${isSelf ? " (this device)" : ""}${seen ? escapeHtml(` · ${seen}`) : ""}${drop}</p>`;
         })
         .join("");
+    }
+
+    // Evren, 2026-07-28: "would it be possible to easily make it possible to
+    // remove some devices?" The roster is a synced map, so forgetting one is a
+    // board edit like any other and travels to his other devices. Honest about
+    // what it is NOT: a device still holding the token rejoins the moment it
+    // syncs, because the roster is a record of who showed up, not a permission
+    // list. Revoking access is a GitHub token job, and the guide says so.
+    function forgetDevice(id) {
+      if (!id || !state.devices?.[id] || id === deviceIdentity.id) return false;
+      pushUndoState("board", `Forgot device "${deviceDisplayName(id)}"`);
+      delete state.devices[id];
+      saveState();
+      syncSettingsControls();
+      return true;
     }
 
     function createId(prefix = "task") {
@@ -8696,6 +8750,13 @@
     });
     syncNowEl?.addEventListener("click", () => syncNow("manual"));
 
+    syncDevicesEl?.addEventListener("click", (event) => {
+      const id = event.target.closest("[data-forget-device]")?.dataset.forgetDevice;
+      if (!id) return;
+      const name = deviceDisplayName(id);
+      if (forgetDevice(id)) showToast(`Forgot ${name}. Ctrl+Z brings it back.`);
+    });
+
     checkUpdatesEl?.addEventListener("change", () => updateSettings({ checkForUpdates: checkUpdatesEl.checked }));
 
     const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
@@ -9935,6 +9996,7 @@
       saveSyncConfig,
       getDeviceIdentity: () => deviceIdentity,
       saveDeviceIdentity,
+      forgetDevice,
       deviceDisplayName,
       touchDeviceRoster,
       renderDeviceRoster,

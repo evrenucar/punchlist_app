@@ -231,10 +231,29 @@
         .sort(([, a], [, b]) => String(b?.lastSeenAt || "").localeCompare(String(a?.lastSeenAt || "")))
         .map(([id, info]) => {
           const seen = describeRelativeDateTime(info?.lastSeenAt);
-          const self = id === deviceIdentity.id ? " (this device)" : "";
-          return `<p class="sync-status">${escapeHtml(deviceDisplayName(id))}${self}${seen ? escapeHtml(` · ${seen}`) : ""}</p>`;
+          const isSelf = id === deviceIdentity.id;
+          const name = deviceDisplayName(id);
+          // This device is not removable: it would re-add itself on the next
+          // save, so the button would look broken rather than principled.
+          const drop = isSelf ? "" : `<button class="icon-button device-forget" type="button" data-forget-device="${escapeHtml(id)}" title="Forget ${escapeHtml(name)}. It rejoins by itself if that device syncs again." aria-label="Forget ${escapeHtml(name)}">×</button>`;
+          return `<p class="sync-status device-row">${escapeHtml(name)}${isSelf ? " (this device)" : ""}${seen ? escapeHtml(` · ${seen}`) : ""}${drop}</p>`;
         })
         .join("");
+    }
+
+    // Evren, 2026-07-28: "would it be possible to easily make it possible to
+    // remove some devices?" The roster is a synced map, so forgetting one is a
+    // board edit like any other and travels to his other devices. Honest about
+    // what it is NOT: a device still holding the token rejoins the moment it
+    // syncs, because the roster is a record of who showed up, not a permission
+    // list. Revoking access is a GitHub token job, and the guide says so.
+    function forgetDevice(id) {
+      if (!id || !state.devices?.[id] || id === deviceIdentity.id) return false;
+      pushUndoState("board", `Forgot device "${deviceDisplayName(id)}"`);
+      delete state.devices[id];
+      saveState();
+      syncSettingsControls();
+      return true;
     }
 
     function createId(prefix = "task") {
@@ -5818,6 +5837,13 @@
     });
     syncNowEl?.addEventListener("click", () => syncNow("manual"));
 
+    syncDevicesEl?.addEventListener("click", (event) => {
+      const id = event.target.closest("[data-forget-device]")?.dataset.forgetDevice;
+      if (!id) return;
+      const name = deviceDisplayName(id);
+      if (forgetDevice(id)) showToast(`Forgot ${name}. Ctrl+Z brings it back.`);
+    });
+
     checkUpdatesEl?.addEventListener("change", () => updateSettings({ checkForUpdates: checkUpdatesEl.checked }));
 
     const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
@@ -7057,6 +7083,7 @@
       saveSyncConfig,
       getDeviceIdentity: () => deviceIdentity,
       saveDeviceIdentity,
+      forgetDevice,
       deviceDisplayName,
       touchDeviceRoster,
       renderDeviceRoster,

@@ -2271,6 +2271,44 @@ test("sync will not run until the device has a name, and says which piece is mis
   assert.match(html, /Sync is paused: name this device in Settings/, "boot warns instead of failing silently");
 });
 
+// Evren, 2026-07-28: "would it be possible to easily make it possible to remove
+// some devices? Or at least have an instruction page on how to remove a device."
+test("a device can be forgotten, except this one, and the list says what that does not do", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
+  const self = api.getDeviceIdentity();
+  api.saveDeviceIdentity({ name: "laptop" });
+  api.state.devices = {
+    [self.id]: { name: "laptop", lastSeenAt: "2026-07-28T10:00:00.000Z" },
+    "device-old": { name: "old phone", lastSeenAt: "2026-07-01T10:00:00.000Z" },
+  };
+
+  assert.equal(api.forgetDevice("device-old"), true);
+  assert.equal(api.state.devices["device-old"], undefined, "it leaves the synced roster");
+
+  // This device would re-add itself on the next save, so the button would look
+  // broken rather than principled. It is not offered.
+  assert.equal(api.forgetDevice(self.id), false, "you cannot forget the device you are on");
+  assert.ok(api.state.devices[self.id], "and it stays put");
+  assert.equal(api.forgetDevice("device-never-existed"), false);
+
+  // Undo covers it, like every other board edit.
+  api.restoreUndoState();
+  assert.ok(api.state.devices["device-old"], "Ctrl+Z brings it back");
+
+  const roster = api.renderDeviceRoster();
+  assert.match(roster, /data-forget-device="device-old"/, "other devices get the button");
+  assert.equal(/data-forget-device="device-/.test(roster.replace(/data-forget-device="device-old"/, "")), false, "this device does not");
+
+  // The honest bit: forgetting is tidying, not revoking, and the app says so.
+  const html = await readBoard();
+  assert.match(html, /it does not revoke access/, "the roster says what forgetting is not");
+  assert.match(html, /sync-guide\.html#devices/, "and links to the how-to");
+  const guide = await readFile(path.join(root, "website", "sync-guide.html"), "utf8");
+  assert.match(guide, /id="devices"/, "the guide has that anchor");
+  assert.match(guide, /not the same as revoking access/);
+  assert.match(guide, /personal-access-tokens/, "and says where access actually comes from");
+});
+
 test("the two identity fields explain themselves on screen, not in a tooltip", async () => {
   // He called the pair confusing twice. A title attribute you have to hover to
   // find is not an explanation, so the difference is in visible copy now.

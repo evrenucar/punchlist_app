@@ -59,6 +59,7 @@
     .linkbtn .arr { font-weight: 900; }
     .small-link { font-size: 14px; }
 
+    article h3 { font-size: 15px; margin: 22px 0 6px; }
     .callout { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; background: var(--surface-2); padding: 10px 14px; margin: 0 0 14px; font-size: 15px; }
     .callout.warn { border-left-color: var(--g-red); }
     .callout .lead { font-weight: 700; }
@@ -182,6 +183,26 @@
       <div class="step-head"><span class="step-num">5</span><h2>Add your other devices</h2></div>
       <p>On each other device, open Punchlist, go to <strong>Settings &rsaquo; Sync</strong>, turn it on, and enter the <strong>same repository</strong>. For the token you can reuse the same one, or make another the same way as step 3.</p>
       <p>From now on every change on any device lands in the repo as a saved version and shows up on the others. Open the app, and it pulls the latest before you start.</p>
+    </article>
+
+    <article id="devices">
+      <h2 style="font-size:19px;margin:0 0 12px">Managing the devices on your board</h2>
+      <p>Settings &rarr; Sync lists every device that has saved to this board, newest first, with the name you gave it. That list is how you tell them apart when two devices disagree, which is why naming a device is required before it can sync.</p>
+      <h3>Removing one from the list</h3>
+      <p>Hover a device in that list and press the &times; beside it. It disappears from the list on every device on your next sync, and <strong>Ctrl+Z</strong> brings it back if you missed.</p>
+      <div class="callout warn">
+        <p style="margin:0"><strong>This is not the same as revoking access.</strong> The list is a record of who has shown up, not a permission list. A device that still has your token rejoins the list the moment it syncs again, and it can still read and write your board in the meantime.</p>
+      </div>
+      <h3>Actually cutting a device off</h3>
+      <p>Access comes from the token, so that is what you take away. There is no way to revoke one device without revoking them all, because they share the token.</p>
+      <ol>
+        <li>Open <a href="https://github.com/settings/personal-access-tokens" target="_blank" rel="noopener">your fine-grained tokens</a> and delete the one your board uses.</li>
+        <li>Make a new one the same way you did the first time: this repository only, Contents read and write.</li>
+        <li>Paste the new token into Settings &rarr; Sync on each device you still want syncing.</li>
+      </ol>
+      <p>The device you cut off keeps the copy of the board it already had, sitting in its own browser. Nothing reaches across and deletes it. If that matters, open the app on that device and use Settings to clear it, or delete the file.</p>
+      <h3>A device you no longer have</h3>
+      <p>A lost or wiped device cannot sync, so it stops appearing as recently seen and does no harm. Remove it from the list to keep things tidy, and rotate the token if the device is somewhere you would rather it was not.</p>
     </article>
 
     <article>
