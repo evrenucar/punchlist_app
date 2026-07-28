@@ -16,6 +16,8 @@ Endpoints, script flags, the page route and the vendoring contract are all in `.
 
 At session start, open the wrapper as a normal (non-isolated) tab in the agent-controlled browser — for Claude Code the Chrome DevTools MCP window — never Evren's default browser (his request, 2026-07-18). He uses that window; open links you want to show him as new tabs there. Keep destructive/app testing in isolated contexts; his tab is live data.
 
+**ONE WINDOW (his request, 2026-07-28): "make sure all tabs you open in a session are on a single chrome automated one window, and keep all together".** Every page he is meant to read is a normal tab in that one window. An `isolatedContext` opens a SEPARATE window, so treat it as a scratch space with a lifetime: open it, test, `close_page` it. Never leave one parked at the end of a step. The same goes for a non-isolated tab on the built app file — it loads his real `file://` board, so close it once the check is done and leave only the pages he asked for.
+
 ## Presence discipline (the one script rule that is ours, not the tool's)
 
 `node ../aide-board/agent-heartbeat.mjs <name> <taskId> [status...]`. Re-run with new status text at every phase change; the runtime clock survives.

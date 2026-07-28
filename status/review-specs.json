@@ -1726,132 +1726,59 @@
       "storageKey": "punchlist-test-round-v1",
       "sections": [
         {
-          "heading": "Round of 2026-07-28 — v1.5.29",
+          "heading": "Round of 2026-07-28 — v1.5.30, your three reports fixed",
           "items": [
             {
-              "id": "i-enter-split",
-              "title": "Your Enter bug: press Enter at the end of a line that ends in a link",
-              "body": "This is the one you told me still persisted, and you were right. Pulling the formatting did NOT fix it, it only removed the bold version of it. The real cause was that a caret at the end of a rendered span sits inside that span, so the code counting the position never counted the closing marker. Links had it identically. Put a link at the end of a task, press Enter at the end of the line, and nothing should jump down to the new line. Same with a line ending in literal ** now that they are just text.",
+              "id": "r-walk-bottom",
+              "title": "The sidebar walk goes all the way down now",
+              "body": "Your report: still cannot get past Settings down to Help and further. The cause was not what I expected. Chrome hides a closed sections contents by skipping them rather than removing them, so they still looked present to the code, and the walk kept trying to land on settings nobody could see. It asks the section whether it is open now. Try it from the board: press Left into the sidebar, then hold Down. It should run from Get latest all the way to History, through an open Settings and out the other side.",
               "answers": {
                 "options": [
-                  "Nothing jumps down any more, both cases",
-                  "Still splits something onto the new line",
-                  "Different thing goes wrong now",
+                  "Goes all the way down, both with Settings open and closed",
+                  "Still stops somewhere",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "If it still splits: what was the line, and where exactly was your caret?"
+              "placeholder": "If it stops: which row was highlighted when it stopped?"
             },
             {
-              "id": "i-device-name",
-              "title": "Device name is now required for sync",
-              "body": "Your call: keep both names, make the device one mandatory. Heads up before you notice it the hard way: your devices look UNNAMED to me, the roster shows the fallback like device a07y. On this build an unnamed device stops syncing, so each of your devices needs a name typed once. You get a toast on open saying so rather than sync just going quiet. Open Settings and check the two fields explain themselves now, they say Your name and This device with a line under each.",
+              "id": "r-enter-toggle",
+              "title": "Enter flips a toggle",
+              "body": "Your report: dark light mode toggle does not work with Enter. It does now. Walk to Dark mode with the arrows and press Enter. Space still works too, that is the browser default. Enter is left alone on the section headers and buttons, where it already did the right thing.",
               "answers": {
                 "options": [
-                  "Named my devices, sync came back, the wording is clear",
-                  "Named them but something about sync is off now",
-                  "The explanation still does not land",
+                  "Enter flips toggles now",
+                  "Works on some but not others",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "If the wording still does not land, tell me what you would call the two fields."
+              "placeholder": "If some do not respond, name one."
             },
             {
-              "id": "f-formatting-gone",
-              "title": "Formatting is gone, and your text is exactly as you left it",
-              "body": "You picked the non-destructive option, so I did not touch a single character you stored. **bold** shows its asterisks again because nothing renders them, not because anything was rewritten. Scroll your real board and check the tasks where you had used it: the markers should be back, sitting in the text where you typed them. Nothing else about those tasks should have changed. Links still work, they are not formatting.",
+              "id": "r-arrow-down",
+              "title": "Open sections point their arrow down",
+              "body": "Your report: the arrow still points up when open. Fixed for Settings, Help, Views and History in one go. Closed points right, open points down, because that is where the content is.",
               "answers": {
                 "options": [
-                  "Markers are back and my text is untouched",
-                  "My text looks changed somewhere",
-                  "Something that should still render is not rendering",
-                  "Not tested yet"
-                ]
-              },
-              "placeholder": "If anything looks changed, name the task and what it says now."
-            },
-            {
-              "id": "f-ctrl-b",
-              "title": "I also removed Ctrl+B, Ctrl+I and Ctrl+Shift+S. Right call?",
-              "body": "This one I decided rather than asking, so overrule me freely. Those keys only ever wrote the markers that nothing renders any more, so keeping them would mean pressing Ctrl+B and watching asterisks appear in your task. That felt worse than not having them. If you still want them for writing Markdown you will export later, say so and they come back in one block.",
-              "answers": {
-                "options": [
-                  "Right call, they should go with the rendering",
-                  "Bring them back, I write Markdown for export",
-                  "Do not care"
-                ]
-              },
-              "placeholder": ""
-            },
-            {
-              "id": "k-hover-tips",
-              "title": "Hover a row button and it names its shortcut",
-              "body": "Your ask: the checkmark should show Ctrl+Enter on hover. Every row control got the same treatment, so hover each one and see whether the key it names is the key you would have guessed. The checkbox says Ctrl+Enter, both chevrons name the Ctrl+arrow that matches their current state, the plus says Enter then Tab, the bin says Backspace, the grip says Alt+arrows. Windows waits about a second before showing these.",
-              "answers": {
-                "options": [
-                  "All correct, and useful",
-                  "They show, but some of the wording is off",
-                  "One or more shows nothing on hover",
-                  "Not tested yet"
-                ]
-              },
-              "placeholder": "If the wording is off, which button and what would you call it instead?"
-            },
-            {
-              "id": "k-alt-s",
-              "title": "Alt+S shows and hides the sidebar",
-              "body": "New shortcut, I picked it to sit next to Alt+A for a new group. It does exactly what clicking the hamburger does, which means on a narrow window it slides the drawer rather than collapsing the column. It also works while you are typing in a task, since it inserts nothing. If Alt+S fights something on your keyboard layout, say so and I will move it: Ctrl+backslash is the other obvious candidate.",
-              "answers": {
-                "options": [
-                  "Works, and Alt+S is the right key",
-                  "Works, but pick a different key",
-                  "Does nothing",
-                  "Not tested yet"
-                ]
-              },
-              "placeholder": "If you want a different key, name it."
-            },
-            {
-              "id": "k-settings-arrows",
-              "title": "Settings browses with the arrow keys now",
-              "body": "Your words: not browsable with arrow keys or ctrl like the rest of the board. Try it from the board: press Left until focus lands in the sidebar, arrow down to Settings, press Right to open it. Now Down walks through every setting including the dropdowns and text fields, which it used to skip. Left closes a section and pressing it again climbs to the section that holds it. Ctrl+Down and Ctrl+Up open and close outright, same pair the board uses.",
-              "answers": {
-                "options": [
-                  "Behaves like the board now",
-                  "Better, but something still traps me or gets skipped",
-                  "Barely different",
-                  "Not tested yet"
-                ]
-              },
-              "placeholder": "If something traps you: which control, and which key did nothing?"
-            },
-            {
-              "id": "k-select-arrows",
-              "title": "The dropdowns inside Settings",
-              "body": "One deliberate call worth your eye. Arrow keys now walk PAST a dropdown instead of changing its value, the way arrow keys move between rows on the board rather than editing them. To change one from the keyboard, press Alt+Down to drop it open, then arrows pick and Enter takes it. If you would rather arrows changed the value directly and Tab moved on, tell me and I will flip it back.",
-              "answers": {
-                "options": [
-                  "Walking past is right, Alt+Down is fine for changing one",
-                  "No, arrows should change the value like a normal dropdown",
-                  "Did not notice either way",
+                  "All of them point the right way now",
+                  "One of them still points up",
                   "Not tested yet"
                 ]
               },
               "placeholder": ""
             },
             {
-              "id": "k-cheatsheet",
-              "title": "The cheatsheet page",
-              "body": "Every shortcut on one page, grouped by what you are trying to do, with five picked out at the top as the ones worth memorising. It prints cleanly if you want it on the wall. Linked from the landing page footer and from Help inside the app. Open it from the app: Help in the sidebar, then the keyboard shortcuts link at the end of the Board shortcuts line. On its own it is file:///C:/Users/evren/Documents/GitHub/punchlist_app/website/shortcuts.html, and it goes live on the site with the next push.",
+              "id": "r-device-name",
+              "title": "Naming your devices, because sync stops without it",
+              "body": "From the last round, and worth doing before anything else. You said everything is current, but your devices look unnamed to me: the roster shows the fallback like device a07y. On v1.5.29 and up an unnamed device stops syncing, by your own call that the device name should be mandatory. Each device needs a name typed once, in Settings. You get a toast on open telling you if one is paused.",
               "answers": {
                 "options": [
-                  "Good, and I found what I wanted",
-                  "Right idea, wrong grouping or wording",
-                  "Something on it is wrong or missing",
-                  "Not tested yet"
+                  "Named them all, sync is running",
+                  "Named them and something is off",
+                  "Not yet"
                 ]
               },
-              "placeholder": "Anything wrong or missing, and anything you expected to find that is not there."
+              "placeholder": "What did you call them? Handy for me when a sync dialog names two."
             }
           ]
         },
