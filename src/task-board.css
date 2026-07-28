@@ -402,6 +402,35 @@
       max-width: none;
     }
 
+    /* The two names were only ever told apart by a hover tooltip, which Evren
+       called confusing twice (2026-07-28). The explanation is on screen now. */
+    .settings-note {
+      margin: 2px 0 -2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.45;
+    }
+
+    .settings-note b {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .settings-row.stacked small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    /* Sync cannot run without a device name, so an empty one is an error state
+       rather than a blank field you are left to guess about. */
+    .settings-row input.needed {
+      border-color: var(--danger);
+      background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+    }
+
     .settings-row input[type="text"] {
       flex: 0 1 auto;
       min-width: 0;

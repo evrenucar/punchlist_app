@@ -653,8 +653,23 @@
       localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(syncConfig));
     }
 
+    // Evren, 2026-07-28: the device name is MANDATORY for sync. It is the only
+    // thing that tells one device from another in the roster, in history entries
+    // and in the confirm dialog that asks which board to keep, and "device a07y"
+    // is not an answer to that question. Gating here rather than at the toggle
+    // covers every path at once: push, pull, the rev bump and the roster all
+    // already ask this function first.
     function syncIsActive() {
-      return !IS_DEMO && Boolean(syncConfig.enabled && syncConfig.repo && syncConfig.token);
+      return !IS_DEMO && Boolean(syncConfig.enabled && syncConfig.repo && syncConfig.token && deviceIdentity.name.trim());
+    }
+
+    // What is still missing before sync can run, in the order the fields appear.
+    function syncSetupGap() {
+      if (!syncConfig.enabled) return "";
+      if (!deviceIdentity.name.trim()) return "Name this device before syncing. It is how you tell your devices apart when they disagree.";
+      if (!syncConfig.repo) return "Add the repository that stores the board.";
+      if (!syncConfig.token) return "Add a token with Contents read and write on that repository.";
+      return "";
     }
 
     function bytesToBase64(bytes) {
@@ -5706,6 +5721,11 @@
       if (reportBugEl) reportBugEl.hidden = IS_DEMO;
       if (syncEnabledEl) syncEnabledEl.checked = Boolean(syncConfig.enabled);
       if (syncFieldsEl) syncFieldsEl.hidden = !syncConfig.enabled;
+      // Never fail silently: turning sync on with no device name used to do
+      // nothing at all, with nothing on screen saying why.
+      const gap = syncSetupGap();
+      if (deviceNameEl) deviceNameEl.classList.toggle("needed", Boolean(syncConfig.enabled) && !deviceIdentity.name.trim());
+      if (syncStatusEl && gap) syncStatusEl.textContent = gap;
       if (syncRepoEl) syncRepoEl.value = String(syncConfig.repo || "");
       if (syncTokenEl) syncTokenEl.value = String(syncConfig.token || "");
       if (checkUpdatesEl) checkUpdatesEl.checked = settings.checkForUpdates !== false;
@@ -5769,9 +5789,13 @@
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
     usernameEl?.addEventListener("change", () => updateSettings({ username: usernameEl.value.trim() }));
     deviceNameEl?.addEventListener("change", () => {
+      const wasActive = syncIsActive();
       saveDeviceIdentity({ name: deviceNameEl.value.trim() });
       saveState();
       syncSettingsControls();
+      // Naming the device is the last missing piece often enough that waiting
+      // for a reload to start syncing would read as the toggle being broken.
+      if (!wasActive && syncIsActive()) syncNow("config");
     });
     exportSettingsEl?.addEventListener("click", downloadSettingsExport);
 
@@ -6737,6 +6761,15 @@
     // Fire-and-forget update check (downloaded copy only; see checkForUpdate).
     checkForUpdate();
 
+    // Requiring the device name means an already-syncing device with no name
+    // stops syncing on this build, and Evren's roster shows exactly that shape
+    // ("device a07y" is the fallback for unnamed). Silently going quiet is the
+    // class of bug this whole week was about, so say it out loud. It stops the
+    // moment the field has a name, which is one action away.
+    if (!IS_DEMO && syncConfig.enabled && syncConfig.repo && syncConfig.token && !deviceIdentity.name.trim()) {
+      showToast("Sync is paused: name this device in Settings. It is how your devices tell each other apart.");
+    }
+
     // ?probe: a disposable on-device layout instrument for the iOS sideways
     // drift (does not reproduce in emulation). Zero UI without the flag.
     // ponytail: throwaway diagnostic, delete once the phone bug is closed.
@@ -6984,6 +7017,7 @@
       applySyncedState,
       applyExternalState,
       syncIsActive,
+      syncSetupGap,
       compareVersions,
       updateChecksEnabled,
       checkForUpdate,

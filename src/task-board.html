@@ -191,13 +191,16 @@
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
             </label>
-            <label class="settings-row stacked" title="Shown in settings files you export and named as the sender of signed board exports">
-              Username
-              <input type="text" data-username placeholder="your name" maxlength="40">
+            <p class="settings-note">Two names, and they answer different questions. <b>Your name</b> is who, and it travels with anything you send someone. <b>This device</b> is which machine, it never leaves this browser, and it is what tells your phone from your laptop when they disagree about the board.</p>
+            <label class="settings-row stacked">
+              Your name
+              <input type="text" data-username placeholder="e.g. Evren" maxlength="40">
+              <small>On settings files you export, and named as the sender of signed board exports.</small>
             </label>
-            <label class="settings-row stacked" title="Names this browser in history entries and sync commits. Stays on this device.">
-              Device name
+            <label class="settings-row stacked">
+              This device
               <input type="text" data-device-name placeholder="e.g. laptop" maxlength="40">
+              <small>Required for sync. Names this browser in history entries, in sync commits, and in the dialog that asks which board to keep.</small>
             </label>
             <p class="sync-status" data-identity-line hidden title="Board exports are signed with this board's own key; people who import them can tell your exports apart from anyone else's by this fingerprint"></p>
             <button class="control" type="button" data-export-settings title="Download just your settings as a small JSON file you can share">

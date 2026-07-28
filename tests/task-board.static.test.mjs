@@ -2222,6 +2222,8 @@ test("github sync payload is lossless; token stays out of exports; demo never sy
   const exported = JSON.stringify(JSON.parse(await api.serializeBoardState()).state.groups);
   assert.equal(exported.includes(item.id), false, "export filter still drops completed tasks");
 
+  api.saveDeviceIdentity({ name: "test-device" });
+
   api.saveSyncConfig({ enabled: true, repo: "evren/punchlist-data", token: "github_pat_secret" });
   assert.equal(api.syncIsActive(), true);
   assert.equal((await api.serializeBoardState()).includes("github_pat_secret"), false, "token never lands in a board export");
@@ -2229,8 +2231,56 @@ test("github sync payload is lossless; token stays out of exports; demo never sy
   assert.equal(api.syncIsActive(), false);
 
   const demo = await loadBoardApi({ location: { search: "?demo" }, TextEncoder, TextDecoder, btoa, atob });
+  demo.saveDeviceIdentity({ name: "test-device" });
   demo.saveSyncConfig({ enabled: true, repo: "evren/punchlist-data", token: "github_pat_secret" });
   assert.equal(demo.syncIsActive(), false, "demo mode can never talk to GitHub");
+});
+
+// Evren, 2026-07-28: keep both names, but the device name is MANDATORY for sync.
+// It is the only thing telling one device from another in the roster, in history
+// entries, and in the dialog that asks which board to keep.
+test("sync will not run until the device has a name, and says which piece is missing", async () => {
+  const api = await loadBoardApi({ TextEncoder, TextDecoder, btoa, atob });
+  api.saveSyncConfig({ enabled: true, repo: "evren/punchlist-data", token: "github_pat_secret" });
+
+  assert.equal(api.syncIsActive(), false, "a nameless device never syncs, however complete the rest is");
+  assert.match(api.syncSetupGap(), /Name this device/, "and the reason is on screen, not swallowed");
+
+  api.saveDeviceIdentity({ name: "  " });
+  assert.equal(api.syncIsActive(), false, "whitespace is not a name");
+
+  api.saveDeviceIdentity({ name: "laptop" });
+  assert.equal(api.syncIsActive(), true, "named, with the rest already set, so it runs");
+  assert.equal(api.syncSetupGap(), "", "nothing left to say");
+
+  // The gap names pieces in the order the fields appear, so it reads as a next
+  // step rather than a list of everything wrong at once.
+  api.saveSyncConfig({ repo: "" });
+  assert.match(api.syncSetupGap(), /repository/);
+  api.saveSyncConfig({ repo: "evren/punchlist-data", token: "" });
+  assert.match(api.syncSetupGap(), /token/);
+
+  // Sync switched off is not a setup problem, so it says nothing at all.
+  api.saveSyncConfig({ enabled: false, token: "t" });
+  assert.equal(api.syncSetupGap(), "");
+
+  // A device already syncing with no name goes quiet on this build, and Evren's
+  // roster is full of unnamed devices. Going quiet without saying so is the
+  // exact bug class this week was about, so boot says it out loud.
+  const html = await readBoard();
+  assert.match(html, /Sync is paused: name this device in Settings/, "boot warns instead of failing silently");
+});
+
+test("the two identity fields explain themselves on screen, not in a tooltip", async () => {
+  // He called the pair confusing twice. A title attribute you have to hover to
+  // find is not an explanation, so the difference is in visible copy now.
+  const html = await readBoard();
+  assert.match(html, /class="settings-note"/, "the note ships");
+  assert.match(html, /Your name<\/b> is who/, "it says what the username is");
+  assert.match(html, /This device<\/b> is which machine/, "and what the device name is");
+  assert.match(html, /Required for sync\./, "and that one of them is not optional");
+  const hints = html.match(/<small>[^<]+<\/small>/g) || [];
+  assert.ok(hints.length >= 2, "each of the two fields carries its own one-line hint");
 });
 
 test("github sync pull applies a remote board and keeps local settings", async () => {
@@ -2490,6 +2540,7 @@ test("boards past the 1 MB contents cap pull through the blobs API", async () =>
     return { ok: true, status: 200, json: async () => ({ sha: "bigsha", size: 2000000, content: "" }) };
   };
   const api = await loadBoardApi({ fetch: fetchMock, TextEncoder, TextDecoder, btoa, atob });
+  api.saveDeviceIdentity({ name: "test-device" });
   api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "old", dirty: false });
   await api.syncNow("test");
   assert.equal(calls.some((u) => u.includes("/git/blobs/bigsha")), true, "an empty-content oversized read falls back to the blob endpoint");
@@ -2516,6 +2567,7 @@ test("a pending typed save survives a sync while the remote moved (flush before 
     clearTimeout() {},
   };
   const api = await loadBoardApi({ fetch: fetchMock, window: windowStub, TextEncoder, TextDecoder, btoa, atob });
+  api.saveDeviceIdentity({ name: "test-device" });
   api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "r1", dirty: false });
   const today = api.state.groups.find((group) => group.title === "Today");
   const task = today.tasks[0];
@@ -2559,6 +2611,7 @@ test("a 409 on push schedules its own retry", async () => {
     clearTimeout() {},
   };
   const api = await loadBoardApi({ fetch: fetchMock, window: windowStub, TextEncoder, TextDecoder, btoa, atob });
+  api.saveDeviceIdentity({ name: "test-device" });
   api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "r1", dirty: true, lastRev: 5 });
   const before = timers.length;
   await api.syncNow("edit");
@@ -2892,6 +2945,8 @@ test("sync uploads asset files before the board and never re-uploads", async () 
   api.offloadEmbeddedImages();
   const assetId = task.images[0].assetId;
 
+  api.saveDeviceIdentity({ name: "test-device" });
+
   api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", dirty: true });
   await api.syncNow("test");
 
@@ -2935,6 +2990,7 @@ test("a pulled board fetches the assets this device is missing", async () => {
     return { ok: false, status: 404, json: async () => ({}) };
   };
   const api = await loadBoardApi({ fetch: fetchMock, TextEncoder, TextDecoder, btoa, atob });
+  api.saveDeviceIdentity({ name: "test-device" });
   api.saveSyncConfig({ enabled: true, repo: "evrenucar/punchlist-sync", token: "t", lastSha: "old", dirty: false });
   await api.syncNow("test");
 

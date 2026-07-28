@@ -413,6 +413,35 @@
       max-width: none;
     }
 
+    /* The two names were only ever told apart by a hover tooltip, which Evren
+       called confusing twice (2026-07-28). The explanation is on screen now. */
+    .settings-note {
+      margin: 2px 0 -2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.45;
+    }
+
+    .settings-note b {
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .settings-row.stacked small {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    /* Sync cannot run without a device name, so an empty one is an error state
+       rather than a blank field you are left to guess about. */
+    .settings-row input.needed {
+      border-color: var(--danger);
+      background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+    }
+
     .settings-row input[type="text"] {
       flex: 0 1 auto;
       min-width: 0;
@@ -2701,13 +2730,16 @@
               Group/task overrides
               <input type="checkbox" data-policy-overrides>
             </label>
-            <label class="settings-row stacked" title="Shown in settings files you export and named as the sender of signed board exports">
-              Username
-              <input type="text" data-username placeholder="your name" maxlength="40">
+            <p class="settings-note">Two names, and they answer different questions. <b>Your name</b> is who, and it travels with anything you send someone. <b>This device</b> is which machine, it never leaves this browser, and it is what tells your phone from your laptop when they disagree about the board.</p>
+            <label class="settings-row stacked">
+              Your name
+              <input type="text" data-username placeholder="e.g. Evren" maxlength="40">
+              <small>On settings files you export, and named as the sender of signed board exports.</small>
             </label>
-            <label class="settings-row stacked" title="Names this browser in history entries and sync commits. Stays on this device.">
-              Device name
+            <label class="settings-row stacked">
+              This device
               <input type="text" data-device-name placeholder="e.g. laptop" maxlength="40">
+              <small>Required for sync. Names this browser in history entries, in sync commits, and in the dialog that asks which board to keep.</small>
             </label>
             <p class="sync-status" data-identity-line hidden title="Board exports are signed with this board's own key; people who import them can tell your exports apart from anyone else's by this fingerprint"></p>
             <button class="control" type="button" data-export-settings title="Download just your settings as a small JSON file you can share">
@@ -2854,7 +2886,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.28";
+    const APP_VERSION = "1.5.29";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -3497,8 +3529,23 @@
       localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(syncConfig));
     }
 
+    // Evren, 2026-07-28: the device name is MANDATORY for sync. It is the only
+    // thing that tells one device from another in the roster, in history entries
+    // and in the confirm dialog that asks which board to keep, and "device a07y"
+    // is not an answer to that question. Gating here rather than at the toggle
+    // covers every path at once: push, pull, the rev bump and the roster all
+    // already ask this function first.
     function syncIsActive() {
-      return !IS_DEMO && Boolean(syncConfig.enabled && syncConfig.repo && syncConfig.token);
+      return !IS_DEMO && Boolean(syncConfig.enabled && syncConfig.repo && syncConfig.token && deviceIdentity.name.trim());
+    }
+
+    // What is still missing before sync can run, in the order the fields appear.
+    function syncSetupGap() {
+      if (!syncConfig.enabled) return "";
+      if (!deviceIdentity.name.trim()) return "Name this device before syncing. It is how you tell your devices apart when they disagree.";
+      if (!syncConfig.repo) return "Add the repository that stores the board.";
+      if (!syncConfig.token) return "Add a token with Contents read and write on that repository.";
+      return "";
     }
 
     function bytesToBase64(bytes) {
@@ -8550,6 +8597,11 @@
       if (reportBugEl) reportBugEl.hidden = IS_DEMO;
       if (syncEnabledEl) syncEnabledEl.checked = Boolean(syncConfig.enabled);
       if (syncFieldsEl) syncFieldsEl.hidden = !syncConfig.enabled;
+      // Never fail silently: turning sync on with no device name used to do
+      // nothing at all, with nothing on screen saying why.
+      const gap = syncSetupGap();
+      if (deviceNameEl) deviceNameEl.classList.toggle("needed", Boolean(syncConfig.enabled) && !deviceIdentity.name.trim());
+      if (syncStatusEl && gap) syncStatusEl.textContent = gap;
       if (syncRepoEl) syncRepoEl.value = String(syncConfig.repo || "");
       if (syncTokenEl) syncTokenEl.value = String(syncConfig.token || "");
       if (checkUpdatesEl) checkUpdatesEl.checked = settings.checkForUpdates !== false;
@@ -8613,9 +8665,13 @@
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
     usernameEl?.addEventListener("change", () => updateSettings({ username: usernameEl.value.trim() }));
     deviceNameEl?.addEventListener("change", () => {
+      const wasActive = syncIsActive();
       saveDeviceIdentity({ name: deviceNameEl.value.trim() });
       saveState();
       syncSettingsControls();
+      // Naming the device is the last missing piece often enough that waiting
+      // for a reload to start syncing would read as the toggle being broken.
+      if (!wasActive && syncIsActive()) syncNow("config");
     });
     exportSettingsEl?.addEventListener("click", downloadSettingsExport);
 
@@ -9581,6 +9637,15 @@
     // Fire-and-forget update check (downloaded copy only; see checkForUpdate).
     checkForUpdate();
 
+    // Requiring the device name means an already-syncing device with no name
+    // stops syncing on this build, and Evren's roster shows exactly that shape
+    // ("device a07y" is the fallback for unnamed). Silently going quiet is the
+    // class of bug this whole week was about, so say it out loud. It stops the
+    // moment the field has a name, which is one action away.
+    if (!IS_DEMO && syncConfig.enabled && syncConfig.repo && syncConfig.token && !deviceIdentity.name.trim()) {
+      showToast("Sync is paused: name this device in Settings. It is how your devices tell each other apart.");
+    }
+
     // ?probe: a disposable on-device layout instrument for the iOS sideways
     // drift (does not reproduce in emulation). Zero UI without the flag.
     // ponytail: throwaway diagnostic, delete once the phone bug is closed.
@@ -9828,6 +9893,7 @@
       applySyncedState,
       applyExternalState,
       syncIsActive,
+      syncSetupGap,
       compareVersions,
       updateChecksEnabled,
       checkForUpdate,
