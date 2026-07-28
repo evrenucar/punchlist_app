@@ -1870,5 +1870,251 @@
         }
       ]
     }
+  },
+  {
+    "key": "grill",
+    "spec": {
+      "title": "Grill: three designs before I build any of them",
+      "intro": "You asked to be grilled first on all three. Every question here is one where guessing wrong costs a rebuild, so none of them are polite. Where the honest answer is \"that cannot work\", it says so instead of promising it. Your three other feature requests are at the end for you to rank.",
+      "storageKey": "punchlist-grill-2026-07-28",
+      "sendLabel": "Send my answers",
+      "chatPrefix": "Grill answers:",
+      "sections": [
+        {
+          "heading": "1. Formatting, round two",
+          "items": [
+            {
+              "id": "fmt-model",
+              "title": "The decision the whole feature hangs on: when is a marker visible?",
+              "body": "Round one died on one detail. A caret at the visual end of rendered bold sits INSIDE the bold, so the code that maps your caret back to the stored text lost count, and Enter split the line in the wrong place. Pulling bold only hid it; links had it too. Any rebuild has to answer this first, and the three answers are genuinely different products.\n\nRaw-while-editing is how Obsidian and Bear do it, and it removes the bug by construction: the row you are typing in is plain text, so there is no rendered span for a caret to hide inside.",
+              "sketch": "<svg viewBox=\"0 0 340 96\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.4\"><rect x=\"6\" y=\"8\" width=\"328\" height=\"34\" rx=\"6\"/><text x=\"18\" y=\"30\" font-size=\"13\" fill=\"currentColor\" stroke=\"none\">Ship the **release notes** today</text><text x=\"268\" y=\"30\" font-size=\"10\" fill=\"currentColor\" stroke=\"none\" opacity=\"0.7\">editing</text><rect x=\"6\" y=\"54\" width=\"328\" height=\"34\" rx=\"6\" opacity=\"0.5\"/><text x=\"18\" y=\"76\" font-size=\"13\" fill=\"currentColor\" stroke=\"none\">Ship the </text><text x=\"78\" y=\"76\" font-size=\"13\" font-weight=\"700\" fill=\"currentColor\" stroke=\"none\">release notes</text><text x=\"166\" y=\"76\" font-size=\"13\" fill=\"currentColor\" stroke=\"none\">today</text><text x=\"262\" y=\"76\" font-size=\"10\" fill=\"currentColor\" stroke=\"none\" opacity=\"0.7\">not editing</text></svg>",
+              "answers": {
+                "options": [
+                  "Raw while editing that row, rendered everywhere else",
+                  "Rendered always, including while typing (what failed last time)",
+                  "Never rendered: markers stay visible, they only mean something on export",
+                  "Not sure, argue me through it"
+                ]
+              },
+              "placeholder": "If you have seen an app that gets this right, name it."
+            },
+            {
+              "id": "fmt-marks",
+              "title": "Which marks do you actually use, honestly?",
+              "body": "Every mark added is more caret arithmetic and more ways to break Enter. Pick what you would genuinely use in a task line, not what a text editor usually has.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Bold",
+                  "Italic",
+                  "Strikethrough",
+                  "Inline code",
+                  "Highlight",
+                  "Nothing beyond bold, keep it tiny"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "fmt-apply",
+              "title": "How do you want to apply it?",
+              "body": "Ctrl+B was removed with the rendering because a shortcut that promises bold and delivers asterisks is worse than no shortcut. It can come back, but only if the answer above makes it honest.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Ctrl+B and friends",
+                  "Just typing the markers myself",
+                  "A small toolbar when text is selected",
+                  "Markdown autoformat: typing ** closes itself"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "fmt-literal",
+              "title": "What about text that only looks like formatting?",
+              "body": "A task like \"buy 2*3*4 timber\" or a path like some_file_name.txt contains marker characters and means nothing by them. Rendering will eat them unless it is told not to.",
+              "answers": {
+                "options": [
+                  "Escape it for me automatically, I never want to think about it",
+                  "Only render when the markers wrap a whole word, so 2*3*4 is safe",
+                  "Render it anyway, I will type a backslash when I need to",
+                  "This has bitten me, see my note"
+                ]
+              },
+              "placeholder": ""
+            }
+          ]
+        },
+        {
+          "heading": "2. Revoking a device",
+          "items": [
+            {
+              "id": "rev-threat",
+              "title": "First, what are you actually defending against?",
+              "body": "This decides whether the feature is worth building at all, so it is the first question rather than a footnote. Forgetting a device already tidies the list. Revoking is a different thing: it is about a device that should no longer be able to read or write your board.",
+              "answers": {
+                "options": [
+                  "A device I no longer control: sold, lost, stolen",
+                  "A person I shared access with and no longer want to",
+                  "Neither, I just want the list to be tidy and honest",
+                  "Nothing concrete, it bothered me that the app could not do it"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "rev-how",
+              "title": "There are only three real ways, and each costs you something",
+              "body": "Every device shares ONE token today, which is why forgetting cannot revoke. The three honest options:\n\nROTATE. Make a new token on GitHub, put it in the devices you keep, and every other device is out. Works today, costs you a trip per device you keep.\n\nPER-DEVICE TOKENS. Each device gets its own fine-grained token, so you can kill one. Real revocation, but you create a token on GitHub for every device you ever add, forever.\n\nA REAL LOGIN. Sign in to something instead of pasting a token. Proper revocation, and it means a server or a GitHub App, which breaks the no-server rule the whole app is built on.",
+              "answers": {
+                "options": [
+                  "Rotate, but walk me through it inside the app so I do not have to think",
+                  "Per-device tokens, I will pay the setup cost for real revocation",
+                  "A real login, and yes I understand what that changes about the app",
+                  "Leave it, forgetting plus the guide is enough"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "rev-copy",
+              "title": "The part no design can fix",
+              "body": "A device that already synced has a full copy of your board sitting in its browser. Cutting off access stops it reading anything NEW and stops it writing. It does not reach across the internet and delete what it already has. Nothing can, short of that device opening the app again while online.",
+              "answers": {
+                "options": [
+                  "Understood, that is fine, cut off future access and say so plainly",
+                  "Then I want the app to at least try: wipe on next contact if it is revoked",
+                  "That changes my mind, this matters less than I thought"
+                ]
+              },
+              "placeholder": ""
+            }
+          ]
+        },
+        {
+          "heading": "3. Reminders and scheduling, the serious one",
+          "items": [
+            {
+              "id": "rem-broken",
+              "title": "You said it needs to actually work. What fails for you today?",
+              "body": "So I fix the thing that is broken rather than the thing that is easiest to build.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Reminders never reach me, because the app has to be open",
+                  "Setting a time is too fiddly",
+                  "I set them and then never see them again",
+                  "Scheduling and the timeline do not match how I actually plan a day",
+                  "Recurring things are not possible"
+                ]
+              },
+              "placeholder": "Tell me about the last time it let you down."
+            },
+            {
+              "id": "rem-reach",
+              "title": "The hard constraint, stated plainly",
+              "body": "A reminder can only reach you if something is running when it fires. Punchlist is one HTML file with no server, so today that something is the open tab, which is why alerts only fire while the board is open.\n\nThe ways out, in order of what they cost:\n\nCALENDAR. Scheduling writes a .ics file your real calendar swallows. Your phone then does the reminding, on the lock screen, offline, forever. Costs: the reminder lives in your calendar, so changing the time in Punchlist means re-exporting.\n\nINSTALL IT. The hosted app becomes installable, and an installed app can wake itself to notify. Costs: only works for the hosted copy, never the file you keep on disk, and browser support for scheduled notifications is thin.\n\nSERVER. Something of mine runs and pushes to you. Costs: the app stops being local-only, which is the thing it is.",
+              "answers": {
+                "options": [
+                  "Calendar. Let the thing that already works do the reminding",
+                  "Install it. I want the reminder to come from Punchlist itself",
+                  "Both: calendar for real life, in-app alerts while I am working",
+                  "Neither is worth it, keep reminders as a while-open nudge and say so honestly"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "rem-truth",
+              "title": "Where does a scheduled task actually live?",
+              "body": "This is the question that decides the whole workflow. If your calendar is the truth, Punchlist should push to it and stop pretending to own the time. If Punchlist is the truth, your calendar should be a read-only shadow of it, and moving a task in Punchlist has to move the calendar entry too.",
+              "answers": {
+                "options": [
+                  "Punchlist owns the time, the calendar is a shadow of it",
+                  "The calendar owns the time, Punchlist just points at it",
+                  "They are separate on purpose, do not link them"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "rem-shape",
+              "title": "What does a scheduled day look like when it is working?",
+              "body": "The timeline view exists and you have never mentioned using it, which usually means it is not the shape you think in.",
+              "answers": {
+                "options": [
+                  "A list of today, in order, no clock times",
+                  "Real blocks on a clock, like a calendar day",
+                  "Just a due date, I decide the order in the moment",
+                  "Something else, see my note"
+                ]
+              },
+              "placeholder": "Describe your actual morning: what do you look at first?"
+            }
+          ]
+        },
+        {
+          "heading": "4. Your three other requests, ranked by you",
+          "items": [
+            {
+              "id": "req-rank",
+              "title": "Which of these three first?",
+              "body": "All three are boarded in your words. Pick the order rather than letting me guess it.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "Push a checked item down its group",
+                  "Colon then type, for emoji",
+                  "Drawing on images in focus mode",
+                  "None of these before the three grills above"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "req-pushdown",
+              "title": "Push a checked item down: how far, and what about its children?",
+              "body": "\"Down\" has three meanings and they behave very differently once tasks are nested.",
+              "answers": {
+                "options": [
+                  "To the bottom of its group, under everything",
+                  "Just below its unfinished siblings, keeping its place in the nesting",
+                  "Only top-level items move, nested ones stay put",
+                  "Make it a setting, off by default"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "req-emoji",
+              "title": "Colon-emoji: how big a list, given it has to ship inside the file?",
+              "body": "No external requests is a product rule, so the emoji list has to live in the HTML file itself. The full Unicode set with searchable names is roughly 200 KB, about half the size of the whole app today. A curated few hundred is a rounding error.",
+              "answers": {
+                "options": [
+                  "A few hundred common ones is plenty",
+                  "Everything, I will take the file size",
+                  "Skip the list: let me type :fire: and just convert it"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "req-drawing",
+              "title": "Drawing on images: is the drawing part of the image, or a layer over it?",
+              "body": "You said you want to keep editing and deleting lines afterwards, which only works if the strokes are kept separately from the picture. That is the bigger build, and it means an image with drawing on it is no longer a plain image when you export or paste it elsewhere.",
+              "answers": {
+                "options": [
+                  "A layer, always editable, even if export is more work",
+                  "Baked in, simpler, I accept I cannot undo it later",
+                  "Layer while I am in the app, baked in when I export"
+                ]
+              },
+              "placeholder": "Which do you reach for: arrows and boxes, or freehand?"
+            }
+          ]
+        }
+      ]
+    }
   }
 ]
