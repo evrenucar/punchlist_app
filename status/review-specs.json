@@ -1726,8 +1726,36 @@
       "storageKey": "punchlist-test-round-v1",
       "sections": [
         {
-          "heading": "Round of 2026-07-28 — v1.5.27, keyboard batch and formatting pulled",
+          "heading": "Round of 2026-07-28 — v1.5.29",
           "items": [
+            {
+              "id": "i-enter-split",
+              "title": "Your Enter bug: press Enter at the end of a line that ends in a link",
+              "body": "This is the one you told me still persisted, and you were right. Pulling the formatting did NOT fix it, it only removed the bold version of it. The real cause was that a caret at the end of a rendered span sits inside that span, so the code counting the position never counted the closing marker. Links had it identically. Put a link at the end of a task, press Enter at the end of the line, and nothing should jump down to the new line. Same with a line ending in literal ** now that they are just text.",
+              "answers": {
+                "options": [
+                  "Nothing jumps down any more, both cases",
+                  "Still splits something onto the new line",
+                  "Different thing goes wrong now",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If it still splits: what was the line, and where exactly was your caret?"
+            },
+            {
+              "id": "i-device-name",
+              "title": "Device name is now required for sync",
+              "body": "Your call: keep both names, make the device one mandatory. Heads up before you notice it the hard way: your devices look UNNAMED to me, the roster shows the fallback like device a07y. On this build an unnamed device stops syncing, so each of your devices needs a name typed once. You get a toast on open saying so rather than sync just going quiet. Open Settings and check the two fields explain themselves now, they say Your name and This device with a line under each.",
+              "answers": {
+                "options": [
+                  "Named my devices, sync came back, the wording is clear",
+                  "Named them but something about sync is off now",
+                  "The explanation still does not land",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If the wording still does not land, tell me what you would call the two fields."
+            },
             {
               "id": "f-formatting-gone",
               "title": "Formatting is gone, and your text is exactly as you left it",
