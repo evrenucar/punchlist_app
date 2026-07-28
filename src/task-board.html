@@ -313,12 +313,20 @@
         <strong>Report a bug</strong>
         <button type="button" class="toast-dismiss" data-bug-close aria-label="Close">×</button>
       </div>
-      <textarea data-bug-text rows="5" placeholder="What went wrong, and what did you expect instead?"></textarea>
-      <p class="bug-dialog__hint">Once the issue opens on GitHub, please attach anything that shows the problem: screenshots, an exported JSON, console logs.</p>
+      <label class="bug-dialog__field">
+        Summary
+        <input type="text" data-bug-summary maxlength="120" placeholder="One line: what is broken">
+      </label>
+      <label class="bug-dialog__field">
+        What happened
+        <textarea data-bug-text rows="5" placeholder="What you did, what happened, and what you expected instead."></textarea>
+      </label>
       <div class="bug-dialog__actions">
-        <button class="control" type="button" data-bug-github title="Open a new GitHub issue with your description filled in">Open a GitHub issue</button>
-        <button class="control" type="button" data-bug-email title="Copy the author's email address and your description">Copy email</button>
+        <button class="control bug-github" type="button" data-bug-github title="Open a new GitHub issue with your summary as the title and your description in the body">Open a GitHub issue</button>
       </div>
+      <p class="bug-dialog__hint">Both fields are filled in for you on the issue. Screenshots, an exported JSON or console logs have to be attached there by you: drag or paste them into the issue before you post it.</p>
+      <p class="bug-dialog__nogh">(I do not have or want a GitHub account)</p>
+      <button class="control bug-email" type="button" data-bug-email title="Copy the author's email address, your summary and your description">Copy Evren email to report a bug</button>
     </div>
   </div>
 

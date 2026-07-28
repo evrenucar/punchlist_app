@@ -48,6 +48,7 @@ async function loadBoardApi(overrides = {}) {
   elements.set("[data-report-bug]", makeElement({ hidden: false }));
   elements.set("[data-bug-dialog]", makeElement({ hidden: true }));
   elements.set("[data-bug-text]", makeElement({ value: "" }));
+  elements.set("[data-bug-summary]", makeElement({ value: "" }));
   elements.set("[data-sidebar-backdrop]", makeElement({ hidden: true }));
   elements.set("[data-reset-dialog]", makeElement({ hidden: true }));
   elements.set("[data-reset-body]", makeElement());
@@ -3118,7 +3119,7 @@ test("bug-report dialog is in the build; the button hides in demo mode", async (
   assert.match(html, /data-bug-text/);
   assert.match(html, /data-bug-github/);
   assert.match(html, /data-bug-email/);
-  assert.match(html, /attach anything that shows the problem/, "attachment reminder is present");
+  assert.match(html, /attached there by you/, "attachment reminder is present");
   assert.equal(html.includes("data-feedback"), false, "the old feedback button is gone");
 
   const api = await loadBoardApi();
@@ -3127,6 +3128,41 @@ test("bug-report dialog is in the build; the button hides in demo mode", async (
   assert.equal(api.testElements.get("[data-bug-dialog]").hidden, false, "opening reveals the dialog");
   api.closeBugDialog();
   assert.equal(api.testElements.get("[data-bug-dialog]").hidden, true);
+});
+
+test("a bug report has a summary and a description, and both reach the issue", async () => {
+  // Evren, 2026-07-28: "two fields, Summary and what happened. Open-a-GitHub-issue
+  // must autofill BOTH (currently the issue title is the standard boilerplate)."
+  const html = await readBoard();
+  assert.match(html, /data-bug-summary/, "the summary field ships");
+  assert.match(html, /\(I do not have or want a GitHub account\)/, "the small line above the email path");
+  assert.match(html, /Copy Evren email to report a bug/, "and the big button under it");
+  assert.match(html, /class="control bug-github"/);
+  assert.match(html, /class="control bug-email"/);
+  assert.match(html, /\.bug-dialog \.control\.bug-github \{[\s\S]{0,80}#8957e5/, "GitHub purple");
+  assert.match(html, /\.bug-dialog \.control\.bug-email \{[\s\S]{0,120}var\(--accent\)/, "email blue");
+
+  const api = await loadBoardApi();
+  const url = new URL(api.buildBugReportUrl("It ate my board when I pressed sync", "Sync loses tasks"));
+  assert.equal(url.searchParams.get("title"), "Sync loses tasks", "his summary IS the title");
+  const body = url.searchParams.get("body");
+  assert.match(body, /It ate my board when I pressed sync/, "and the description is the body");
+  assert.match(body, /attach them here/, "the body asks him to attach what could not travel");
+  assert.match(body, /App version: v/, "version still rides along");
+
+  // Someone who types nothing still gets a usable issue rather than "undefined".
+  assert.equal(new URL(api.buildBugReportUrl("", "")).searchParams.get("title"), "Bug report");
+
+  // "Clear it once either button is clicked. For the email path keep it on
+  // screen and only clear when the menu is closed."
+  const summary = api.testElements.get("[data-bug-summary]");
+  const text = api.testElements.get("[data-bug-text]");
+  api.openBugDialog();
+  summary.value = "Sync loses tasks";
+  text.value = "It ate my board";
+  api.closeBugDialog();
+  assert.equal(summary.value, "", "closing clears the summary");
+  assert.equal(text.value, "", "and the description with it");
 
   const demo = await loadBoardApi({ location: { search: "?demo" } });
   assert.equal(demo.testElements.get("[data-report-bug]").hidden, true, "demo hides the button");

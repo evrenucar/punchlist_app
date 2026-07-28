@@ -1925,6 +1925,51 @@
       justify-content: flex-end;
     }
 
+    /* Evren, 2026-07-28. Two fields, because one blob of text made a useless
+       issue title. Two paths, told apart by colour rather than by reading:
+       GitHub purple, email blue, and the email one is the big obvious button
+       under the small line that admits not everyone has a GitHub account. */
+    .bug-dialog__field {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .bug-dialog__card input[type="text"] {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      padding: 8px;
+    }
+
+    .bug-dialog__nogh {
+      margin: 6px 0 -4px;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    .bug-dialog .control.bug-github {
+      border-color: #8957e5;
+      color: #8957e5;
+    }
+
+    .bug-dialog .control.bug-email {
+      min-height: 46px;
+      border-color: var(--accent);
+      color: var(--accent);
+      font-size: 14px;
+    }
+
+    .bug-dialog .control.bug-github:hover,
+    .bug-dialog .control.bug-email:hover {
+      background: var(--surface-2);
+    }
+
     .focus-outline {
       list-style: none;
       margin: 0;

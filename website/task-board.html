@@ -1936,6 +1936,51 @@
       justify-content: flex-end;
     }
 
+    /* Evren, 2026-07-28. Two fields, because one blob of text made a useless
+       issue title. Two paths, told apart by colour rather than by reading:
+       GitHub purple, email blue, and the email one is the big obvious button
+       under the small line that admits not everyone has a GitHub account. */
+    .bug-dialog__field {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .bug-dialog__card input[type="text"] {
+      border: 1px solid var(--line-strong);
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      padding: 8px;
+    }
+
+    .bug-dialog__nogh {
+      margin: 6px 0 -4px;
+      color: var(--muted);
+      font-size: 11.5px;
+    }
+
+    .bug-dialog .control.bug-github {
+      border-color: #8957e5;
+      color: #8957e5;
+    }
+
+    .bug-dialog .control.bug-email {
+      min-height: 46px;
+      border-color: var(--accent);
+      color: var(--accent);
+      font-size: 14px;
+    }
+
+    .bug-dialog .control.bug-github:hover,
+    .bug-dialog .control.bug-email:hover {
+      background: var(--surface-2);
+    }
+
     .focus-outline {
       list-style: none;
       margin: 0;
@@ -2927,12 +2972,20 @@
         <strong>Report a bug</strong>
         <button type="button" class="toast-dismiss" data-bug-close aria-label="Close">×</button>
       </div>
-      <textarea data-bug-text rows="5" placeholder="What went wrong, and what did you expect instead?"></textarea>
-      <p class="bug-dialog__hint">Once the issue opens on GitHub, please attach anything that shows the problem: screenshots, an exported JSON, console logs.</p>
+      <label class="bug-dialog__field">
+        Summary
+        <input type="text" data-bug-summary maxlength="120" placeholder="One line: what is broken">
+      </label>
+      <label class="bug-dialog__field">
+        What happened
+        <textarea data-bug-text rows="5" placeholder="What you did, what happened, and what you expected instead."></textarea>
+      </label>
       <div class="bug-dialog__actions">
-        <button class="control" type="button" data-bug-github title="Open a new GitHub issue with your description filled in">Open a GitHub issue</button>
-        <button class="control" type="button" data-bug-email title="Copy the author's email address and your description">Copy email</button>
+        <button class="control bug-github" type="button" data-bug-github title="Open a new GitHub issue with your summary as the title and your description in the body">Open a GitHub issue</button>
       </div>
+      <p class="bug-dialog__hint">Both fields are filled in for you on the issue. Screenshots, an exported JSON or console logs have to be attached there by you: drag or paste them into the issue before you post it.</p>
+      <p class="bug-dialog__nogh">(I do not have or want a GitHub account)</p>
+      <button class="control bug-email" type="button" data-bug-email title="Copy the author's email address, your summary and your description">Copy Evren email to report a bug</button>
     </div>
   </div>
 
@@ -3085,6 +3138,7 @@
     const reportBugEl = document.querySelector("[data-report-bug]");
     const bugDialogEl = document.querySelector("[data-bug-dialog]");
     const bugTextEl = document.querySelector("[data-bug-text]");
+    const bugSummaryEl = document.querySelector("[data-bug-summary]");
     const bugCloseEl = document.querySelector("[data-bug-close]");
     const bugGithubEl = document.querySelector("[data-bug-github]");
     const bugEmailEl = document.querySelector("[data-bug-email]");
@@ -8821,19 +8875,47 @@
 
     // Pure so the suite can pin it: URL-encodes the description and appends
     // the running version plus whether this copy is hosted or downloaded.
-    function buildBugReportUrl(description) {
-      const body = `${String(description || "").trim()}\n\nApp version: v${APP_VERSION} (${IS_LOCAL_FILE ? "downloaded" : "hosted"})`;
-      return `${BUG_ISSUE_BASE}?title=${encodeURIComponent("Bug report")}&body=${encodeURIComponent(body)}`;
+    // Evren, 2026-07-28: "Open-a-GitHub-issue must autofill BOTH (currently the
+    // issue title is the standard boilerplate)." His summary IS the title now,
+    // and "Bug report" is only the fallback for someone who typed nothing.
+    // Images deliberately do not ride along: a prefilled issue URL carries text
+    // and nothing else, GitHub does not render data: URIs in an issue body, and
+    // a screenshot as base64 is far past any URL length that survives. His call,
+    // asked and answered the same day: "If there are images or other fiels user
+    // can be asked to add it to the github issue themselves."
+    function buildBugReportUrl(description, summary) {
+      const title = String(summary || "").trim() || "Bug report";
+      const said = String(description || "").trim();
+      const body = [
+        said,
+        "",
+        "**Screenshots, exported JSON, console logs:** please attach them here, they cannot travel from the app.",
+        "",
+        `App version: v${APP_VERSION} (${IS_LOCAL_FILE ? "downloaded" : "hosted"})`,
+      ].join("\n");
+      return `${BUG_ISSUE_BASE}?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
     }
 
     function openBugDialog() {
       if (!bugDialogEl || IS_DEMO) return;
       bugDialogEl.hidden = false;
-      bugTextEl?.focus?.();
+      bugSummaryEl?.focus?.();
+    }
+
+    // Evren, 2026-07-28: "reopening the dialog keeps the previous text. Clear it
+    // once either button is clicked. For the email path keep it on screen and
+    // only clear when the menu is closed." So GitHub clears on the spot (the
+    // text is safely in the issue), and the email path holds it, because his
+    // copy may have failed and retyping a bug report twice is the worst outcome
+    // here. Closing is the signal that he is done with it.
+    function clearBugFields() {
+      if (bugSummaryEl) bugSummaryEl.value = "";
+      if (bugTextEl) bugTextEl.value = "";
     }
 
     function closeBugDialog() {
       if (bugDialogEl) bugDialogEl.hidden = true;
+      clearBugFields();
     }
 
     // Evren, 2026-07-28: "the restore-example-board button is far too easy to
@@ -8919,15 +9001,17 @@
       if (event.target === bugDialogEl) closeBugDialog();
     });
     bugGithubEl?.addEventListener("click", () => {
-      window.open?.(buildBugReportUrl(bugTextEl?.value || ""), "_blank", "noopener");
+      window.open?.(buildBugReportUrl(bugTextEl?.value || "", bugSummaryEl?.value || ""), "_blank", "noopener");
       closeBugDialog();
     });
     bugEmailEl?.addEventListener("click", () => {
+      const summary = String(bugSummaryEl?.value || "").trim();
       const description = String(bugTextEl?.value || "").trim();
-      const text = description ? `${FEEDBACK_EMAIL}\n\n${description}` : FEEDBACK_EMAIL;
+      const said = [summary, description].filter(Boolean).join("\n\n");
+      const text = said ? `${FEEDBACK_EMAIL}\n\n${said}` : FEEDBACK_EMAIL;
       const done = () => {
-        closeBugDialog();
-        showToast(`${FEEDBACK_EMAIL}${description ? " and your description" : ""} copied. Please send Evren a kind email.`);
+        // stays open and keeps the text on purpose: see clearBugFields
+        showToast(`${FEEDBACK_EMAIL}${said ? " and what you wrote" : ""} copied. Please send Evren a kind email.`);
       };
       if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(text).then(done).catch(() => {
