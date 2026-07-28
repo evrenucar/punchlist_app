@@ -138,6 +138,22 @@
   document.getElementById("intro").textContent = SPEC.intro;
   document.getElementById("send").textContent = SPEC.sendLabel;
 
+  // Evren, 2026-07-28: "also at the end nice to ask if I have ideas issue or
+  // other things that pop into my mind". It lives here rather than in a spec so
+  // that no round can be written without it. A spec that wants its own wording
+  // supplies an item with this id and keeps it.
+  if (!SPEC.sections.some((s) => s.items.some((i) => i.id === "open-catchall"))) {
+    SPEC.sections = [...SPEC.sections, {
+      heading: "Before you send",
+      items: [{
+        id: "open-catchall",
+        title: "Anything else on your mind",
+        body: "An idea, something that has been annoying you, a bug you never reported, a direction you keep coming back to. Whatever surfaced while you were answering these. It goes on the board in your words, before any code gets written.",
+        placeholder: "Type anything. Screenshots welcome, paste them straight in.",
+      }],
+    }];
+  }
+
   const root = document.getElementById("content");
   const allIds = [];
 
