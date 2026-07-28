@@ -27,7 +27,32 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
-### Session delta 2026-07-28 (Opus 5 — READ THIS FIRST; sync back-in-time fixed v1.5.25, then STOPPED by Evren with a 19-item batch triaged but NOT started)
+### Session delta 2026-07-28 afternoon (Opus 5 — READ THIS FIRST; deploy diagnosed and BLOCKED ON EVREN, keyboard batch shipped v1.5.26)
+
+Resumed the stopped session. Both of Evren's leading items were worked: the deploy (his #1) and the keyboard batch (his #5 answer).
+
+**THE DEPLOY, AND WHY IT IS STILL NOT DONE.** The board item claimed the landing version chips were stale. They are not, and they structurally cannot be: `build-task-board.mjs` stamps the version and the real byte count into `website/index.html` on every build and throws if the stamp fails. GitHub Pages auto-deploys `website/` on every push to main (`.github/workflows/pages.yml`), so the hosted app has been current all along. **The blocker is the GitHub RELEASE.** `checkForUpdate` reads `https://api.github.com/repos/evrenucar/punchlist_app/releases/latest`; the newest release is **v1.5.1, published 2026-07-19**. So `compareVersions(latest, APP_VERSION) <= 0` returns early for every client on 1.5.1 or newer, and twenty-four app builds shipped with nobody notified. That single stale release is the whole reason his devices are old.
+
+Release notes are written and the asset is staged, but **the auto-mode classifier blocks `gh release create`** (same class of block as process-kill, noted in the 2026-07-21 delta). The exact command was posted in chat for him to run with the `!` prefix. Staged files (scratchpad, they will not survive a machine restart, regenerate from `outputs/task-board.html` and re-write notes if they are gone):
+- asset: `.../scratchpad/punchlist-1.5.25.html` (copy of `outputs/task-board.html`)
+- notes: `.../scratchpad/relnotes.md`
+
+**Note for whoever cuts it:** the staged asset and notes are v1.5.25. Main is now v1.5.26, so either re-stage from the current build and tag v1.5.26, or cut v1.5.25 and let the next release carry the keyboard batch. Cutting v1.5.26 with the keyboard section appended is the better call.
+
+**SHIPPED: the keyboard batch, v1.5.26, commits `1215ce3` + `58b9a76`, pushed.** 137 tests pass, up from 134. All five items he ranked first are closed on the board.
+- **Hover tips (his items 11 + 16).** Row controls carry a `title` beside their `aria-label`: checkbox names Ctrl+Enter, both chevrons name the Ctrl+arrow matching their current state, add-child/delete/drag-handle/group-add name theirs, hamburger names Alt+S. Native titles, no tooltip machinery; the shell already used this convention.
+- **Alt+S toggles the sidebar (item 17).** It calls `sidebarToggleEl.click()` rather than reimplementing the drawer-vs-collapse split. Allowed mid-edit since it inserts nothing. Placed before the global handler's `.sidebar` bail so it works from inside the sidebar too.
+- **Settings browses by keyboard (item 5).** **A sidebar keydown handler already existed** (it was easy to miss and I first wrote a second one, which the harness silently shadowed). It is now extended, not duplicated: arrows walk every visible control including selects and text fields (it used to skip both), Right opens a closed `<details>`, Left closes it then climbs to the containing summary, Ctrl+arrows expand/collapse. **Deliberate call needing his verdict:** arrows now walk PAST a select instead of changing its value; Alt+Down still drops it open. That is on the test page as `k-select-arrows` and is a two-line flip if he hates it.
+- **Cheatsheet (item 18).** `website/shortcuts.html`, zero external requests, printable, keycap styling, five picked out at the top. Linked from the landing-page footer and the in-app Help panel. Built only from keys the code actually handles (there is **no Ctrl+F binding** — search is reached with ArrowUp from the top task; do not add it to the sheet).
+- Tests added: `loadSidebarHarness` (records the `.sidebar` keydown handler, fake focus ring, nested details) plus a static test pinning every promised key against its handler, and one asserting the cheatsheet is self-contained and linked from both places.
+
+**Process (his standing rule, item 19) is honored:** `status/review-specs.json` → `/test` was rebuilt for this batch. Five keyboard rows, plus a "still open from the last round" section carrying the release command and the which-devices-are-old question.
+
+**Build notes:** `website/notes.html` gained entries for v1.5.26 AND v1.5.25 (the sync fix had shipped with no note).
+
+**Where the rest of the batch stands:** board group To-do, parent `Evren batch 2026-07-28`. Five closed, one (DEPLOY) annotated and blocked on him, thirteen untouched. His decisions from the triage are unchanged and still binding, listed in the delta below. Next most-decided items: **#10 formatting** (stop RENDERING only, never touch stored text, future-work note required) and **#3 identity** (keep both, device name mandatory, explain the difference in the UI).
+
+### Session delta 2026-07-28 (Opus 5 — sync back-in-time fixed v1.5.25, then STOPPED by Evren with a 19-item batch triaged but NOT started)
 
 **Stopped deliberately.** Evren hit stop right after answering the triage. Nothing is half-edited: the working tree has no app changes pending, 134 tests pass, and every decision he made is recorded below.
 
