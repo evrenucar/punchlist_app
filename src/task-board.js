@@ -3370,9 +3370,21 @@
     // from markdown offsets (the known caret pinch point); this walks the same
     // rules as serializeEditableNode, counting an element's opening marker on
     // the way in and its closing marker only once the point is past it.
+    // Evren, 2026-07-28: "two asterisks go to the line below when I press Enter
+    // with a bolded word at the end of a line". A caret at the end of a rendered
+    // span sits INSIDE it in the DOM, and this walk stopped the moment it found
+    // the caret, so the span's closing marker was never counted. Enter then
+    // split mid-marker: "hello **bold" stayed and "**" went to the new line.
+    // Styling is gone now, but LINKS render the same way and had the identical
+    // bug: "see [docs](url)" split into "see [docs" and "](url)". A caret at the
+    // very end of an element's content is visually AFTER it, so its closing
+    // marker belongs before the caret. Splitting mid-label is still a mid-marker
+    // split, and deliberately left alone: cutting a link in half is a thing you
+    // had to aim for.
     function getMarkdownCaretOffset(element, container, offsetInContainer) {
       let offset = 0;
       let found = false;
+      let atEndOfNode = false;
       function walk(node) {
         if (found) return;
         if (node.nodeType === 3) {
@@ -3381,7 +3393,10 @@
           const text = node.nodeValue || "";
           const upto = node === container ? Math.max(0, Math.min(text.length, offsetInContainer)) : text.length;
           offset += normalizeEditableText(text.slice(0, upto)).length;
-          if (node === container) found = true;
+          if (node === container) {
+            found = true;
+            atEndOfNode = upto === text.length;
+          }
           return;
         }
         const tagName = node.tagName?.toLowerCase();
@@ -3398,9 +3413,12 @@
         for (let index = 0; index < limit && !found; index += 1) walk(kids[index]);
         if (node === container) {
           found = true;
-          return;
+          atEndOfNode = limit === kids.length;
         }
-        if (!found) offset += wrap[1].length;
+        if (!found || atEndOfNode) {
+          offset += wrap[1].length;
+          atEndOfNode = false; // spent here; each level up decides for itself
+        }
       }
       walk(element);
       return offset;

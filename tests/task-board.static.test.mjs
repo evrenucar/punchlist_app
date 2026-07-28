@@ -346,6 +346,37 @@ test("markdown caret offsets map through links", async () => {
   assert.equal(api.getMarkdownCaretOffset(editable, editable, 2), "see [docs](https://e.com)".length);
 });
 
+// Evren, 2026-07-28: "two asterisks go to the line below when I press Enter with
+// a bolded word at the end of a line". The caret sits INSIDE the rendered span,
+// so the walk stopped before counting its closing marker and Enter split
+// mid-marker. Styling is gone, but links render the same way and had it too.
+test("Enter at the end of a line ending in a link does not split the link", async () => {
+  const api = await loadBoardApi();
+  const label = fakeText("docs");
+  const link = fakeEl("A", [label], { href: "https://e.com" });
+  const source = "see [docs](https://e.com)";
+  const editable = fakeEl("DIV", [fakeText("see "), link]);
+
+  // Caret at the end of the link's own text: visually the end of the line.
+  assert.equal(api.getMarkdownCaretOffset(editable, label, 4), source.length, "the closing ](url) is behind the caret");
+  const plan = api.getTaskSplitPlan(source, api.getMarkdownCaretOffset(editable, label, 4));
+  assert.equal(plan.beforeText, source, "the link stays whole");
+  assert.equal(plan.afterText, "", "and the new line starts empty");
+
+  // Caret at the end of the LABEL when the line continues: still after the link.
+  const trailing = fakeEl("DIV", [fakeText("see "), link, fakeText(" end")]);
+  assert.equal(api.getMarkdownCaretOffset(trailing, label, 4), source.length);
+  assert.equal(api.getTaskSplitPlan(`${source} end`, source.length).afterText, " end");
+
+  // Mid-label is untouched: cutting a link in half is a thing you had to aim for.
+  assert.equal(api.getMarkdownCaretOffset(editable, label, 2), "see [do".length);
+
+  // The same shape a bare URL takes: it carries no markers, so nothing to skip.
+  const bare = fakeText("https://e.com");
+  const auto = fakeEl("A", [bare], { href: "https://e.com", dataset: { autoLink: "true" } });
+  assert.equal(api.getMarkdownCaretOffset(fakeEl("DIV", [auto]), bare, 13), "https://e.com".length);
+});
+
 
 test("touch drag requires a long press and the board exposes an easy top drop target", async () => {
   const api = await loadBoardApi();
