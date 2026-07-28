@@ -236,53 +236,63 @@ test("task text renders clickable URLs and selected URL paste creates markdown l
   assert.match(api.renderInlineMarkdown(`Open ${url}`), /data-auto-link="true"/);
 });
 
-test("inline markdown renders bold, italic, and strikethrough", async () => {
+// Evren, 2026-07-28: "get rid of all formatting inside text", and he picked the
+// render-side removal over stripping markers from what he has stored. So the
+// markers come back as themselves and his text is never touched. Links are not
+// formatting and stay.
+test("style markers render as literal text; only links still render", async () => {
   const api = await loadBoardApi();
 
-  assert.equal(api.renderInlineMarkdown("a **bold** b"), "a <strong>bold</strong> b");
-  assert.equal(api.renderInlineMarkdown("a *italic* b"), "a <em>italic</em> b");
-  assert.equal(api.renderInlineMarkdown("a ~~gone~~ b"), "a <del>gone</del> b");
-  assert.equal(api.renderInlineMarkdown("***both***"), "<strong><em>both</em></strong>");
-  assert.equal(api.renderInlineMarkdown("**a *b* c**"), "<strong>a <em>b</em> c</strong>");
-  // italic at the very end of a bold span (what stacked toggles produce)
-  assert.equal(api.renderInlineMarkdown("**bold *in***"), "<strong>bold <em>in</em></strong>");
-  // a style span may contain a link
-  assert.match(
-    api.renderInlineMarkdown("**see [x](https://e.com) now**"),
-    /^<strong>see <a[^>]+href="https:\/\/e\.com"[^>]*>x<\/a> now<\/strong>$/,
-  );
-  // bare URLs containing marker chars stay links, not styles
-  assert.match(api.renderInlineMarkdown("https://e.com/~a and https://e.com/~b"), /data-auto-link="true"/);
-  assert.doesNotMatch(api.renderInlineMarkdown("https://e.com/~a and https://e.com/~b"), /<del>/);
-  // spaced-out asterisks are arithmetic, not emphasis
-  assert.equal(api.renderInlineMarkdown("2 * 3 * 4"), "2 * 3 * 4");
-  assert.equal(api.renderInlineMarkdown("a ** b"), "a ** b");
-  // markup in content stays escaped
-  assert.equal(api.renderInlineMarkdown("**<i>**"), "<strong>&lt;i&gt;</strong>");
+  for (const source of [
+    "a **bold** b",
+    "a *italic* b",
+    "a ~~gone~~ b",
+    "***both***",
+    "**a *b* c**",
+    "a _italic_ b",
+    "a __bold__ b",
+    "___both___",
+    "2 * 3 * 4",
+    "snake_case_name",
+    "__init__ and __main__",
+    "a*b*c",
+  ]) {
+    assert.equal(api.renderInlineMarkdown(source), source, `${source} renders as itself`);
+  }
+  for (const tag of ["<strong>", "<em>", "<del>"]) {
+    assert.doesNotMatch(api.renderInlineMarkdown("**a** *b* ~~c~~ __d__ _e_"), new RegExp(tag));
+  }
 
-  // Underscore emphasis (Evren 2026-07-26: "_italic_ and __bold__ should render")
-  assert.equal(api.renderInlineMarkdown("a _italic_ b"), "a <em>italic</em> b");
-  assert.equal(api.renderInlineMarkdown("a __bold__ b"), "a <strong>bold</strong> b");
-  assert.equal(api.renderInlineMarkdown("___both___"), "<strong><em>both</em></strong>");
-  assert.equal(api.renderInlineMarkdown("__a _b_ c__"), "<strong>a <em>b</em> c</strong>");
-  // mixed markers nest the same way stars do
-  assert.equal(api.renderInlineMarkdown("**a _b_ c**"), "<strong>a <em>b</em> c</strong>");
+  // Markup inside the text is still escaped, markers or not.
+  assert.equal(api.renderInlineMarkdown("**<i>**"), "**&lt;i&gt;**");
+  // Newlines still break, that is layout rather than formatting.
+  assert.equal(api.renderInlineMarkdown("a\nb"), "a<br>b");
 
-  // The intraword guard. Without it every identifier in a task turns italic,
-  // which is exactly why CommonMark treats _ and * differently here.
-  assert.equal(api.renderInlineMarkdown("snake_case_name"), "snake_case_name");
-  assert.equal(api.renderInlineMarkdown("build_task_board.mjs"), "build_task_board.mjs");
-  assert.equal(api.renderInlineMarkdown("a__b__c"), "a__b__c");
-  assert.equal(api.renderInlineMarkdown("__init__ and __main__"), "<strong>init</strong> and <strong>main</strong>");
-  // stars still emphasise intraword, unchanged behaviour
-  assert.equal(api.renderInlineMarkdown("a*b*c"), "a<em>b</em>c");
-  // underscores in a URL are part of the URL, the link branch still wins
-  assert.match(api.renderInlineMarkdown("https://e.com/a_b_c"), /data-auto-link="true"/);
-  assert.doesNotMatch(api.renderInlineMarkdown("https://e.com/a_b_c"), /<em>/);
-  assert.doesNotMatch(api.renderInlineMarkdown("[x](https://e.com/a_b_c)"), /<em>/);
-  // spaced-out underscores are not emphasis, same rule the stars follow
-  assert.equal(api.renderInlineMarkdown("a _ b _ c"), "a _ b _ c");
-  assert.equal(api.renderInlineMarkdown("a __ b"), "a __ b");
+  // Links: both spellings, including URLs carrying marker characters.
+  assert.match(api.renderInlineMarkdown("see [x](https://e.com) now"), /<a[^>]+href="https:\/\/e\.com"[^>]*>x<\/a>/);
+  assert.match(api.renderInlineMarkdown("https://e.com/~a_b_c"), /data-auto-link="true"/);
+  assert.equal(api.renderInlineMarkdown("**see [x](https://e.com) now**").startsWith("**see "), true, "a marker beside a link stays literal");
+});
+
+test("pulling the styling never rewrites a single character he stored", async () => {
+  // The whole reason he chose this option over stripping the markers. A board
+  // full of **bold** must survive load, normalize, and an unrelated edit with
+  // its text byte-identical.
+  const api = await loadBoardApi();
+  const typed = "**bold** _under_ ~~gone~~ snake_case https://e.com/a_b";
+  const task = api.state.groups[0].tasks[0];
+  task.text = typed;
+
+  api.normalizeState(api.state);
+  assert.equal(api.state.groups[0].tasks[0].text, typed, "normalize leaves it alone");
+
+  api.setTaskCompleted(task.id, true);
+  api.setTaskCompleted(task.id, false);
+  assert.equal(api.state.groups[0].tasks[0].text, typed, "an unrelated edit leaves it alone");
+
+  // And a Markdown export still carries exactly what he typed, so the markers
+  // mean something again the moment they land in Notion or Obsidian.
+  assert.match(api.tasksToMarkdown([{ ...task, text: typed }]), /\*\*bold\*\* _under_ ~~gone~~/);
 });
 
 function fakeText(value) {
@@ -301,7 +311,10 @@ function fakeEl(tagName, childNodes, extra = {}) {
   };
 }
 
-test("styled DOM serializes back to the same markdown (paste/export round-trip)", async () => {
+test("a rich paste arrives as plain text and never adds markers of its own", async () => {
+  // Pasting bold text out of a browser or a document drops real <strong> nodes
+  // into the editable. They used to serialize back to **text**, which now that
+  // nothing renders would mean a paste silently writes asterisks into his task.
   const api = await loadBoardApi();
   const editable = fakeEl("DIV", [
     fakeText("a "),
@@ -312,117 +325,27 @@ test("styled DOM serializes back to the same markdown (paste/export round-trip)"
     fakeEl("A", [fakeText("x")], { href: "https://e.com" }),
   ]);
 
-  assert.equal(api.getMarkdownTextFromEditable(editable), "a **bold *in*** then ~~gone~~ [x](https://e.com)");
-  // legacy browser tags map too (execCommand leftovers)
-  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("B", [fakeText("b")]), fakeEl("S", [fakeText("s")])])), "**b**~~s~~");
-
-  // Underscore emphasis normalises to the star form on the next edit, and that
-  // is deliberate. _italic_ and *italic* both render to <em>, and <em> has one
-  // serialisation. Preserving which marker the author typed would mean marking
-  // up the DOM to remember it, for zero visual difference. Pinning it here so
-  // the normalisation is a decision on the record, not a surprise later.
-  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("EM", [fakeText("i")])])), "*i*");
-  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("STRONG", [fakeText("b")])])), "**b**");
+  assert.equal(api.getMarkdownTextFromEditable(editable), "a bold in then gone [x](https://e.com)");
+  // legacy browser tags too (execCommand leftovers)
+  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeEl("B", [fakeText("b")]), fakeEl("S", [fakeText("s")])])), "bs");
+  // markers he typed himself are ordinary characters and survive untouched
+  assert.equal(api.getMarkdownTextFromEditable(fakeEl("DIV", [fakeText("**mine** stays")])), "**mine** stays");
 });
 
-test("markdown caret offsets map through links and style tags", async () => {
+test("markdown caret offsets map through links", async () => {
   const api = await loadBoardApi();
   const label = fakeText("docs");
-  const boldText = fakeText("bold");
   const link = fakeEl("A", [label], { href: "https://e.com" });
-  const strong = fakeEl("STRONG", [boldText]);
   const tail = fakeText(" end");
-  const editable = fakeEl("DIV", [fakeText("see "), link, fakeText(" "), strong, tail]);
+  const editable = fakeEl("DIV", [fakeText("see "), link, tail]);
 
-  // markdown: see [docs](https://e.com) **bold** end
+  // markdown: see [docs](https://e.com) end
   assert.equal(api.getMarkdownCaretOffset(editable, label, 2), "see [do".length);
-  assert.equal(api.getMarkdownCaretOffset(editable, boldText, 4), "see [docs](https://e.com) **bold".length);
-  assert.equal(api.getMarkdownCaretOffset(editable, tail, 4), "see [docs](https://e.com) **bold** end".length);
+  assert.equal(api.getMarkdownCaretOffset(editable, tail, 4), "see [docs](https://e.com) end".length);
   // element boundary: point after the second child (the link) counts its close
   assert.equal(api.getMarkdownCaretOffset(editable, editable, 2), "see [docs](https://e.com)".length);
 });
 
-test("toggleMarkdownStyle wraps, unwraps, and stays idempotent", async () => {
-  const api = await loadBoardApi();
-  const t = (text, start, end, marker) => api.toggleMarkdownStyle(text, start, end, marker);
-
-  // wrap a selection
-  assert.deepEqual({ ...t("hello world", 6, 11, "**") }, { text: "hello **world**", start: 8, end: 13, caret: 15 });
-  assert.equal(t("hello world", 6, 11, "*").text, "hello *world*");
-  assert.equal(t("hello world", 6, 11, "~~").text, "hello ~~world~~");
-  // toggling the returned range unwraps back to the original (idempotence)
-  for (const marker of ["**", "*", "~~"]) {
-    const once = t("hello world", 6, 11, marker);
-    const twice = t(once.text, once.start, once.end, marker);
-    assert.equal(twice.text, "hello world");
-    assert.equal(twice.start, 6);
-    assert.equal(twice.end, 11);
-  }
-  // selection that includes the markers unwraps too
-  assert.equal(t("**bold**", 0, 8, "**").text, "bold");
-  assert.equal(t("a ~~x~~ b", 2, 7, "~~").text, "a x b");
-  // A part-bold selection becomes all bold. It used to nest the markers into
-  // "****a** x **b****", which renders literal stars (Evren, 2026-07-26:
-  // "bolding things a second time makes things even bolder").
-  assert.equal(t("**a** x **b**", 0, 13, "**").text, "**a x b**");
-  assert.equal(t("hello **test** world", 0, 20, "**").text, "**hello test world**");
-  assert.equal(t("hello *test* world", 0, 18, "*").text, "*hello test world*");
-  // markers are shared between styles: taking bold off *** leaves the italic
-  assert.equal(t("a ***both*** b", 0, 14, "**").text, "**a *both* b**");
-  // ...and italic over a bold word lifts the italic star only, bold stands
-  assert.equal(t("a ***both*** b", 0, 14, "*").text, "*a **both** b*");
-  // whitespace at the selection edges stays outside the markers
-  assert.equal(t("hello world", 5, 11, "**").text, "hello **world**");
-  // collapsed caret toggles the word under it
-  assert.equal(t("hello world", 8, 8, "**").text, "hello **world**");
-  assert.equal(t("hello world", 8, 8, "~~").text, "hello ~~world~~");
-  // collapsed caret inside a styled word unwraps that style
-  assert.equal(t("hello **world**", 10, 10, "**").text, "hello world");
-  // stacking styles: italic on a bold word nests, bold on both peels bold
-  assert.equal(t("**bold**", 4, 4, "*").text, "***bold***");
-  assert.equal(t("***bold***", 5, 5, "**").text, "*bold*");
-  assert.equal(t("***bold***", 5, 5, "*").text, "**bold**");
-  // a selection spanning a link wraps around the whole thing
-  const linky = "see [x](https://e.com) now";
-  assert.equal(t(linky, 0, linky.length, "**").text, `**${linky}**`);
-  // nothing to toggle: empty text, whitespace-only, or out-of-range offsets
-  assert.equal(t("", 0, 0, "**"), null);
-  assert.equal(t("   ", 1, 1, "**"), null);
-  assert.equal(t("a b", 0, 0, "**").text, "**a** b");
-  assert.equal(t("a  b", 2, 2, "**"), null);
-});
-
-// Evren, 2026-07-26: "bold ** are sticky at the end of the line". After Ctrl+B
-// the caret sat inside <strong>, so the next character joined the bold.
-test("the caret steps out of a style span at its closing edge", async () => {
-  const api = await loadBoardApi();
-  const el = (tag, kids) => {
-    const node = { tagName: tag, childNodes: kids, lastChild: kids[kids.length - 1] };
-    for (const kid of kids) kid.parentNode = node;
-    return node;
-  };
-  const text = (value) => ({ nodeType: 3, textContent: value, childNodes: [] });
-
-  // "hello <strong>test</strong>" — caret at the end of "test" escapes the strong
-  const bold = text("test");
-  const root = el("div", [text("hello "), el("strong", [bold])]);
-  assert.equal(api.escapeClosingStyleEdge(bold, root).tagName, "strong");
-
-  // nested ***both*** escapes all the way out to the outermost span
-  const inner = text("both");
-  const nested = el("div", [el("strong", [el("em", [inner])])]);
-  assert.equal(api.escapeClosingStyleEdge(inner, nested).tagName, "strong");
-
-  // plain text, and text that only ends a link, stay put
-  const plain = text("hello");
-  assert.equal(api.escapeClosingStyleEdge(plain, el("div", [plain])), null);
-  const linked = text("label");
-  assert.equal(api.escapeClosingStyleEdge(linked, el("div", [el("a", [linked])])), null);
-
-  // mid-span: the caret ends this text node but not the span, so it stays put
-  const head = text("a");
-  assert.equal(api.escapeClosingStyleEdge(head, el("div", [el("strong", [head, text("b")])])), null);
-});
 
 test("touch drag requires a long press and the board exposes an easy top drop target", async () => {
   const api = await loadBoardApi();

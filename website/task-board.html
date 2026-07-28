@@ -2854,7 +2854,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.26";
+    const APP_VERSION = "1.5.27";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -6185,8 +6185,10 @@
       return true;
     }
 
-    const INLINE_STYLE_TAGS = { strong: "**", b: "**", em: "*", i: "*", del: "~~", s: "~~", strike: "~~" };
-
+    // A <strong> can still turn up in an editable, from a rich paste out of a
+    // browser or a document. It used to serialize back as **text**, which now
+    // that nothing renders would mean pasting bold text SILENTLY ADDS asterisks
+    // to what he typed. It comes in as plain text instead.
     function serializeEditableNode(node) {
       if (node.nodeType === 3) return node.nodeValue || "";
       const tagName = node.tagName?.toLowerCase();
@@ -6197,9 +6199,7 @@
           ? href
           : `[${node.textContent || href}](${href})`;
       }
-      const inner = [...(node.childNodes || [])].map(serializeEditableNode).join("");
-      const marker = INLINE_STYLE_TAGS[tagName];
-      return marker ? marker + inner + marker : inner;
+      return [...(node.childNodes || [])].map(serializeEditableNode).join("");
     }
 
     function getMarkdownTextFromEditable(valueOrElement) {
@@ -6209,9 +6209,9 @@
       return normalizeEditableText([...valueOrElement.childNodes].map(serializeEditableNode).join("")).trim();
     }
 
-    // Markdown offset of a DOM point inside a task editable. Rendered text
-    // hides link/style markers, so DOM-range character counts diverge from
-    // markdown offsets (the known caret pinch point); this walks the same
+    // Markdown offset of a DOM point inside a task editable. A rendered link
+    // hides its [label](url) markers, so DOM-range character counts diverge
+    // from markdown offsets (the known caret pinch point); this walks the same
     // rules as serializeEditableNode, counting an element's opening marker on
     // the way in and its closing marker only once the point is past it.
     function getMarkdownCaretOffset(element, container, offsetInContainer) {
@@ -6233,10 +6233,9 @@
           offset += 1;
           return;
         }
-        const styleMarker = INLINE_STYLE_TAGS[tagName];
         const wrap = tagName === "a" && node.dataset?.autoLink !== "true"
           ? ["[", `](${node.getAttribute("href") || ""})`]
-          : styleMarker ? [styleMarker, styleMarker] : ["", ""];
+          : ["", ""];
         offset += wrap[0].length;
         const kids = [...(node.childNodes || [])];
         const limit = node === container ? Math.max(0, Math.min(offsetInContainer, kids.length)) : kids.length;
@@ -6249,97 +6248,6 @@
       }
       walk(element);
       return offset;
-    }
-
-    // Toggle an inline style marker over [start, end) of markdown `text`.
-    // Pure. Collapsed selections expand to the word under the caret (marker
-    // chars excluded, so a caret inside **bold** grabs just "bold"). Returns
-    // null when there is nothing to toggle, else { text, start, end, caret }
-    // with markdown offsets; caret sits just past the toggled span.
-    function toggleMarkdownStyle(text, start, end, marker) {
-      const src = String(text || "");
-      const len = marker.length;
-      const ch = marker[0];
-      let from = Math.max(0, Math.min(src.length, Number(start) || 0));
-      let to = Math.max(from, Math.min(src.length, Number(end) || 0));
-      if (from === to) {
-        const isWordChar = (value) => Boolean(value) && !/[\s*~]/.test(value);
-        while (isWordChar(src[from - 1])) from -= 1;
-        while (isWordChar(src[to])) to += 1;
-        if (from === to) return null;
-      }
-      while (from < to && /\s/.test(src[from])) from += 1;
-      while (to > from && /\s/.test(src[to - 1])) to -= 1;
-      if (from === to) return null;
-      // marker-char runs hugging the selection decide presence: for * a run
-      // is italic only when its count is odd (** is bold, *** is both); for
-      // ** and ~~ any run of 2+ carries the style.
-      let before = 0;
-      while (src[from - before - 1] === ch) before += 1;
-      let after = 0;
-      while (src[to + after] === ch) after += 1;
-      const wrapped = len === 2 ? before >= 2 && after >= 2 : before % 2 === 1 && after % 2 === 1;
-      if (wrapped) {
-        const next = src.slice(0, from - len) + src.slice(from, to) + src.slice(to + len);
-        return { text: next, start: from - len, end: to - len, caret: to - len };
-      }
-      const sel = src.slice(from, to);
-      const inner = sel.slice(len, -len);
-      if (sel.length >= len * 2 + 1 && sel.startsWith(marker) && sel.endsWith(marker) && !inner.includes(marker)) {
-        return { text: src.slice(0, from) + inner + src.slice(to), start: from, end: to - len * 2, caret: to - len * 2 };
-      }
-      // Wrapping a selection that ALREADY carries this style somewhere inside
-      // just nests the markers: bolding all of "hello **test** world" produced
-      // "**hello **test** world**", which renders literal stars (Evren,
-      // 2026-07-26: "bolding things a second time makes things even bolder").
-      // Take this style off the runs inside first, so bolding a part-bold
-      // selection makes all of it bold. Runs are shared — *** is bold AND
-      // italic — so lift only this marker's chars and leave the rest standing.
-      const body = sel.replace(new RegExp(`\\${ch}+`, "g"), (run) => (len === 2
-        ? (run.length >= 2 ? ch.repeat(run.length - 2) : run)
-        : (run.length % 2 === 1 ? ch.repeat(run.length - 1) : run)));
-      return {
-        text: src.slice(0, from) + marker + body + marker + src.slice(to),
-        start: from + len,
-        end: from + len + body.length,
-        caret: from + len * 2 + body.length,
-      };
-    }
-
-    function renderedTextLength(markdown) {
-      const probe = document.createElement?.("div");
-      if (!probe) return String(markdown || "").length;
-      probe.innerHTML = renderInlineMarkdown(markdown);
-      return (probe.textContent || "").length;
-    }
-
-    // Ctrl+B / Ctrl+I / Ctrl+Shift+S inside a task editable (board row or
-    // focus overlay): toggle the marker on the markdown model, re-render just
-    // this editable, and drop the caret after the toggled span.
-    function toggleEditableStyle(editable, marker) {
-      const selection = window.getSelection?.();
-      if (!selection || !selection.rangeCount || !selectionContainsEditableContents(editable)) return false;
-      const id = editable.dataset.taskText || editable.dataset.focusTaskText;
-      const found = id ? findTask(id) : null;
-      if (!found) return false;
-      const range = selection.getRangeAt(0);
-      // untrimmed serialization so the DOM-derived offsets line up
-      const source = normalizeEditableText([...editable.childNodes].map(serializeEditableNode).join(""));
-      const start = getMarkdownCaretOffset(editable, range.startContainer, range.startOffset);
-      const end = getMarkdownCaretOffset(editable, range.endContainer, range.endOffset);
-      const toggled = toggleMarkdownStyle(source, Math.min(start, end), Math.max(start, end), marker);
-      if (!toggled) return false;
-      pushUndoState("board", "Formatted task text");
-      const lead = toggled.text.length - toggled.text.replace(/^\s+/, "").length;
-      const item = resolveTaskItem(found.item);
-      item.text = toggled.text.trim();
-      saveStateDebounced();
-      if (editable.dataset.focusTaskText) boardStaleBehindFocus = true;
-      editable.innerHTML = renderInlineMarkdown(item.text);
-      // caret target in rendered-text coordinates: render the markdown prefix
-      // up to just past the toggled span and measure its visible length
-      placeCaretAtTextOffset(editable, renderedTextLength(item.text.slice(0, Math.max(0, toggled.caret - lead))));
-      return true;
     }
 
     function applyUrlPasteToText(text, start, end, url) {
@@ -6410,40 +6318,7 @@
       return false;
     }
 
-    // A rendered offset that lands on a style span's closing edge is ambiguous:
-    // inside the span or just past it. Chrome keeps the caret inside, so the
-    // next character joins the bold (Evren: "bold ** are sticky at the end of
-    // the line"). Step outside instead — leaving a style should end it.
-    // Moving the range out is not enough: Chrome takes the typing style from
-    // the character BEFORE the caret wherever the range sits, so the caret
-    // needs a character of its own to stand after. That is CARET_BOUNDARY, a
-    // zero-width node the serializers already strip and the next render drops.
-    function escapeClosingStyleEdge(node, element) {
-      let edge = node;
-      while (edge.parentNode && edge.parentNode !== element
-        && edge.parentNode.lastChild === edge
-        && INLINE_STYLE_TAGS[edge.parentNode.tagName?.toLowerCase()]) edge = edge.parentNode;
-      return edge === node ? null : edge;
-    }
 
-    // ...and the boundary must never spend a keystroke of its own. Backspace
-    // eating an invisible character reads as a dead key, so any non-typing key
-    // drops it first and inherits its spot.
-    function dropCaretBoundary() {
-      const selection = window.getSelection?.();
-      if (!selection || !selection.rangeCount || !selection.isCollapsed) return;
-      const range = selection.getRangeAt(0);
-      const node = range.startContainer;
-      if (node.nodeType !== 3 || node.nodeValue !== CARET_BOUNDARY || range.startOffset !== 1) return;
-      const parent = node.parentNode;
-      const at = [...parent.childNodes].indexOf(node);
-      parent.removeChild(node);
-      const next = document.createRange();
-      next.setStart(parent, at);
-      next.collapse(true);
-      selection.removeAllRanges();
-      selection.addRange(next);
-    }
 
     function placeCaretAtTextOffset(element, offset) {
       element.focus();
@@ -6454,12 +6329,6 @@
         if (remaining <= node.textContent.length) {
           const range = document.createRange();
           range.setStart(node, remaining);
-          const edge = remaining === node.textContent.length ? escapeClosingStyleEdge(node, element) : null;
-          if (edge) {
-            const boundary = document.createTextNode(CARET_BOUNDARY);
-            edge.parentNode.insertBefore(boundary, edge.nextSibling);
-            range.setStart(boundary, 1);
-          }
           range.collapse(true);
           const selection = window.getSelection();
           selection.removeAllRanges();
@@ -7700,43 +7569,28 @@
         .replace(/"/g, "&quot;");
     }
 
+    // ponytail: inline text STYLING was pulled on Evren's call, 2026-07-28
+    // ("get rid of all formatting inside text", too many bugs). He chose the
+    // non-destructive option deliberately: this is a RENDER-side removal only,
+    // so **bold** shows its asterisks again and every character he ever stored
+    // is exactly as he typed it. No migration ran, nothing was rewritten, and
+    // bringing styling back is re-adding the style branches to the pattern
+    // below plus the Ctrl+B/I/S handler. The pieces that went with it:
+    // toggleMarkdownStyle, toggleEditableStyle, renderedTextLength and the
+    // INLINE_STYLE_TAGS serializer wrap, all in git as of v1.5.26.
+    // LINKS ARE NOT FORMATTING and stay: they are how you leave the app.
     function renderInlineMarkdown(value) {
       const source = String(value || "");
-      // Links and bare URLs first in the alternation (a URL may contain * or
-      // ~, so links must win); style spans (*** ** * ~~) render recursively
-      // so **a [link](u) b** styles both. Closing markers reject a trailing
-      // marker char, otherwise **bold *in*** would close two chars early.
-      // Italic WRAPPING bold (*a **b** c*) is beyond one regex pass and
-      // degrades to literal markers; the common nesting (***both***, bold
-      // around italic) works.
-      // Underscore forms (___both___ __bold__ _italic_) come last so the star
-      // and link branches keep their existing precedence. They carry flanking
-      // guards the star forms do not need: an underscore run only opens or
-      // closes at a non-word edge, so snake_case_names, file_name.js and
-      // __dunder__ inside a word stay literal. That is CommonMark's intraword
-      // rule, and without it every identifier in a task would turn italic.
-      const pattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)|\*\*\*(?!\s)(.+?)(?<!\s)\*\*\*(?!\*)|\*\*(?!\s)(.+?)(?<!\s)\*\*(?!\*)|\*(?!\s)(.+?)(?<!\s)\*(?!\*)|~~(?!\s)(.+?)(?<!\s)~~(?!~)|(?<![\w_])___(?!\s)(.+?)(?<!\s)___(?![\w_])|(?<![\w_])__(?!\s)(.+?)(?<!\s)__(?![\w_])|(?<![\w_])_(?!\s)(.+?)(?<!\s)_(?![\w_])/gi;
+      const pattern = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<]+)/gi;
       let html = "";
       let cursor = 0;
       let match;
       while ((match = pattern.exec(source))) {
         html += escapeHtml(source.slice(cursor, match.index));
-        const bothStyles = match[4] || match[8];
-        const boldOnly = match[5] || match[9];
-        const italicOnly = match[6] || match[10];
-        const styled = bothStyles || boldOnly || italicOnly || match[7];
-        if (styled) {
-          const inner = renderInlineMarkdown(styled);
-          html += bothStyles ? `<strong><em>${inner}</em></strong>`
-            : boldOnly ? `<strong>${inner}</strong>`
-            : italicOnly ? `<em>${inner}</em>`
-            : `<del>${inner}</del>`;
-        } else {
-          const label = match[1] || match[3];
-          const url = match[2] || match[3];
-          const autoLink = match[3] ? ' data-auto-link="true"' : "";
-          html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Opens in a new tab"${autoLink}>${escapeHtml(label)}</a>`;
-        }
+        const label = match[1] || match[3];
+        const url = match[2] || match[3];
+        const autoLink = match[3] ? ' data-auto-link="true"' : "";
+        html += `<a class="task-link" data-task-link href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Opens in a new tab"${autoLink}>${escapeHtml(label)}</a>`;
         cursor = pattern.lastIndex;
       }
       return html + escapeHtml(source.slice(cursor)).replace(/\n/g, "<br>");
@@ -9281,7 +9135,6 @@
     });
 
     document.addEventListener("keydown", (event) => {
-      if (event.key.length !== 1) dropCaretBoundary();
       if (event.key === "Escape" && lightboxView) {
         event.preventDefault();
         closeLightbox();
@@ -9374,23 +9227,11 @@
         return;
       }
 
-      // Inline formatting (Evren 2026-07-21): Ctrl+B / Ctrl+I / Ctrl+Shift+S
-      // toggle **bold** / *italic* / ~~strike~~ on the markdown model. Task
-      // text only (board rows and the focus overlay); captions, group titles,
-      // search, chat and other inputs keep their browser defaults. !altKey
-      // keeps AltGr (Ctrl+Alt) layouts safe.
-      if ((event.ctrlKey || event.metaKey) && !event.altKey) {
-        const key = event.key.toLowerCase();
-        const marker = !event.shiftKey && key === "b" ? "**"
-          : !event.shiftKey && key === "i" ? "*"
-          : event.shiftKey && key === "s" ? "~~" : null;
-        const styleTarget = marker ? event.target.closest?.("[data-task-text], [data-focus-task-text]") : null;
-        if (styleTarget) {
-          event.preventDefault();
-          toggleEditableStyle(styleTarget, marker);
-          return;
-        }
-      }
+      // Ctrl+B / Ctrl+I / Ctrl+Shift+S went with the styling (see the ponytail
+      // note on renderInlineMarkdown). They only ever wrote markers that now
+      // render as themselves, so keeping them would type asterisks into his
+      // text on a keypress that promises bold. The browser's own handlers are
+      // inert in a contenteditable we re-render from a text model.
 
       if (event.key.toLowerCase() === "z" && event.ctrlKey) {
         if (shouldUseBoardUndo(isEditingText)) {
@@ -9948,8 +9789,6 @@
       renderInlineMarkdown,
       getMarkdownTextFromEditable,
       getMarkdownCaretOffset,
-      toggleMarkdownStyle,
-      escapeClosingStyleEdge,
       shouldCancelLongPress,
       resolveTaskItem,
       getLinkCount,
