@@ -1719,102 +1719,152 @@
   {
     "key": "test",
     "spec": {
-      "title": "Test round — v1.5.31, and what I do next",
-      "intro": "Two halves. The top is what shipped since you last tested, tick what works. The bottom is the eight things left in your batch: tell me the order and I will work down it. Every field takes a pasted screenshot now, as many as you like.",
-      "sendLabel": "Send results and priorities",
+      "title": "Test round — v1.5.32, the four you ranked",
+      "intro": "One question at a time now, your ask. Back and Next move you, skipping is fine, and the last stop shows everything you said before it goes anywhere. Any field takes pasted screenshots.",
+      "storageKey": "punchlist-test-round-v32",
+      "sendLabel": "Send it",
       "chatPrefix": "Test round:",
-      "storageKey": "punchlist-test-round-v1",
       "sections": [
         {
-          "heading": "Shipped since your last round — v1.5.31",
+          "heading": "The four you ranked — v1.5.32",
           "items": [
             {
-              "id": "v31-forget-device",
-              "title": "Forgetting a device from the sync list",
-              "body": "Your ask, and it was small enough to build rather than write down. Settings, Sync: hover a device in the list and press the x. It goes from the list on every device at the next sync, and Ctrl+Z brings it back. The device you are on has no x, because it would re-add itself on the next save and the button would look broken. The line under the list, and the sync guide it links to, are careful about one thing: forgetting TIDIES the list, it does not revoke access. A device still holding the token rejoins when it syncs.",
+              "id": "v32-data-safety",
+              "title": "Restoring the example board is hard to do by accident now",
+              "body": "You said it was far too easy to press. It was a full-width red button in the middle of Settings behind a single browser confirm. Now it is a small underlined line at the very bottom, under Report a bug. Pressing it opens a dialog that counts what you are about to lose in your own numbers, has Export JSON right there so the backup is one click, and asks a second time with different wording before anything happens. Try it and cancel, or press through twice on a board you do not care about.",
               "answers": {
                 "options": [
-                  "Works, and the difference between forgetting and revoking is clear",
-                  "Works, but the wording about revoking is confusing",
-                  "Something is wrong with it",
+                  "Safe now, and the dialog says the right things",
+                  "Safe, but the wording could be better",
+                  "Still too easy to trigger",
+                  "Something is broken",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "Screenshot welcome, just paste it here."
+              "placeholder": "Paste a screenshot if anything looks off."
             },
             {
-              "id": "v31-image-paste",
-              "title": "Pasting images into these fields — test it right here",
-              "body": "Your ask, and this page is the test. Copy any screenshot and paste it into this box. It should appear as a thumbnail with an x to remove it, and you can add as many as you like, to any question on the page. Big screenshots get shrunk on the way in so they actually send. When you press send, your answers go first and each image follows captioned with the question it belongs to.",
+              "id": "v32-settings-rows",
+              "title": "Views, History and Help are the same row now",
+              "body": "Views was a 32px uppercase caption with no icon while the other two were 44px rows with icons, and the gaps between them ran 10px, 12px and 22px depending on where you looked. Views is a proper row with its own icon now, and every row in the sidebar sits on the same 10px gap. Views also takes the blue highlight when it is open, the same way History does.",
               "answers": {
                 "options": [
-                  "Pasted fine, and the images came through",
-                  "Pasted, but something about it is awkward",
-                  "Could not get an image in",
+                  "Even, and it reads as one list now",
+                  "Even, but I would change the Views icon",
+                  "The blue highlight on Views is too loud",
+                  "Still looks off",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "Paste a screenshot here to test it, any screenshot will do."
+              "placeholder": "A screenshot of the sidebar tells me more than words here."
             },
             {
-              "id": "v31-regression",
-              "title": "Anything from today that got worse",
-              "body": "Eleven changes went out today across seven builds. Everything I could test I tested, but you are the one using it. This is the catch-all: anything that felt fine yesterday and does not now, whether or not it is on this list.",
+              "id": "v32-drop-line",
+              "title": "The drop indicator is a straight line",
+              "body": "It used an inset shadow, which browsers paint inside the border box, so it followed the row corners and curled up at both ends. It is a positioned rule now: 3px, straight across, corners ignored. Drag a task between two others and watch the line.",
+              "answers": {
+                "options": [
+                  "Clean straight line, that is what I wanted",
+                  "Straight, but too thick or too thin",
+                  "Hard to see where it will land",
+                  "Still curls or reads as a border",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "Paste a screenshot mid-drag if it still looks wrong."
+            },
+            {
+              "id": "v32-dead-scroll",
+              "title": "The dead scroll in the help menu, where I need you",
+              "body": "Honest answer first: I could not make it happen. I drove real mouse wheel events over the help text at four window sizes, with Settings open and closed, scrolled to the top, the middle and the bottom, and it scrolled every time. So I went hunting for anything that eats input over the sidebar and found one, now fixed: open the sidebar drawer while the window is narrow (under 980px), then widen the window. The drawer keeps its full-screen backdrop up, and once the window is wide the sidebar sits behind that backdrop, so every wheel and every click over the sidebar hits the backdrop instead of the app. The page looks slightly dimmed while it is happening. Was that yours?",
+              "answers": {
+                "options": [
+                  "That was it, it is fine now",
+                  "Not that, and it is still dead",
+                  "Not that, but I cannot reproduce it any more either",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If it is still dead: how wide is your window, which sections are open, and is the page dimmed? A shot of the whole window would settle it."
+            },
+            {
+              "id": "v32-regression",
+              "title": "Anything from this batch that made something else worse",
+              "body": "Four changes went into the sidebar and the board in one build. You are the one who uses it every day.",
               "answers": {
                 "options": [
                   "Nothing got worse",
-                  "Something did, see my note",
-                  "Have not used it enough to say"
+                  "Something got worse, see my note"
                 ]
               },
-              "placeholder": "What changed for the worse, and where."
+              "placeholder": "What broke, and where."
             }
           ]
         },
         {
-          "heading": "What I do next — pick the order",
+          "heading": "The two things you just asked for",
+          "items": [
+            {
+              "id": "v32-stepper",
+              "title": "This page, one question at a time",
+              "body": "Your words: step by step questionnaires, before work, after things are completed, and when I am grilling you. This is the shared harness, so every review page from now on works this way: one question, Back and Next, a bar for how much is left, and a final list of everything you said with a Change button on each line before any of it is sent. Where you stopped is remembered if you close the tab.",
+              "answers": {
+                "options": [
+                  "Yes, this is what I meant",
+                  "Right idea, wrong details, see my note",
+                  "I preferred the single long page",
+                  "In between: one page for short rounds, stepped for long ones"
+                ]
+              },
+              "placeholder": "What would you change about the flow."
+            },
+            {
+              "id": "v32-overview",
+              "title": "The process overview tab",
+              "body": "You asked me not to forget launching a process overview interface in the same window. One page already does something close: /batch shows the Focus group, the batch with its progress bar, everything closed today, then every open item grouped and counted, refreshed every four seconds. It is open in your window now. Tell me whether that is the thing you meant, or whether you want something else: what I am doing right now, phase by phase, rather than what is on the board.",
+              "answers": {
+                "options": [
+                  "/batch is it, just always open it",
+                  "I want live agent progress, phase by phase, not the board",
+                  "I want both, on one page",
+                  "Something else, see my note"
+                ]
+              },
+              "placeholder": "Describe what you want to see when you glance at it."
+            }
+          ]
+        },
+        {
+          "heading": "What I take next",
           "items": [
             {
               "id": "next-order",
-              "title": "Eight left in your batch. Which do I take first?",
-              "body": "Pick as many as you want, in the order you care about. Four of these are the bug-report dialog, which I would rather do as one job than four: two fields with the GitHub issue autofilling both, images pasted into the description riding along into the issue, the email path as a big obvious button under small text, and the text clearing when you are done. Say \"bug report\" and I take all four together.",
+              "title": "What is left, and what I take first",
+              "body": "Your batch has six open items. Four are the bug-report dialog and I would rather take those as one job than four: two fields with the GitHub issue autofilling both, pasted images riding along into the issue, the email path as a big button under small text, and the text clearing once you are done. The fifth is Settings going static once configured with an Edit button, which you have passed over twice now. The sixth is revoking a device properly, which needs a design session with you before any code.",
               "answers": {
                 "multi": true,
                 "options": [
                   "Bug report, all four as one job",
-                  "Data safety: the restore-example-board button is far too easy to press",
-                  "Settings go static once configured, with an Edit and a Save button",
-                  "Settings: views/history/help buttons need equal heights and spacing",
-                  "Help menu: scrolling is dead while the cursor is over the text",
-                  "Drag and drop: the drop indicator should be a clean straight line"
+                  "Settings go static once configured, with Edit and Save",
+                  "Revoking a device: grill me on the design first",
+                  "Formatting round two: grill me on the design first",
+                  "Something not on this list, see my note"
                 ]
               },
-              "placeholder": "Order them if you have one, or just tell me what is annoying you most right now."
+              "placeholder": "Order them if you have one."
             },
             {
-              "id": "next-how",
-              "title": "How should I work through them?",
-              "body": "You have had seven builds today, each one needing you to update a file and test it. That is a lot of interruption. I can also batch several and hand you one round at the end.",
+              "id": "next-focus",
+              "title": "The bigger thing you raised",
+              "body": "You said: I have shared the app with many people but no-one seems to be using it. That is the most useful thing you have told me in a while and it is not a feature request. Worth an hour on why, before more features go in. It is on the board as a direction, not started.",
               "answers": {
                 "options": [
-                  "Keep shipping each one as it lands, I like the fast loop",
-                  "Batch them, one round when the whole group is done",
-                  "Ship small ones straight away, batch anything that needs my eyes"
+                  "Yes, dig into that next",
+                  "Later, keep shipping the batch",
+                  "Drop it for now"
                 ]
               },
-              "placeholder": ""
-            },
-            {
-              "id": "next-beyond",
-              "title": "Anything not on the board that is bothering you?",
-              "body": "The batch is what you dictated on the 28th. If something else has been irritating you since, this is the fastest way to get it in front of me. Screenshots go in here too.",
-              "answers": {
-                "options": [
-                  "Nothing new, work the batch",
-                  "Yes, see my note"
-                ]
-              },
-              "placeholder": "Anything at all, rough is fine, I will turn it into board items."
+              "placeholder": "Who did you share it with, and what did they say, if anything."
             }
           ]
         }

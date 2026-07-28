@@ -287,6 +287,28 @@
 
     <article>
       <header>
+        <h2>The board is harder to wipe by accident</h2>
+        <span class="entry-date">July 28, 2026 · build v1.5.32</span>
+      </header>
+      <p><strong>Restore example board asks twice, & offers you a backup on the way.</strong> It used to be a full-width red button in the middle of Settings behind a single browser confirm, one slip from erasing everything. It is a small underlined line at the very bottom now, under Report a bug. Pressing it opens a dialog that counts what you are about to lose in your own numbers, puts Export JSON right there so the backup is one click, & asks again in different words before anything happens.</p>
+      <p><strong>The sidebar rows line up.</strong> Views was a small uppercase caption with no icon while History & Help were full rows with icons, & the gaps between the three ran 10px, 12px & 22px depending where you looked. One row shape, one spacing, & Views has an icon.</p>
+      <p><strong>The drop line during a drag is a line.</strong> It was drawn as an inset shadow, which browsers paint inside the border box, so it followed the row's rounded corners & curled up at both ends. Straight across now.</p>
+      <p><strong>A stuck backdrop that ate every click.</strong> Open the sidebar drawer on a narrow window, then widen the window: the drawer's full-screen backdrop stayed up while the sidebar went back to being an ordinary column behind it, so the whole page dimmed slightly & swallowed every scroll & click over the sidebar. Widening the window now closes the drawer with it.</p>
+    </article>
+
+    <article>
+      <header>
+        <h2>Sync knows your devices by name, & you can forget one</h2>
+        <span class="entry-date">July 28, 2026 · builds v1.5.28 to v1.5.31</span>
+      </header>
+      <p><strong>Enter splits a line where you put the caret.</strong> A caret sitting at the visual end of a rendered link is actually <em>inside</em> it, & the code that mapped the caret back to your stored text stopped counting the moment it found the caret, so the closing marker never got counted & Enter split the line in the wrong place. Bold had the same bug; pulling bold only hid it.</p>
+      <p><strong>Naming this device is required for sync.</strong> Two names live in Settings & they answer different questions: your name travels with anything you send someone, the device name never leaves this browser & is what tells your phone from your laptop when they disagree about the board. Sync needs the second one, because a conflict dialog that says "another device" cannot be answered. A board already syncing without a name says so on open.</p>
+      <p><strong>You can forget a device.</strong> Settings, Sync, hover a device & press the x. It goes from the list on every device at the next sync, & Ctrl+Z brings it back. One honest caveat, spelled out in the app: forgetting <em>tidies the list</em>, it does not revoke access. Every device shares one token, so a device still holding it rejoins the moment it syncs. The <a href="sync-guide.html#devices">sync guide</a> walks through rotating the token when you actually need to cut one off.</p>
+      <p>Plus three smaller ones: the keyboard walk down the sidebar no longer stalls at Settings, Enter flips a toggle instead of doing nothing, & an open section's arrow points down at its content rather than up.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Text formatting is gone, & nothing you wrote was touched to do it</h2>
         <span class="entry-date">July 28, 2026 · build v1.5.27</span>
       </header>

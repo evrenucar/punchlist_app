@@ -27,7 +27,29 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
-### Session delta 2026-07-28 evening (Opus 5 — READ THIS FIRST; v1.5.26 → v1.5.31 shipped and RELEASED, ended by his "end session and save state")
+### Session delta 2026-07-28 night (Opus 5 — READ THIS FIRST; v1.5.32, his four ranked items, and the review harness went stepped)
+
+Resumed the stopped session and worked the batch he ranked, as one batch with one round at the end, which is what he asked for.
+
+**SHIPPED (app, v1.5.32, 145 tests up from 141):**
+- **Data safety.** `Restore example board` is a small underlined `.reset-link` at the very bottom of the Settings panel, under Report a bug. It opens `[data-reset-dialog]`, which counts the loss from live state (`countBoard()`), carries Export JSON, and arms a second press with different wording before it does anything. The old single `window.confirm` is gone.
+- **Sidebar rows.** Views was `.views-label` (32px uppercase caption, no icon) beside two 44px icon rows, with margins of 10 / 12 / 22 between them. Views is a `nav-row` with a layers icon and the whole column is on the toolbar's 10px gap.
+- **Drop indicator.** Was `box-shadow: inset`, which paints inside the border box and so followed the 8px radius and curled at both ends. Now a positioned `::after`; only the drop states get `position: relative`, so nothing inside a group changes containing block on an ordinary render.
+- **A stuck drawer backdrop.** Found while hunting the dead scroll: open the drawer under 980px, widen past it, and the backdrop stays up at z-index 55 while `.sidebar` reverts to `position: static` (no z-index), so it covers the page and eats every wheel and click. A `matchMedia("(max-width: 980px)")` change listener now closes the drawer.
+
+**THE DEAD SCROLL IS NOT CONFIRMED FIXED. Do not close it on my word.** I could not reproduce a dead wheel over the help text on the current build: real trusted wheel events (Playwright `mouse.wheel`, not synthetic) at 1280x900, 1280x620, 1440x700 and with Settings open and closed, at top, middle and max scroll, all scrolled normally. The whole ancestor chain is clean (`.sidebar` is the only scroller, nothing overrides overflow, no `content-visibility`, no wheel handler). **The previous session's "elementFromPoint returns null" lead is almost certainly an artifact**: null comes back for a point outside the viewport, which is what you get from a rect measured while the sidebar is collapsed or translated off-screen. The stuck backdrop above is the one input-eating bug I could reproduce, and the test round asks him directly whether that was his. If he says no, reopen `task-b28-ed0cj37` and get the window width, which sections are open, and whether the page looks dimmed.
+
+**SHIPPED (interface):**
+- **The review harness is step-by-step** (`../aide-board/review-harness.template.html`, so every generated page inherits it). One question at a time, Back/Next, a progress bar, Alt+arrows, position remembered in the store, and a final "Everything you said" list with a Change button per line before anything sends. His instruction, verbatim: "have step by step questionnaires we setup before after things are completed or when you are grilling me" — meaning grills before work, test rounds after, same harness.
+- `/test` rebuilt for this batch, nine questions. `/batch` and `/test` are open in his window beside the board.
+
+**HIS TWO NEW STANDING INSTRUCTIONS (boarded in his words, both open):**
+1. "don't forget to launch a process overview interface in the same window" — a process overview tab open every session, not only when asked. `/batch` is serving as that; the test round asks whether he means the board view or live phase-by-phase agent progress.
+2. The stepped questionnaires above.
+
+**Still open in his batch:** the four bug-report items (take as one job), Settings-go-static, and revoking a device (design session first).
+
+### Session delta 2026-07-28 evening (Opus 5 — v1.5.26 → v1.5.31 shipped and RELEASED, ended by his "end session and save state")
 
 Long session, seven releases, three test rounds answered by him. Everything below is committed and pushed on both repos. **Working tree is clean and nothing is half-edited**, except one investigation that stopped mid-diagnosis (see "Where I stopped").
 

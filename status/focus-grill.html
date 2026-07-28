@@ -23,13 +23,53 @@
   main { max-width: 760px; margin: 0 auto; }
   h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
   .sub { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
-  .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 18px; }
+  .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 10px; }
   h2 { font-size: 13px; margin: 26px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+  /* Evren, 2026-07-28: "have step by step questionnaires". One question on
+     screen at a time, so a long round reads as a few seconds of work instead
+     of a wall of cards. The bar is the only thing that says how much is left. */
+  .bar { height: 4px; border-radius: 999px; background: var(--line); margin: 0 0 8px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 0; background: var(--accent); transition: width 220ms ease; }
+  .eyebrow { font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 18px 0 6px; }
+  .navbar { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  button.nav {
+    font: inherit; font-size: 13.5px; font-weight: 700; padding: 8px 16px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+    color: var(--text); cursor: pointer;
+  }
+  button.nav:disabled { opacity: 0.4; cursor: default; }
+  button.nav.next { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .review { list-style: none; padding: 0; margin: 0; }
+  .review li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 13px; margin: 6px 0; font-size: 13.5px;
+  }
+  .review li b { display: block; font-size: 12.5px; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+  .review li.skipped { border-style: dashed; color: var(--muted); }
+  .review button.jump {
+    font: inherit; font-size: 12px; margin-top: 7px; padding: 3px 10px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+    color: var(--muted); cursor: pointer;
+  }
+  .review button.jump:hover { border-color: var(--accent); color: var(--accent); }
   .item {
     background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
     padding: 12px 14px; margin: 8px 0;
   }
   .item.noted { border-color: var(--accent); }
+  .shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .shot { position: relative; display: block; line-height: 0; }
+  .shot img {
+    max-width: 190px; max-height: 140px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg);
+  }
+  .shot-drop {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+    border: 1px solid var(--line); border-radius: 50%; background: var(--surface);
+    color: var(--muted); font: 700 13px/1 system-ui; cursor: pointer;
+  }
+  .shot-drop:hover { color: var(--warn); }
   .item h3 { font-size: 15px; margin: 0 0 3px; }
   .item p { margin: 0 0 8px; color: var(--muted); font-size: 13.5px; white-space: pre-line; }
   .answers { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 9px; }
@@ -50,6 +90,8 @@
   .fb::placeholder { color: var(--muted); opacity: 0.7; }
   .sendbar { display: flex; gap: 10px; align-items: center; margin-top: 26px; flex-wrap: wrap;
     position: sticky; bottom: 0; background: var(--bg); padding: 14px 0 4px; }
+  /* an author display beats the UA sheet's [hidden], so say it here */
+  .sendbar[hidden] { display: none; }
   button.send {
     font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
     border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
@@ -68,9 +110,16 @@
 <main>
   <h1 id="title"></h1>
   <p class="sub" id="intro"></p>
+  <div class="bar"><div class="bar-fill" id="barfill"></div></div>
   <p class="progress" id="progress"></p>
+  <p class="eyebrow" id="eyebrow"></p>
   <div id="content"></div>
-  <div class="sendbar">
+  <div class="navbar">
+    <button class="nav" id="back">Back</button>
+    <button class="nav next" id="next">Next</button>
+    <span class="hint" id="hint"></span>
+  </div>
+  <div class="sendbar" id="sendbar" hidden>
     <button class="send" id="send">Send</button>
     <button class="reset" id="reset">Clear</button>
     <span class="sendmsg" id="sendmsg"></span>
@@ -82,6 +131,7 @@
   const store = JSON.parse(localStorage.getItem(KEY) || "{}");
   store.notes = store.notes || {};
   store.picks = store.picks || {};
+  store.shots = store.shots || {};
 
   document.title = "Punchlist — " + SPEC.title;
   document.getElementById("title").textContent = SPEC.title;
@@ -91,21 +141,61 @@
   const root = document.getElementById("content");
   const allIds = [];
 
-  function persist() { localStorage.setItem(KEY, JSON.stringify(store)); }
+  // Screenshots are data URLs, and a few of them outweigh everything else on the
+  // page. If they push localStorage over quota, keep the answers (the part that
+  // is expensive to retype) and let the images live in memory for this visit.
+  function persist() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(store));
+    } catch {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ ...store, shots: {} }));
+      } catch {}
+    }
+  }
   function hasInput(id) {
-    return (store.picks[id] && store.picks[id].length) || (store.notes[id] && store.notes[id].trim());
+    return (store.picks[id] && store.picks[id].length)
+      || (store.notes[id] && store.notes[id].trim())
+      || (store.shots[id] && store.shots[id].length);
+  }
+
+  // Evren, 2026-07-28: "it would be nice if I can easily paste in an image with
+  // the feedback I add here. Multiple images would also even be better."
+  // Shrunk on the way in: a phone screenshot is several MB, the chat endpoint
+  // caps a message at 2.5 MB, and nothing here needs more than screen detail.
+  const SHOT_MAX_EDGE = 1600;
+  function shrinkToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("could not read that image"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("that file is not an image"));
+        img.onload = () => {
+          const scale = Math.min(1, SHOT_MAX_EDGE / Math.max(img.width, img.height));
+          if (scale === 1 && reader.result.length < 900_000) return resolve(reader.result);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/webp", 0.85));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
   }
   function paintCard(card, id) { card.classList.toggle("noted", Boolean(hasInput(id))); }
   function paintProgress() {
     const n = allIds.filter(hasInput).length;
     document.getElementById("progress").textContent =
       n ? n + " of " + allIds.length + " answered" : "Click the answers that fit and add notes, then send";
+    document.getElementById("barfill").style.width =
+      Math.round((Math.min(at, steps.length) / Math.max(1, steps.length)) * 100) + "%";
   }
 
+  const steps = [];
   for (const section of SPEC.sections) {
-    const h2 = document.createElement("h2");
-    h2.textContent = section.heading;
-    root.appendChild(h2);
     for (const item of section.items) {
       allIds.push(item.id);
       const card = document.createElement("div");
@@ -157,7 +247,7 @@
       const ta = document.createElement("textarea");
       ta.className = "fb";
       ta.dataset.fb = item.id;
-      ta.placeholder = item.placeholder || "Add a note (optional)";
+      ta.placeholder = item.placeholder || "Add a note (optional). Paste a screenshot straight in.";
       ta.value = store.notes[item.id] || "";
       ta.addEventListener("input", () => {
         if (ta.value.trim()) store.notes[item.id] = ta.value;
@@ -168,15 +258,137 @@
       });
       card.appendChild(ta);
 
+      const strip = document.createElement("div");
+      strip.className = "shots";
+      card.appendChild(strip);
+
+      function paintShots() {
+        strip.replaceChildren();
+        for (const [index, src] of (store.shots[item.id] || []).entries()) {
+          const fig = document.createElement("span");
+          fig.className = "shot";
+          const img = document.createElement("img");
+          img.src = src;
+          img.alt = "Screenshot " + (index + 1);
+          const drop = document.createElement("button");
+          drop.type = "button";
+          drop.className = "shot-drop";
+          drop.textContent = "×";
+          drop.title = "Remove this image";
+          drop.addEventListener("click", () => {
+            store.shots[item.id].splice(index, 1);
+            if (!store.shots[item.id].length) delete store.shots[item.id];
+            persist();
+            paintShots();
+            paintCard(card, item.id);
+            paintProgress();
+          });
+          fig.append(img, drop);
+          strip.appendChild(fig);
+        }
+      }
+      paintShots();
+
+      ta.addEventListener("paste", async (event) => {
+        const files = [...(event.clipboardData?.items || [])]
+          .filter((entry) => entry.kind === "file" && entry.type.startsWith("image/"))
+          .map((entry) => entry.getAsFile())
+          .filter(Boolean);
+        if (!files.length) return; // ordinary text paste, leave it alone
+        event.preventDefault();
+        for (const file of files) {
+          try {
+            const src = await shrinkToDataUrl(file);
+            (store.shots[item.id] = store.shots[item.id] || []).push(src);
+          } catch {}
+        }
+        persist();
+        paintShots();
+        paintCard(card, item.id);
+        paintProgress();
+      });
+
       paintCard(card, item.id);
-      root.appendChild(card);
+      steps.push({ heading: section.heading, item, card });
     }
   }
-  paintProgress();
+
+  // The last stop is not a question, it is everything he said, in one list, so
+  // nothing gets sent that he cannot see first. Any line jumps back to its own
+  // question. Where he stopped is remembered, so a reload resumes.
+  const backEl = document.getElementById("back");
+  const nextEl = document.getElementById("next");
+  const hintEl = document.getElementById("hint");
+  const eyebrowEl = document.getElementById("eyebrow");
+  const sendbarEl = document.getElementById("sendbar");
+  let at = Math.min(Math.max(Number(store.at) || 0, 0), steps.length);
+
+  function buildReview() {
+    const list = document.createElement("ul");
+    list.className = "review";
+    steps.forEach((step, index) => {
+      const li = document.createElement("li");
+      const label = document.createElement("b");
+      label.textContent = step.item.title;
+      li.appendChild(label);
+      const picks = store.picks[step.item.id] || [];
+      const note = (store.notes[step.item.id] || "").trim();
+      const shots = (store.shots[step.item.id] || []).length;
+      const parts = [];
+      if (picks.length) parts.push(picks.join(" | "));
+      if (note) parts.push(picks.length ? "(" + note + ")" : note);
+      if (shots) parts.push("[" + shots + " image" + (shots === 1 ? "" : "s") + "]");
+      if (!parts.length) {
+        li.classList.add("skipped");
+        li.append("Skipped");
+      } else {
+        li.append(parts.join(" "));
+      }
+      const jump = document.createElement("button");
+      jump.type = "button";
+      jump.className = "jump";
+      jump.textContent = parts.length ? "Change" : "Answer it";
+      jump.addEventListener("click", () => show(index));
+      li.appendChild(document.createElement("br"));
+      li.appendChild(jump);
+      list.appendChild(li);
+    });
+    return list;
+  }
+
+  function show(index) {
+    at = Math.min(Math.max(index, 0), steps.length);
+    store.at = at;
+    persist();
+    const onReview = at === steps.length;
+    root.replaceChildren(onReview ? buildReview() : steps[at].card);
+    eyebrowEl.textContent = onReview ? "Everything you said" : steps[at].heading;
+    backEl.disabled = at === 0;
+    nextEl.textContent = onReview ? "Back to the last question" : (at === steps.length - 1 ? "Review" : "Next");
+    if (onReview) nextEl.classList.remove("next");
+    else nextEl.classList.add("next");
+    hintEl.textContent = onReview
+      ? "Send when it looks right. Anything you skipped is simply left out."
+      : "Question " + (at + 1) + " of " + steps.length + ". Skipping is fine.";
+    sendbarEl.hidden = !onReview;
+    paintProgress();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  backEl.addEventListener("click", () => show(at - 1));
+  nextEl.addEventListener("click", () => show(at === steps.length ? at - 1 : at + 1));
+  document.addEventListener("keydown", (event) => {
+    if (!event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === "ArrowRight") { event.preventDefault(); show(at + 1); }
+    if (event.key === "ArrowLeft") { event.preventDefault(); show(at - 1); }
+  });
+  show(at);
 
   document.getElementById("reset").addEventListener("click", () => {
     store.notes = {};
     store.picks = {};
+    store.shots = {};
+    store.at = 0;
     persist();
     location.reload();
   });
@@ -188,9 +400,11 @@
         if (!hasInput(item.id)) continue;
         const picks = store.picks[item.id] || [];
         const note = (store.notes[item.id] || "").trim();
+        const shots = store.shots[item.id] || [];
         let line = "- " + item.title;
         if (picks.length) line += ": " + picks.join(" | ");
         if (note) line += picks.length ? " (note: " + note + ")" : ": " + note;
+        if (shots.length) line += " [" + shots.length + " image" + (shots.length === 1 ? "" : "s") + " below]";
         lines.push(line);
       }
     }
@@ -201,14 +415,33 @@
       return;
     }
     const text = SPEC.chatPrefix + "\n" + lines.join("\n");
-    try {
+    const post = async (body) => {
       const r = await fetch("/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ from: "user", text }),
+        body: JSON.stringify(body),
       });
       if (!r.ok) throw new Error();
-      sendmsg.textContent = "Sent, the agent has it.";
+    };
+    try {
+      await post({ from: "user", text });
+      // The chat endpoint carries one image per message, so each screenshot
+      // follows as its own line, captioned with the item it belongs to. Sent
+      // after the summary so the answers land first and the images read as
+      // attachments to them.
+      let sentShots = 0;
+      for (const section of SPEC.sections) {
+        for (const item of section.items) {
+          for (const [index, img] of (store.shots[item.id] || []).entries()) {
+            const of = (store.shots[item.id] || []).length;
+            await post({ from: "user", text: item.title + (of > 1 ? " (" + (index + 1) + " of " + of + ")" : ""), img });
+            sentShots += 1;
+          }
+        }
+      }
+      sendmsg.textContent = sentShots
+        ? "Sent, with " + sentShots + " image" + (sentShots === 1 ? "" : "s") + ". The agent has it."
+        : "Sent, the agent has it.";
       sendmsg.className = "sendmsg ok";
     } catch {
       sendmsg.textContent = "Could not reach the agent. Open this at http://localhost:4173" + location.pathname + " and retry.";
