@@ -48,6 +48,21 @@ async function loadBoardApi(overrides = {}) {
   elements.set("[data-report-bug]", makeElement({ hidden: false }));
   elements.set("[data-bug-dialog]", makeElement({ hidden: true }));
   elements.set("[data-bug-text]", makeElement({ value: "" }));
+  elements.set("[data-sidebar-backdrop]", makeElement({ hidden: true }));
+  elements.set("[data-reset-dialog]", makeElement({ hidden: true }));
+  elements.set("[data-reset-body]", makeElement());
+  elements.set("[data-reset-export]", makeElement());
+  // The confirm button is the one control the double-confirmation test has to
+  // press, so this stub keeps its click handlers instead of dropping them.
+  const resetConfirmClicks = [];
+  elements.set("[data-reset-confirm]", makeElement({
+    addEventListener(type, fn) {
+      if (type === "click") resetConfirmClicks.push(fn);
+    },
+    click() {
+      for (const fn of resetConfirmClicks) fn();
+    },
+  }));
 
   const store = new Map();
   const context = {
@@ -66,6 +81,27 @@ async function loadBoardApi(overrides = {}) {
     },
     document: {
       activeElement: null,
+      body: {
+        classes: new Set(),
+        setAttribute() {},
+        removeAttribute() {},
+        addEventListener() {},
+        classList: {
+          add(name) {
+            context.document.body.classes.add(name);
+          },
+          remove(name) {
+            context.document.body.classes.delete(name);
+          },
+          contains(name) {
+            return context.document.body.classes.has(name);
+          },
+          toggle(name, on) {
+            if (on) context.document.body.classes.add(name);
+            else context.document.body.classes.delete(name);
+          },
+        },
+      },
       querySelector(selector) {
         return elements.get(selector) || null;
       },
@@ -101,7 +137,10 @@ async function loadBoardApi(overrides = {}) {
   vm.createContext(context);
   vm.runInContext(script, context);
   const api = context.window.taskBoardTestApi;
-  if (api) api.testElements = elements;
+  if (api) {
+    api.testElements = elements;
+    api.testDocument = context.document;
+  }
   return api;
 }
 
@@ -3347,4 +3386,104 @@ test("the shortcut cheatsheet ships, is self-contained, and is linked from both 
   assert.match(site, /href="shortcuts\.html"/, "the landing page links it");
   const html = await readBoard();
   assert.match(html, /punchlist_app\/shortcuts\.html/, "the in-app help menu links it");
+});
+
+test("restoring the example board is small, last, and asks twice with a backup in the way", async () => {
+  // Evren, 2026-07-28: "far too easy to press". It was a full-width danger
+  // button mid-panel behind a single window.confirm.
+  const html = await readBoard();
+  const panel = html.slice(html.indexOf("Report a bug"), html.indexOf("</details>", html.indexOf("Report a bug")));
+  assert.match(panel, /class="reset-link"[^>]*data-action="reset"/, "it is the small link, and it comes after Report a bug");
+  assert.equal(/class="control danger"[^>]*data-action="reset"/.test(html), false, "no full-width danger button left");
+  assert.equal(html.includes("Replace the current board with the example board?"), false, "the single window.confirm is gone");
+  for (const hook of ["data-reset-dialog", "data-reset-export", "data-reset-confirm", "data-reset-body"]) {
+    assert.match(html, new RegExp(hook), `dialog carries ${hook}`);
+  }
+
+  const api = await loadBoardApi();
+  const dialog = api.testElements.get("[data-reset-dialog]");
+  const body = api.testElements.get("[data-reset-body]");
+  const confirm = api.testElements.get("[data-reset-confirm]");
+
+  const counted = api.countBoard();
+  assert.ok(counted.tasks > 0 && counted.groups > 0, "the count is real, not a placeholder");
+
+  api.openResetDialog();
+  assert.equal(dialog.hidden, false);
+  assert.match(body.textContent, new RegExp(`${counted.tasks} tasks in ${counted.groups} groups`), "it names what is about to go");
+  assert.match(body.textContent, /Export first/);
+  assert.equal(confirm.textContent, "Replace my board");
+
+  // One press must not erase anything: it arms the second press.
+  confirm.click();
+  assert.equal(dialog.hidden, false, "still open after the first press");
+  assert.equal(confirm.textContent, "Yes, erase my board");
+  assert.match(body.textContent, /Last check/);
+
+  // Closing disarms, so a stale second press cannot land later.
+  api.closeResetDialog();
+  api.openResetDialog();
+  assert.equal(confirm.textContent, "Replace my board");
+});
+
+test("widening past the drawer breakpoint takes the backdrop down with it", async () => {
+  // Evren, 2026-07-28: "scrolling is dead while the cursor is over the help
+  // text". A drawer opened under 980px left its full-screen backdrop up when
+  // the window grew, and the sidebar goes back to static (no z-index) there,
+  // so the backdrop covered the page and ate every wheel and click.
+  const queries = new Map();
+  const api = await loadBoardApi({
+    window: {
+      getSelection: () => ({ rangeCount: 0, addRange() {}, getRangeAt: () => null, removeAllRanges() {} }),
+      matchMedia: (query) => ({
+        matches: false,
+        addEventListener(type, fn) {
+          if (type === "change") queries.set(query, fn);
+        },
+      }),
+    },
+  });
+
+  const onWidthChange = queries.get("(max-width: 980px)");
+  assert.ok(onWidthChange, "the app watches the drawer breakpoint");
+
+  const backdrop = api.testElements.get("[data-sidebar-backdrop]");
+  const body = api.testDocument.body;
+  body.classList.add("sidebar-open");
+  backdrop.hidden = false;
+
+  onWidthChange({ matches: true });
+  assert.equal(backdrop.hidden, false, "still narrow: the drawer stays as it is");
+
+  onWidthChange({ matches: false });
+  assert.equal(backdrop.hidden, true, "wide again: the backdrop goes");
+  assert.equal(body.classList.contains("sidebar-open"), false, "and the drawer state goes with it");
+});
+
+test("the drop indicator is a straight line, not a lit rounded border", async () => {
+  // Evren, 2026-07-28: an inset box-shadow is painted inside the border box, so
+  // it followed the row's 8px radius and curled up at both ends.
+  const css = await readFile(path.join(root, "src", "task-board.css"), "utf8");
+  assert.equal(/drop-before[\s\S]{0,120}box-shadow: inset/.test(css), false, "no inset shadow on the drop states");
+  assert.match(css, /\.task-row\.drop-before::after[\s\S]{0,400}position: absolute/, "the line is a positioned rule");
+  assert.match(css, /\.task-row\.drop-before::after,\s*\.group\.drop-before::after \{\s*top: -1px;/);
+  assert.match(css, /\.task-row\.drop-after::after,\s*\.group\.drop-after::after \{\s*bottom: -1px;/);
+});
+
+test("Views, History and Help are the same row at the same spacing", async () => {
+  // Evren, 2026-07-28: Views was a 32px uppercase caption with no icon while
+  // the other two were 44px icon rows.
+  const html = await readBoard();
+  const css = await readFile(path.join(root, "src", "task-board.css"), "utf8");
+
+  const views = html.slice(html.indexOf("data-views-menu"), html.indexOf("data-views-nav"));
+  assert.match(views, /<summary class="control nav-row"/, "Views is a nav-row like the others");
+  assert.match(views, /<svg /, "and it carries an icon");
+  assert.equal(html.includes("views-label"), false, "the caption style is gone");
+  assert.equal(css.includes("views-label"), false);
+
+  // One rhythm: the toolbar's gap, and nothing below it inventing its own.
+  assert.match(css, /\.toolbar \{[\s\S]{0,120}gap: 10px;\s*margin-bottom: 10px;/);
+  assert.match(css, /\.views-menu \{\s*margin-bottom: 10px;\s*\}/);
+  assert.equal(/\.views-nav \{[\s\S]{0,200}margin-bottom: 22px/.test(css), false);
 });

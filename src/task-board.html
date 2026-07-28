@@ -208,14 +208,11 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
               Export settings
             </button>
-            <button class="control danger" type="button" data-action="reset" title="Replace the current board with the built-in example board">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7M3 4v6h6"/></svg>
-              Restore example board
-            </button>
             <button class="control" type="button" data-report-bug title="Describe a problem, then open a prefilled GitHub issue or copy it with the author's email">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="m22 6-10 7L2 6"/></svg>
               Report a bug
             </button>
+            <button class="reset-link" type="button" data-action="reset" title="Replace the current board with the built-in example board">Restore example board</button>
           </div>
         </details>
         <details class="settings-menu" data-help>
@@ -239,7 +236,9 @@
       </div>
 
       <details class="history-menu views-menu" data-views-menu open>
-        <summary class="control nav-row views-label" title="Jump between board views">
+        <summary class="control nav-row" title="Jump between board views">
+          <span class="disclosure-arrow" aria-hidden="true"></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m12 3 9 4.4-9 4.4-9-4.4L12 3Z"/><path d="m3 12 9 4.4 9-4.4"/><path d="m3 16.6 9 4.4 9-4.4"/></svg>
           Views
         </summary>
         <nav class="views-nav" aria-label="Views" data-views-nav>
@@ -319,6 +318,21 @@
       <div class="bug-dialog__actions">
         <button class="control" type="button" data-bug-github title="Open a new GitHub issue with your description filled in">Open a GitHub issue</button>
         <button class="control" type="button" data-bug-email title="Copy the author's email address and your description">Copy email</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="bug-dialog" data-reset-dialog hidden>
+    <div class="bug-dialog__card" role="dialog" aria-modal="true" aria-label="Restore the example board">
+      <div class="bug-dialog__head">
+        <strong>Restore the example board</strong>
+        <button type="button" class="toast-dismiss" data-reset-close aria-label="Close">×</button>
+      </div>
+      <p class="bug-dialog__hint" data-reset-body></p>
+      <div class="bug-dialog__actions">
+        <button class="control" type="button" data-reset-export title="Download this board as a JSON backup before anything is replaced">Export JSON first</button>
+        <button class="control" type="button" data-reset-close>Cancel</button>
+        <button class="control danger" type="button" data-reset-confirm>Replace my board</button>
       </div>
     </div>
   </div>

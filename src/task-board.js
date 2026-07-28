@@ -122,6 +122,10 @@
     const bugCloseEl = document.querySelector("[data-bug-close]");
     const bugGithubEl = document.querySelector("[data-bug-github]");
     const bugEmailEl = document.querySelector("[data-bug-email]");
+    const resetDialogEl = document.querySelector("[data-reset-dialog]");
+    const resetBodyEl = document.querySelector("[data-reset-body]");
+    const resetConfirmEl = document.querySelector("[data-reset-confirm]");
+    const resetExportEl = document.querySelector("[data-reset-export]");
     const syncSectionEl = document.querySelector("[data-sync-section]");
     const syncEnabledEl = document.querySelector("[data-sync-enabled]");
     const syncFieldsEl = document.querySelector("[data-sync-fields]");
@@ -5866,6 +5870,83 @@
       if (bugDialogEl) bugDialogEl.hidden = true;
     }
 
+    // Evren, 2026-07-28: "the restore-example-board button is far too easy to
+    // press". It sat mid-panel at full width beside Export settings, one click
+    // from erasing everything, and a window.confirm cannot hold a backup
+    // button. So: two deliberate presses, the size of the loss counted out in
+    // his own board's numbers, and Export JSON inside the dialog.
+    let resetArmed = false;
+
+    function countBoard() {
+      let tasks = 0;
+      const walk = (list) => (list || []).forEach((task) => {
+        tasks += 1;
+        walk(task.children);
+      });
+      (state.groups || []).forEach((group) => walk(group.tasks));
+      return { tasks, groups: (state.groups || []).length };
+    }
+
+    function renderResetDialog() {
+      const { tasks, groups } = countBoard();
+      const size = `${tasks} ${tasks === 1 ? "task" : "tasks"} in ${groups} ${groups === 1 ? "group" : "groups"}`;
+      if (resetBodyEl) {
+        resetBodyEl.textContent = resetArmed
+          ? `Last check. ${size} go, and Trash, history and undo go with them. There is no way back from this one.`
+          : `This replaces your board with the built-in example. ${size} will be erased, along with Trash and history. Export first if you might want any of it back.`;
+      }
+      if (resetConfirmEl) resetConfirmEl.textContent = resetArmed ? "Yes, erase my board" : "Replace my board";
+    }
+
+    function openResetDialog() {
+      if (!resetDialogEl) return;
+      resetArmed = false;
+      renderResetDialog();
+      resetDialogEl.hidden = false;
+      resetExportEl?.focus?.();
+    }
+
+    function closeResetDialog() {
+      if (resetDialogEl) resetDialogEl.hidden = true;
+      resetArmed = false;
+    }
+
+    function restoreExampleBoard() {
+      localStorage.removeItem(STORAGE_KEY);
+      state = normalizeState(seedState());
+      selectedNode = null;
+      multiSelectedNodes = [];
+      selectionAnchorNode = null;
+      undoStack = [];
+      undoActions = [];
+      lastUndoAction = null;
+      exitFocusMode();
+      render();
+    }
+
+    resetConfirmEl?.addEventListener("click", () => {
+      if (!resetArmed) {
+        resetArmed = true;
+        renderResetDialog();
+        return;
+      }
+      closeResetDialog();
+      restoreExampleBoard();
+      showToast("Example board restored.");
+    });
+
+    resetExportEl?.addEventListener("click", () => {
+      downloadBoardState()
+        .then(() => showToast("Board exported. Nothing has been erased yet."))
+        .catch(() => showToast("Export failed."));
+    });
+
+    document.querySelectorAll("[data-reset-close]").forEach((el) => el.addEventListener("click", closeResetDialog));
+
+    resetDialogEl?.addEventListener("click", (event) => {
+      if (event.target === resetDialogEl) closeResetDialog();
+    });
+
     reportBugEl?.addEventListener("click", openBugDialog);
     bugCloseEl?.addEventListener("click", closeBugDialog);
     bugDialogEl?.addEventListener("click", (event) => {
@@ -5917,6 +5998,18 @@
     });
 
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
+
+    // Evren, 2026-07-28: "scrolling is dead while the cursor is over the help
+    // text". The drawer backdrop is what sat under it. Under 980px the sidebar
+    // is a fixed drawer at z-index 60 and the backdrop covers the screen at 55.
+    // Widen the window past 980 and the sidebar goes back to static, which has
+    // no z-index at all, so the backdrop is suddenly on top of the whole page:
+    // it swallows every wheel and every click, and a wheel that lands on it
+    // chains to a body that cannot scroll. Nothing was closing the drawer on a
+    // resize, so a drawer opened at a narrow width outlived the width.
+    window.matchMedia?.("(max-width: 980px)")?.addEventListener?.("change", (event) => {
+      if (!event.matches) closeSidebarDrawer();
+    });
 
     sidebarToggleEl?.addEventListener("keydown", (event) => {
       if (event.key === "ArrowRight" || event.key === "Escape") {
@@ -6284,22 +6377,7 @@
         restoreTrashRecord(button.dataset.trashId);
         renderHistoryList();
       }
-      if (button.dataset.action === "reset") {
-        if (typeof window.confirm === "function"
-          && !window.confirm("Replace the current board with the example board? Your current groups and tasks will be erased. Export JSON first if you want a backup.")) {
-          return;
-        }
-        localStorage.removeItem(STORAGE_KEY);
-        state = normalizeState(seedState());
-        selectedNode = null;
-        multiSelectedNodes = [];
-        selectionAnchorNode = null;
-        undoStack = [];
-        undoActions = [];
-        lastUndoAction = null;
-        exitFocusMode();
-        render();
-      }
+      if (button.dataset.action === "reset") openResetDialog();
     });
 
     document.addEventListener("copy", (event) => {
@@ -7075,6 +7153,9 @@
       buildBugReportUrl,
       openBugDialog,
       closeBugDialog,
+      openResetDialog,
+      closeResetDialog,
+      countBoard,
       describeImageResolutionChange,
       getExportState,
       getAssetSrc,

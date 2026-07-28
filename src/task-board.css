@@ -211,10 +211,14 @@
       flex: 0 0 auto;
     }
 
+    /* Evren, 2026-07-28: Views / History / Help were three different heights and
+       three different gaps. Views is a 44px nav-row with an icon like the other
+       two now, and every row in the sidebar sits on the same 10px rhythm: the
+       toolbar's own gap, so nothing below it needs a bigger one. */
     .toolbar {
       display: grid;
       gap: 10px;
-      margin-bottom: 22px;
+      margin-bottom: 10px;
     }
 
     .toolbar > * {
@@ -321,13 +325,23 @@
       display: none;
     }
 
-    .sidebar .views-label {
-      min-height: 32px;
+    /* Evren, 2026-07-28: "far too easy to press". The one control in here that
+       can destroy the board is now the smallest, sits last, and asks twice with
+       a backup button in the way. */
+    .reset-link {
+      justify-self: start;
+      margin-top: 2px;
+      padding: 2px 0;
+      background: transparent;
       color: var(--muted);
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      font-size: 11.5px;
+      font-weight: 600;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .reset-link:hover {
+      color: var(--danger);
     }
 
     input[data-dark-mode] {
@@ -694,14 +708,13 @@
     }
 
     .views-menu {
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
     .views-nav {
       display: grid;
       gap: 4px;
       padding: 6px;
-      margin-bottom: 22px; /* same section break as the toolbar; History no longer sits flush under Trash */
       border: 1px solid var(--line);
       border-radius: 10px;
       position: relative;
@@ -1109,14 +1122,40 @@
       opacity: 0.42;
     }
 
+    /* Evren, 2026-07-28: the drop line used an inset box-shadow, which is
+       painted inside the border box and therefore follows the row's 8px radius.
+       Both ends curled up and it read as a lit border rather than a place to
+       drop. An absolutely positioned rule ignores the radius. Only the dragged
+       state is positioned, so nothing inside a group changes its containing
+       block on an ordinary render. */
     .task-row.drop-before,
-    .group.drop-before {
-      box-shadow: inset 0 3px 0 var(--group-color, var(--accent));
+    .task-row.drop-after,
+    .group.drop-before,
+    .group.drop-after {
+      position: relative;
     }
 
-    .task-row.drop-after,
-    .group.drop-after {
-      box-shadow: inset 0 -3px 0 var(--group-color, var(--accent));
+    .task-row.drop-before::after,
+    .task-row.drop-after::after,
+    .group.drop-before::after,
+    .group.drop-after::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--group-color, var(--accent));
+      pointer-events: none;
+    }
+
+    .task-row.drop-before::after,
+    .group.drop-before::after {
+      top: -1px;
+    }
+
+    .task-row.drop-after::after,
+    .group.drop-after::after {
+      bottom: -1px;
     }
 
     .task-row.drop-child,
