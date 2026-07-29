@@ -40,16 +40,48 @@
   th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
   th { background: var(--surface); font-weight: 700; }
   .stamp { color: var(--muted); font: 12px/1.5 var(--mono); margin: 0 0 26px; }
+  .chunk:empty { display: none; }
+  .note {
+    display: grid; gap: 5px; margin: 18px 0 30px;
+    border-left: 3px solid var(--line); padding: 10px 0 2px 14px;
+  }
+  .note-label { font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .note textarea {
+    width: 100%; font: inherit; font-size: 14px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 11px; resize: vertical; min-height: 44px;
+  }
+  .note textarea::placeholder { color: var(--muted); opacity: 0.75; }
+  .note.filled { border-left-color: var(--accent); }
+  .sendbar {
+    position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; margin-top: 30px; padding: 14px 0 10px; background: var(--bg);
+    border-top: 1px solid var(--line);
+  }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.clear {
+    font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--surface); color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
 </style>
 </head>
 <body>
 <main>
 <p class="stamp">sharing · generated from the finished work, not typed up afterwards</p>
+<section class="chunk">
 <h1>Sharing Punchlist: what to do, and what to fix first</h1>
 <p>You asked for an overview and a small plan for sharing this, and you put a gate in front of it: stable, no big security or sync issues, before that stage.</p>
 <p>One agent researched it and a second one spent its time trying to destroy that research. The second one won several arguments, so what follows is the merged version with the corrections folded in and the losing claims struck out. Where the first agent invented something, it says so.</p>
 <p><strong>The headline is not the plan. It is that your gate is not met, and I can now tell you exactly why in one sentence.</strong></p>
 <hr>
+</section>
+<section class="chunk" id="s-1-stop-your-sync-token-is-readable-by-six-other-">
 <h2>1. Stop. Your sync token is readable by six other websites</h2>
 <p>This is verified, not theorised. I checked each step myself.</p>
 <p>Your GitHub token is stored in plain text in <code>localStorage</code>:</p>
@@ -73,6 +105,12 @@ proto_website · punchlist_app · thermal-cam · website</code></pre>
 <li><strong>The email capture on your landing page is wired to nothing.</strong> <code>website/index.html:735</code> is <code>const FORM_ENDPOINT = "";</code>, so one of the four buttons on your homepage opens the visitor's mail client instead of collecting anything. If traffic ever arrives, the only way you had to keep hold of it does not work.</li>
 </ul>
 <hr>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="1-stop-your-sync-token-is-readable-by-six-other-" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-2-why-the-whatsapp-share-produced-nothing">
 <h2>2. Why the WhatsApp share produced nothing</h2>
 <p>Three mechanisms, none of them marketing.</p>
 <p><strong>You shared a technical fact with people who do not have that problem.</strong> The page leads with "no account, no server, no install, no network requests." Every one of those answers a question your friends have never asked. On a phone, that reads as somebody's project, and "nice" is the polite response to somebody's project.</p>
@@ -81,6 +119,12 @@ proto_website · punchlist_app · thermal-cam · website</code></pre>
 <blockquote><strong>Struck out on review.</strong> The research also claimed a friend typed tasks into the WhatsApp browser and lost them to an iOS webview quirk. <strong>That friend does not exist.</strong> Your words were "other than a first glance no one was really excited abou tit or used it". Nobody reported data loss. The webview mechanism is real, but the story was invented to fit it, and you should know that so you do not go looking for a bug nobody hit.</blockquote>
 <p>The blunt version: a share to friends is not a distribution channel for this product. It works for things with zero switching cost and an obvious payoff in ten seconds. This has neither, for that audience.</p>
 <hr>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="2-why-the-whatsapp-share-produced-nothing" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-3-who-it-is-actually-for">
 <h2>3. Who it is actually for</h2>
 <p>Argued from what the file does, not from who you would like to reach.</p>
 <p>Sync needs a GitHub account and a fine-grained token. Editing is Enter, Tab, Alt+arrows. Export is lossless JSON and clean Markdown. There is no server to shut down and nothing to cancel.</p>
@@ -88,6 +132,12 @@ proto_website · punchlist_app · thermal-cam · website</code></pre>
 <p>The second fit is the one I would lead with, because it is a sentence you can say out loud: <strong>a developer who wants a task list that lives in the repo.</strong> One <code>TODO.html</code> beside the code, double-clickable in ten years, diffable in git, no build step.</p>
 <p>Not for: your WhatsApp friends, anyone content with Apple Reminders, anyone who needs the sync guide explained, and anyone whose complaint about their current tool is "I don't use it enough."</p>
 <hr>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="3-who-it-is-actually-for" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-4-the-plan-corrected">
 <h2>4. The plan, corrected</h2>
 <h3>Move 1. Watch ten people open it, one at a time</h3>
 <p>Hand someone the URL on a phone, say nothing, and time them. Write down the second they type their first task and every place they stop. Ten people over two weeks: three developers, three Markdown people, four normal humans.</p>
@@ -108,6 +158,12 @@ proto_website · punchlist_app · thermal-cam · website</code></pre>
 <h3>Move 5. Cut</h3>
 <p>The research could not name a single community rule for its own fifth move, then kept the move and gave it a time estimate. A move you cannot specify is not a move.</p>
 <hr>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="4-the-plan-corrected" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-5-the-three-things-most-likely-to-make-this-fail">
 <h2>5. The three things most likely to make this fail anyway</h2>
 <ol>
 <li><strong>You ship section 1 and stop there.</strong> The security work is invisible and unrewarding, and it is the gate you set yourself. Nothing here is safe to do before it.</li>
@@ -115,9 +171,77 @@ proto_website · punchlist_app · thermal-cam · website</code></pre>
 <li><strong>You get the traffic and the first-run experience wastes it.</strong> Which is why Move 1 comes before Move 3, and why doing them in the other order is the most expensive mistake available here.</li>
 </ol>
 <hr>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="5-the-three-things-most-likely-to-make-this-fail" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-what-i-have-already-done">
 <h2>What I have already done</h2>
 <p>Boarded, in your words, with the security item first. The LICENSE, the dead email form and the three wrong file sizes are small enough that I will just fix them unless you say otherwise.</p>
 <p><strong>What I need from you: the origin decision in section 1.</strong> Everything else can wait; that one is holding the gate shut.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="what-i-have-already-done" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<div class="sendbar">
+  <button class="send" id="send">Send my notes</button>
+  <button class="clear" id="clear">Clear</button>
+  <span class="sendmsg" id="sendmsg"></span>
+</div>
 </main>
+<script>
+  const SLUG = "sharing";
+  const TITLE = "Sharing Punchlist, and the gate in front of it";
+  const SECTIONS = [{"id":"1-stop-your-sync-token-is-readable-by-six-other-","heading":"1. Stop. Your sync token is readable by six other websites"},{"id":"2-why-the-whatsapp-share-produced-nothing","heading":"2. Why the WhatsApp share produced nothing"},{"id":"3-who-it-is-actually-for","heading":"3. Who it is actually for"},{"id":"4-the-plan-corrected","heading":"4. The plan, corrected"},{"id":"5-the-three-things-most-likely-to-make-this-fail","heading":"5. The three things most likely to make this fail anyway"},{"id":"what-i-have-already-done","heading":"What I have already done"}];
+  const KEY = "report-notes-" + SLUG;
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+
+  const boxes = [...document.querySelectorAll("[data-note]")];
+  for (const box of boxes) {
+    const id = box.dataset.note;
+    if (store[id]) box.value = store[id];
+    box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    box.addEventListener("input", () => {
+      if (box.value.trim()) store[id] = box.value;
+      else delete store[id];
+      try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {}
+      box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    });
+  }
+
+  document.getElementById("clear").addEventListener("click", () => {
+    localStorage.removeItem(KEY);
+    location.reload();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const msg = document.getElementById("sendmsg");
+    const lines = [];
+    for (const section of SECTIONS) {
+      const said = (store[section.id] || "").trim();
+      if (said) lines.push("- " + section.heading + ": " + said);
+    }
+    if (!lines.length) {
+      msg.textContent = "Nothing typed yet. Add a thought under any section first.";
+      msg.className = "sendmsg err";
+      return;
+    }
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text: "Notes on " + TITLE + ":\n" + lines.join("\n") }),
+      });
+      if (!res.ok) throw new Error();
+      msg.textContent = "Sent, " + lines.length + " note" + (lines.length === 1 ? "" : "s") + ". The agent has it.";
+      msg.className = "sendmsg ok";
+    } catch {
+      msg.textContent = "Could not reach the agent. Open this at http://localhost:4173/" + SLUG + " and retry.";
+      msg.className = "sendmsg err";
+    }
+  });
+</script>
 </body>
 </html>
