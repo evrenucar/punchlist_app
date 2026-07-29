@@ -2157,5 +2157,190 @@
         }
       ]
     }
+  },
+  {
+    "key": "reminders",
+    "spec": {
+      "title": "Reminders: the deeper grill",
+      "intro": "You have never set a reminder in Punchlist once. So the first questions are whether this should exist, not how to polish it. Ten questions. Pick an option or write your own, both is better than one.",
+      "storageKey": "punchlist-reminders-grill",
+      "sendLabel": "Send answers to chat",
+      "chatPrefix": "Reminders grill:",
+      "sections": [
+        {
+          "heading": "Should this exist",
+          "items": [
+            {
+              "id": "rem2-cost-of-forgetting",
+              "title": "What actually goes wrong when you forget something?",
+              "body": "Either nothing bad happens when a task slips, or something else already catches it. Before anything gets built, name the damage.",
+              "answers": {
+                "options": [
+                  "Nothing. Things slide a day and it costs me nothing.",
+                  "I miss things that involve other people. Calls, replies, handovers.",
+                  "I lose the block. The work was meant for 2pm and 2pm went somewhere else.",
+                  "I remember late, at 11pm, when I can no longer do it.",
+                  "I never forget. I just do not start."
+                ],
+                "multi": true
+              },
+              "placeholder": "Last time forgetting actually cost you something, what was it?"
+            },
+            {
+              "id": "rem2-what-pokes-you",
+              "title": "What pokes you today when something has to happen at a time?",
+              "body": "Whatever that is, it already won. Punchlist would have to beat it, not just show up.",
+              "answers": {
+                "options": [
+                  "Phone alarm.",
+                  "Calendar popup.",
+                  "A person messages me.",
+                  "Nothing. I look at the board, or at the clock.",
+                  "A note to myself somewhere else."
+                ],
+                "multi": true
+              },
+              "placeholder": "How often does that thing fire in a normal week?"
+            },
+            {
+              "id": "rem2-delete-test",
+              "title": "If reminders were deleted tomorrow, what breaks?",
+              "body": "Deleting is a real option and the cheapest one. The Remind field, the two settings toggles, and the firing loop all go. Nothing else in the app depends on them.",
+              "answers": {
+                "options": [
+                  "Nothing. Delete it.",
+                  "Nothing today, but I want it back after the day shape work lands.",
+                  "Keep it. The idea is right, the current version is just unreachable.",
+                  "Keep the times, drop the alerts. I want to see when things are, not be interrupted."
+                ],
+                "multi": false
+              },
+              "placeholder": "If you say delete, what would have to be true to bring it back?"
+            }
+          ]
+        },
+        {
+          "heading": "Why it never got used",
+          "items": [
+            {
+              "id": "rem2-why-never-used",
+              "title": "Why did you never set one?",
+              "body": "The facts, so you are choosing from what is really there. Reminders are off by default. After you switch them on, the Remind box only appears if Task metadata is also on, and only inside the details panel of the task you have selected. It is a full date and time field, separate from the date and start time already on that task. Two settings, one selection, a third time to type.",
+              "answers": {
+                "options": [
+                  "Never knew it was there.",
+                  "Too many steps to reach the field.",
+                  "Typing a full date and time again, after setting a start time, felt stupid.",
+                  "A toast in a tab is not a reminder. It was never going to reach me.",
+                  "I do not plan at that level. Nothing I do has a real clock time."
+                ],
+                "multi": true
+              },
+              "placeholder": "If it had been one keystroke on the task line, would you have used it?"
+            }
+          ]
+        },
+        {
+          "heading": "What can actually reach you",
+          "items": [
+            {
+              "id": "rem2-tab-reality",
+              "title": "How much of your day is the board actually open?",
+              "body": "This is the constraint everything hangs off. Punchlist is one HTML file with no server. Nothing of it runs when the tab is closed. There is no background process to wake up and fire. A reminder can only reach you during the minutes the app is already on screen.",
+              "answers": {
+                "options": [
+                  "Open all day on one machine. An in-tab alert would land.",
+                  "Open in bursts. Morning and evening, not between.",
+                  "Mostly closed. I open it when I go looking for it.",
+                  "When it matters I am on my phone and the tab is on the desktop."
+                ],
+                "multi": false
+              },
+              "placeholder": "Roughly how many hours, and on which device?"
+            },
+            {
+              "id": "rem2-missed-window",
+              "title": "Something came due while the app was closed. You open it. What should happen?",
+              "body": "Today the wrong thing happens. The record of what has already fired lives in memory only. Reload the page and every past due reminder that is not ticked fires again as a toast, every time, forever. Ten old reminders would mean ten toasts every morning.",
+              "answers": {
+                "options": [
+                  "Fire it when I open. Late is better than never.",
+                  "One quiet line. Three were due while you were away. No popups.",
+                  "Mark them late in the list and say nothing.",
+                  "Say nothing and clear them. A reminder for a moment that passed is noise."
+                ],
+                "multi": false
+              },
+              "placeholder": "Does your answer change if it was due two weeks ago instead of an hour ago?"
+            },
+            {
+              "id": "rem2-who-pokes",
+              "title": "Should Punchlist be the thing that pokes you at all?",
+              "body": "There is no honest version where a closed HTML file wakes up and taps you on the shoulder. Either it nudges you only while open, or it hands the time to something that is always running and then steps back. Handing off means a button that pushes one task to a phone alarm or a calendar, which is the outside dependency you said no to for now.",
+              "answers": {
+                "options": [
+                  "Punchlist only, while open. I accept that it misses things.",
+                  "Punchlist holds the plan. My phone alarm does the poking, set by hand.",
+                  "Give me a one click handoff, per task, to phone or calendar.",
+                  "Nobody pokes. The board is a place I look, not a thing that talks."
+                ],
+                "multi": false
+              },
+              "placeholder": "If the handoff existed, how many tasks a week would you send?"
+            }
+          ]
+        },
+        {
+          "heading": "If it survives, what shape",
+          "items": [
+            {
+              "id": "rem2-one-time-or-two",
+              "title": "A task already has a date and a start time. Should the reminder be a third time?",
+              "body": "Right now the date, the start time, and the reminder time are three separate fields you fill in by hand. They can disagree and nothing notices or complains.",
+              "answers": {
+                "options": [
+                  "One time only. If a task has a start time, that is the reminder.",
+                  "One time plus an offset. Start time, then nudge me some minutes before.",
+                  "Keep them separate. Some reminders have nothing to do with when I work on it.",
+                  "No times on tasks at all. Days only."
+                ],
+                "multi": false
+              },
+              "placeholder": "If you want an offset, what is your default? Ten minutes, an hour, the night before?"
+            },
+            {
+              "id": "rem2-alert-vs-glance",
+              "title": "One alert per task, or one look at the day?",
+              "body": "These build differently. Per task alerts need firing, dedupe, and something to do when one lands. A day strip is text you read when you open the board, and it is correct every time you look because it is not trying to catch you.",
+              "answers": {
+                "options": [
+                  "Per task alerts. Each one on its own.",
+                  "A day strip. What is now, what is next, what slipped.",
+                  "Both. The strip always, alerts only on the few I flag.",
+                  "Neither. Just the list, sorted by time."
+                ],
+                "multi": false
+              },
+              "placeholder": "If a nudge does land, what do you want to do to it right there? Snooze, push to tomorrow, tick it, nothing?"
+            },
+            {
+              "id": "rem2-repeat",
+              "title": "Does anything in your week actually repeat?",
+              "body": "Recurring tasks and reminders look alike but are different features. If the real gap is that something happens every Monday and you retype it, alerts would not fix that.",
+              "answers": {
+                "options": [
+                  "Yes, daily habits. That is the real missing piece.",
+                  "Yes, weekly. Standing meetings and reviews.",
+                  "Repeats live in my calendar already and I want them to stay there.",
+                  "No. My work is one off tasks all the way down."
+                ],
+                "multi": true
+              },
+              "placeholder": "Name two things that repeat, and say what you do with them today."
+            }
+          ]
+        }
+      ]
+    }
   }
 ]

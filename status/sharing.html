@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sharing Punchlist, and the gate in front of it</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 18px 80px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.015em; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 34px 0 10px; letter-spacing: -0.01em; }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  h4, h5, h6 { font-size: 14px; margin: 20px 0 6px; color: var(--muted); }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin: 0 0 6px; }
+  a { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+  pre code { border: 0; background: none; padding: 0; font-size: 12.5px; line-height: 1.5; }
+  blockquote { margin: 0 0 14px; padding: 2px 0 2px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+  .scroll { overflow-x: auto; margin: 0 0 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--surface); font-weight: 700; }
+  .stamp { color: var(--muted); font: 12px/1.5 var(--mono); margin: 0 0 26px; }
+</style>
+</head>
+<body>
+<main>
+<p class="stamp">sharing · generated from the finished work, not typed up afterwards</p>
+<h1>Sharing Punchlist: what to do, and what to fix first</h1>
+<p>You asked for an overview and a small plan for sharing this, and you put a gate in front of it: stable, no big security or sync issues, before that stage.</p>
+<p>One agent researched it and a second one spent its time trying to destroy that research. The second one won several arguments, so what follows is the merged version with the corrections folded in and the losing claims struck out. Where the first agent invented something, it says so.</p>
+<p><strong>The headline is not the plan. It is that your gate is not met, and I can now tell you exactly why in one sentence.</strong></p>
+<hr>
+<h2>1. Stop. Your sync token is readable by six other websites</h2>
+<p>This is verified, not theorised. I checked each step myself.</p>
+<p>Your GitHub token is stored in plain text in <code>localStorage</code>:</p>
+<pre><code>src/task-board.js:679
+localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(syncConfig));</code></pre>
+<p><code>localStorage</code> is scoped to an <strong>origin</strong>, not to a folder. The hosted app lives at <code>https://evrenucar.github.io/punchlist_app/</code>, so its origin is <code>https://evrenucar.github.io</code>. That origin is shared by every Pages site on your account:</p>
+<pre><code>clocktest · kora_aerospace_web · nokta_labs_website_v1
+proto_website · punchlist_app · thermal-cam · website</code></pre>
+<p>All seven share one <code>localStorage</code>. Any script running on any of them can read your token.</p>
+<p>And one of them loads a third-party script that is not pinned to a version:</p>
+<pre><code>https://evrenucar.github.io/nokta_labs_website_v1/
+  &lt;script src="https://unpkg.com/lucide@latest"&gt;</code></pre>
+<p><code>@latest</code> means whatever that package publishes next, executed on your origin, forever. If that package or the CDN is ever compromised, the attacker's code reads your token out of <code>localStorage</code> and has read and write access to your private board repository.</p>
+<p>You do not need to be targeted for this. You need the supply chain to have one bad day.</p>
+<h3>What fixes it</h3>
+<div class="scroll"><table><thead><tr><th>Option</th><th>What it does</th><th>Cost</th></tr></thead><tbody><tr><td><strong>Give Punchlist its own origin</strong></td><td>A custom domain, or a Pages site under a different account. Separate origin, separate <code>localStorage</code>, the other six can never see the token.</td><td>An afternoon, and a domain if you want one</td></tr><tr><td>Pin or remove the CDN script on the sibling site</td><td>Closes today's specific hole</td><td>Ten minutes</td></tr><tr><td>Only sync from the downloaded copy</td><td><code>file://</code> is its own origin already</td><td>Free, but it means not using the hosted app for real work</td></tr></tbody></table></div>
+<p>The first one is the actual fix; the rest are mitigations. <strong>This is the decision I need from you</strong>, and it is on the board.</p>
+<p>Two more, cheap and embarrassing rather than dangerous:</p>
+<ul>
+<li><strong>There is no LICENSE file.</strong> <code>gh api repos/evrenucar/punchlist_app --jq '.license'</code> returns <code>null</code>. Legally the repo is all rights reserved, which directly contradicts the thing you are selling: nobody can fork or redistribute the file you tell them they own forever. Every list you submit to and a chunk of any comment thread will raise it. Five-minute fix, and it gates everything in section 3.</li>
+<li><strong>The email capture on your landing page is wired to nothing.</strong> <code>website/index.html:735</code> is <code>const FORM_ENDPOINT = "";</code>, so one of the four buttons on your homepage opens the visitor's mail client instead of collecting anything. If traffic ever arrives, the only way you had to keep hold of it does not work.</li>
+</ul>
+<hr>
+<h2>2. Why the WhatsApp share produced nothing</h2>
+<p>Three mechanisms, none of them marketing.</p>
+<p><strong>You shared a technical fact with people who do not have that problem.</strong> The page leads with "no account, no server, no install, no network requests." Every one of those answers a question your friends have never asked. On a phone, that reads as somebody's project, and "nice" is the polite response to somebody's project.</p>
+<p><strong>Nobody priced the switching cost.</strong> The standard framing is Gourville's, in HBR, June 2006: people overweight what they already have by about 3x, builders overweight the new thing by about 3x, so the new thing needs to be roughly 9x better before anyone moves. Your friends already have a system, even a bad one. Punchlist is not 9x better than a note. It is better along an axis, ownership and survivability, that nobody feels until they have lost data or hit a paywall.</p>
+<p><strong>The first screen offers four equal choices and one of them is a GitHub token.</strong> The phone layout puts "Open the board", "Download", "Set up sync" and "Get updates" side by side. For a non-technical friend, the sync guide's talk of fine-grained personal access tokens is enough to file the whole thing under not-for-me.</p>
+<blockquote><strong>Struck out on review.</strong> The research also claimed a friend typed tasks into the WhatsApp browser and lost them to an iOS webview quirk. <strong>That friend does not exist.</strong> Your words were "other than a first glance no one was really excited abou tit or used it". Nobody reported data loss. The webview mechanism is real, but the story was invented to fit it, and you should know that so you do not go looking for a bug nobody hit.</blockquote>
+<p>The blunt version: a share to friends is not a distribution channel for this product. It works for things with zero switching cost and an obvious payoff in ten seconds. This has neither, for that audience.</p>
+<hr>
+<h2>3. Who it is actually for</h2>
+<p>Argued from what the file does, not from who you would like to reach.</p>
+<p>Sync needs a GitHub account and a fine-grained token. Editing is Enter, Tab, Alt+arrows. Export is lossless JSON and clean Markdown. There is no server to shut down and nothing to cancel.</p>
+<p>That describes one person: <strong>someone who already keeps notes in plain text or Markdown, already has a GitHub account, and has no trusted view of what to do today.</strong> The Obsidian or Logseq or plain <code>TODO.md</code> user, whose tasks are buried inside notes, and who will not move to Todoist because they already refused a subscription once on principle.</p>
+<p>The second fit is the one I would lead with, because it is a sentence you can say out loud: <strong>a developer who wants a task list that lives in the repo.</strong> One <code>TODO.html</code> beside the code, double-clickable in ten years, diffable in git, no build step.</p>
+<p>Not for: your WhatsApp friends, anyone content with Apple Reminders, anyone who needs the sync guide explained, and anyone whose complaint about their current tool is "I don't use it enough."</p>
+<hr>
+<h2>4. The plan, corrected</h2>
+<h3>Move 1. Watch ten people open it, one at a time</h3>
+<p>Hand someone the URL on a phone, say nothing, and time them. Write down the second they type their first task and every place they stop. Ten people over two weeks: three developers, three Markdown people, four normal humans.</p>
+<p><strong>Cost:</strong> about fifteen minutes each. <strong>Signal:</strong> at least six of the ten type a task without being told how. If fewer do, you have found the real problem and every later move would have been wasted.</p>
+<p>This is the only move that produces evidence instead of opinion. Do it first even if you do nothing else.</p>
+<h3>Move 2. Cut the first screen to one button</h3>
+<p>Four equal CTAs is four ways to hesitate. One button, "Open the board", and everything else below the demo.</p>
+<blockquote><strong>Corrected.</strong> The research wanted the headline replaced, arguing "A day planner that's one HTML file" states a fact about the build. Its own evidence refutes it: the three examples it found are "An entire PowerPoint in one HTML file", "Kanban board in a single HTML file", "a standalone note with single HTML file". Your headline is already that formula, executed correctly. <strong>Keep it.</strong> And it never supplied a replacement sentence anyway.</blockquote>
+<p>While you are in there, fix the size claims: the README says 340 KB, <code>DIRECTIONS.md</code> says 267 KB, and the file is 423 KB. Three numbers, none of them right until today.</p>
+<h3>Move 3. Show HN, once, with the numbers in front of you</h3>
+<p>Punchlist is exactly what Show HN is for: "something you've made that other people can play with", barriers minimised, no signup. Submit the <strong>app or the repo, not the landing page</strong> — the rules say "Don't post landing pages" and yours is one.</p>
+<p><strong>The number the first draft left out.</strong> A sample of 1,000 Show HN posts from a mature week: <strong>median score 2 points. 86% got 5 points or fewer. 64% got zero comments.</strong> Hitting 100 points is a 1.8% event.</p>
+<p>So do not clear a working day for it and do not treat the thread as the prize. And the consolation the research offered, that a flop still gives you a ranked list of objections, is false: the modal outcome is nobody says anything at all.</p>
+<p>Post it because it costs an evening and the upside is real. Not because it is a plan.</p>
+<h3>Move 4. One list, not three</h3>
+<blockquote><strong>Corrected.</strong> The research named three targets and all three were blocked. <code>alexanderop/awesome-local-first</code> publishes a rule about only accepting projects "used by many people"; you have one star. <code>schickling/awesome-local-first</code> has not been touched since June 2024. Privacy Guides has no to-do category at all, and submitting there before section 1 is fixed invites strangers to document your token problem in public.</blockquote>
+<p>That leaves <strong>lofi.so</strong>, the local-first community, whose directory is editable by pull request and whose footer invites it. One submission, honestly qualified.</p>
+<h3>Move 5. Cut</h3>
+<p>The research could not name a single community rule for its own fifth move, then kept the move and gave it a time estimate. A move you cannot specify is not a move.</p>
+<hr>
+<h2>5. The three things most likely to make this fail anyway</h2>
+<ol>
+<li><strong>You ship section 1 and stop there.</strong> The security work is invisible and unrewarding, and it is the gate you set yourself. Nothing here is safe to do before it.</li>
+<li><strong>Nobody needs a fourth to-do app.</strong> The honest pitch is not "a better task list", it is "the one that is still yours in ten years". That only lands with people who have already been burned. There are fewer of them than it feels like.</li>
+<li><strong>You get the traffic and the first-run experience wastes it.</strong> Which is why Move 1 comes before Move 3, and why doing them in the other order is the most expensive mistake available here.</li>
+</ol>
+<hr>
+<h2>What I have already done</h2>
+<p>Boarded, in your words, with the security item first. The LICENSE, the dead email form and the three wrong file sizes are small enough that I will just fix them unless you say otherwise.</p>
+<p><strong>What I need from you: the origin decision in section 1.</strong> Everything else can wait; that one is holding the gate shut.</p>
+</main>
+</body>
+</html>
