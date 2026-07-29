@@ -81,4 +81,4 @@ Installed and matched to this work, in the order they'd be used:
 | `ponytail` | Already governs all code here per `CLAUDE.md`; keeps each fix the minimal one. |
 | `verify` / `run` | Driving the real app after each batch instead of trusting tests alone. |
 
-Considered and set aside: `web-performance-audit` and `web-performance-optimization`. The app is one 447 KB file with zero network requests; there is no bundle to split and no waterfall to fix. Revisit only if board render time on the phone becomes a reported friction.
+Considered and set aside: `web-performance-audit` and `web-performance-optimization`. The app is one 449 KB file with zero network requests; there is no bundle to split and no waterfall to fix. Revisit only if board render time on the phone becomes a reported friction.

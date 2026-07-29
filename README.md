@@ -12,7 +12,7 @@ Secondary links: [open the app directly](https://evrenucar.github.io/punchlist_a
 
 ## What it is
 
-The whole app is one 447 KB HTML file you can open straight from disk. Tasks save to your browser and export losslessly to JSON or clean Markdown. Nothing leaves the machine unless you turn on GitHub sync. The name is a construction term: the punch list is the last set of fixes before a building is handed over, worked down to zero. (The repository name predates the Punchlist branding.)
+The whole app is one 449 KB HTML file you can open straight from disk. Tasks save to your browser and export losslessly to JSON or clean Markdown. Nothing leaves the machine unless you turn on GitHub sync. The name is a construction term: the punch list is the last set of fixes before a building is handed over, worked down to zero. (The repository name predates the Punchlist branding.)
 
 ## Run it
 

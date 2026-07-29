@@ -389,6 +389,22 @@ test("the markdown mode rides on every render, not just the settings control", a
   api.updateSettings({ markdownMode: "edit" });
 });
 
+// Evren, 2026-07-29: "CTRL up and down opens and closes items". It already did
+// on the board, including mid-edit. Focus mode drew the same chevrons and gave
+// them no key, so the one shortcut he reaches for did nothing in there.
+test("Ctrl+Up and Ctrl+Down fold the focus outline too, not just the board", async () => {
+  const html = await readBoard();
+  const handler = html.slice(html.indexOf("focusTaskEl?.addEventListener(\"keydown\""));
+  const branch = handler.slice(0, handler.indexOf("const fields = ["));
+
+  assert.match(branch, /event\.key === "ArrowUp".*event\.ctrlKey \|\| event\.metaKey/s, "the overlay handles Ctrl+Arrow");
+  assert.match(branch, /id !== focusModeTaskId/, "the focus root is left out, its children render whatever its flag says");
+  assert.match(branch, /found\.item\.collapsed = collapsed/, "it folds the task holding the caret");
+  assert.match(branch, /renderFocusMode\(\)/, "and redraws the overlay");
+  // the chevron says which key does it, the way every other row control does
+  assert.match(html, /title="\$\{expanded \? "Collapse" : "Expand"\} \(Ctrl\+\$\{expanded \? "Up" : "Down"\}\)"/);
+});
+
 test("the Formatting settings are three controls, each on one line", async () => {
   // Same rule the Lifecycle section had to be dragged into: a switch row is a
   // settings-field, not a settings-row, or the label wraps and the switch drops

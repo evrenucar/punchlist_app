@@ -3272,7 +3272,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.38";
+    const APP_VERSION = "1.5.39";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
@@ -8399,7 +8399,7 @@
         const id = resolved?.id || item.id;
         return `
         <li style="margin-left: ${depth * 18}px" class="${done ? "focus-child-done" : ""}">
-          <button class="focus-child-chevron ${hasKids ? "" : "hidden"}" type="button" data-focus-chevron="${item.id}" aria-label="${expanded ? "Collapse" : "Expand"}" aria-expanded="${expanded ? "true" : "false"}">${renderIcon("chevron")}</button>
+          <button class="focus-child-chevron ${hasKids ? "" : "hidden"}" type="button" data-focus-chevron="${item.id}" aria-label="${expanded ? "Collapse" : "Expand"}" aria-expanded="${expanded ? "true" : "false"}" title="${expanded ? "Collapse" : "Expand"} (Ctrl+${expanded ? "Up" : "Down"})">${renderIcon("chevron")}</button>
           <button class="focus-child-check ${done ? "done" : ""}" type="button" data-focus-toggle="${id}" aria-label="${done ? "Mark not done" : "Mark done"}">${done ? renderIcon("check") : ""}</button>
           <span class="focus-child-text" contenteditable="true" spellcheck="true" data-focus-task-text="${id}">${renderInlineMarkdown(resolved?.text || item.text)}</span>
           ${renderFocusImages(resolved || item, "focus-child-image")}
@@ -9146,6 +9146,27 @@
           renderFocusMode();
           focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${item.id}"]`), false);
         }
+        return;
+      }
+      // Ctrl+Up / Ctrl+Down collapse and expand, the same pair the board has
+      // always used. Focus mode drew chevrons on the outline and gave them no
+      // key at all, so the one shortcut he reaches for did nothing in here.
+      // The focus ROOT is deliberately left out: renderFocusMode shows its
+      // children whatever its collapsed flag says, so toggling it would change
+      // the board underneath while nothing moved on screen.
+      if ((event.key === "ArrowUp" || event.key === "ArrowDown") && (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey) {
+        event.stopPropagation();
+        const id = overlayEditable?.dataset.focusTaskText;
+        const found = id && id !== focusModeTaskId ? findTask(id) : null;
+        if (!found || !(found.item.children || []).length) return;
+        event.preventDefault();
+        const collapsed = event.key === "ArrowUp";
+        if (found.item.collapsed === collapsed) return;
+        found.item.collapsed = collapsed;
+        boardStaleBehindFocus = true;
+        saveState();
+        renderFocusMode();
+        focusEditableText(focusTaskEl.querySelector(`[data-focus-task-text="${id}"]`), false);
         return;
       }
       if (overlayEditable && (event.key === "ArrowUp" || event.key === "ArrowDown") && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
