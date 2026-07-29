@@ -287,6 +287,28 @@
 
     <article>
       <header>
+        <h2>Type a colon for emoji</h2>
+        <span class="entry-date">July 29, 2026 · build v1.5.34</span>
+      </header>
+      <p>Type <code>:</code> and keep typing. Arrows move, Enter or Tab inserts, Escape keeps the word literal.</p>
+      <p><strong>It only triggers on a colon that starts a word.</strong> So <code>10:30</code> stays a time, <code>note: something</code> stays a note, & <code>https://</code> stays a link. Press Escape & it stays out of your way while you finish that word, so <code>:fire</code> can just be the word fire.</p>
+      <p>About 250 emoji, weighted towards what a task board actually needs: status, work, time, feeling. Not the full Unicode set, which with searchable names would be around 200 KB, roughly half the app.</p>
+      <p><strong>Move done tasks down</strong> is a new setting under Lifecycle, off by default. Turn it on & ticking a task sends it to the bottom of its group, under everything. One thing to know first: a task nested under another leaves that nesting to get there, & unticking does not put it back, because nothing recorded where back was.</p>
+    </article>
+
+    <article>
+      <header>
+        <h2>Reporting a bug takes two fields, & both of them arrive</h2>
+        <span class="entry-date">July 29, 2026 · build v1.5.33</span>
+      </header>
+      <p><strong>Summary & What happened.</strong> The summary becomes the issue title. Every issue used to open titled "Bug report", which made a list of them impossible to read at a glance, & the one line that would have said what broke was buried in the body.</p>
+      <p><strong>Two ways out, told apart by colour.</strong> Purple opens a prefilled GitHub issue. Blue copies the author's email with everything you wrote, & it is now the big obvious button under a small line for anyone who does not have or want a GitHub account.</p>
+      <p><strong>Your text is not thrown away.</strong> Opening the issue clears the form, because by then your words are safely in it. The email path keeps the dialog open & keeps your text, because a copy can fail silently & retyping a bug report is worse than an extra click. Closing the dialog clears it.</p>
+      <p><strong>Screenshots.</strong> They cannot travel from the app into a prefilled issue: the URL carries text only, & GitHub will not render an embedded image in a body it was handed. So the issue asks you to attach them there, where the upload box is.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>The board is harder to wipe by accident</h2>
         <span class="entry-date">July 28, 2026 · build v1.5.32</span>
       </header>
