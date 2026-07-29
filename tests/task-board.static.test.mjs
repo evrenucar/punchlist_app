@@ -3136,7 +3136,7 @@ test("a bug report has a summary and a description, and both reach the issue", a
   const html = await readBoard();
   assert.match(html, /data-bug-summary/, "the summary field ships");
   assert.match(html, /\(I do not have or want a GitHub account\)/, "the small line above the email path");
-  assert.match(html, /Copy Evren email to report a bug/, "and the big button under it");
+  assert.match(html, /Copy Evren's email to report a bug/, "and the big button under it");
   assert.match(html, /class="control bug-github"/);
   assert.match(html, /class="control bug-email"/);
   assert.match(html, /\.bug-dialog \.control\.bug-github \{[\s\S]{0,80}#8957e5/, "GitHub purple");
@@ -3555,38 +3555,77 @@ test("typing a colon offers emoji, and only when it starts a word", async () => 
   assert.equal(api.searchEmoji("zzzzz").length, 0, "no pretend matches");
 });
 
-test("ticking a task can move it to the bottom of its group, off by default", async () => {
-  // Evren, 2026-07-28: "Add option to push checkmarked item down in its group
-  // when checked", then "To the bottom of its group, under everything" and
-  // "also do make it a setting and have it off by default".
+test("ticking a task sinks it among its own siblings, and unticking puts it back", async () => {
+  // Evren, 2026-07-29, correcting what shipped in v1.5.34 after living with it:
+  // "it shouldn't be pushed to the bottom of the big group. If there is a sub
+  // sub group when I tick it should stay at the same hierarchy level but go to
+  // the bottom of that hierarchy level. If it has sub items it should move
+  // together with them." And: "I want it to remember where it came from and go
+  // back when unticked."
   const html = await readBoard();
   assert.match(html, /data-sink-completed/, "the setting ships");
   assert.match(html, /Move done tasks down/);
 
+  const at = "2026-07-29T00:00:00.000Z";
   const api = await loadBoardApi();
-  assert.equal(api.migrateState({}, "2026-07-29T00:00:00.000Z").settings.sinkCompleted, false, "off by default");
+  assert.equal(api.migrateState({}, at).settings.sinkCompleted, false, "off by default");
 
-  const group = api.getExportState().groups[0];
-  const first = group.tasks[0];
-  const last = group.tasks[group.tasks.length - 1];
-  assert.notEqual(first.id, last.id, "the fixture needs at least two tasks");
+  // A fixture built for this question rather than the seed board, which has no
+  // parent with enough children for "bottom of its own level" to mean anything.
+  api.applyExternalState({
+    version: 2,
+    groups: [{
+      id: "g1",
+      title: "Group",
+      collapsed: false,
+      tasks: [
+        { id: "t-solo", text: "solo", children: [] },
+        {
+          id: "t-parent",
+          text: "parent",
+          children: [
+            { id: "t-kid-a", text: "kid a", children: [{ id: "t-grandkid", text: "grandkid", children: [] }] },
+            { id: "t-kid-b", text: "kid b", children: [] },
+            { id: "t-kid-c", text: "kid c", children: [] },
+          ],
+        },
+      ],
+    }],
+  });
+
+  const topLevel = () => api.getExportState().groups[0].tasks;
+  const first = topLevel()[0];
+  assert.ok(topLevel().length > 1, "the fixture needs at least two tasks");
 
   // Off: ticking leaves it exactly where it was.
-  api.setTaskCompleted(first.id, true, "2026-07-29T00:00:00.000Z", { render: false });
-  assert.equal(api.getExportState().groups[0].tasks[0].id, first.id, "nothing moves while the setting is off");
+  api.setTaskCompleted(first.id, true, at, { render: false });
+  assert.equal(topLevel()[0].id, first.id, "nothing moves while the setting is off");
+  api.setTaskCompleted(first.id, false, at, { render: false });
 
-  // On: it goes under everything, and a nested one leaves its nesting to do it.
   api.updateSettings({ sinkCompleted: true });
-  const parent = group.tasks.find((task) => (task.children || []).length);
-  assert.ok(parent, "the fixture needs a nested task");
-  const child = parent.children[0];
-  api.setTaskCompleted(child.id, true, "2026-07-29T00:00:00.000Z", { render: false });
 
-  const after = api.getExportState().groups[0].tasks;
-  assert.equal(after[after.length - 1].id, child.id, "the ticked child is now last in the group");
-  assert.equal(
-    (api.getExportState().groups[0].tasks.find((task) => task.id === parent.id).children || []).some((c) => c.id === child.id),
-    false,
-    "and it is no longer nested under its old parent",
+  // A NESTED task stays nested. It goes to the end of its own sibling list and
+  // its own children travel with it, because the item is its subtree.
+  const parent = topLevel().find((task) => (task.children || []).length > 1);
+  assert.ok(parent, "the fixture needs a task with at least two children");
+  const child = parent.children[0];
+  const childKids = (child.children || []).map((c) => c.id);
+  const wasAt = 0;
+
+  api.setTaskCompleted(child.id, true, at, { render: false });
+  const nested = topLevel().find((task) => task.id === parent.id).children;
+  assert.equal(nested[nested.length - 1].id, child.id, "it sank to the bottom of its own level");
+  assert.equal(nested.some((c) => c.id === child.id), true, "and it never left its parent");
+  assert.equal(topLevel().some((task) => task.id === child.id), false, "it did not surface to the group");
+  assert.deepEqual(
+    (nested[nested.length - 1].children || []).map((c) => c.id),
+    childKids,
+    "its own sub-items came with it",
   );
+
+  // Unticking returns it to the slot it was ticked in.
+  api.setTaskCompleted(child.id, false, at, { render: false });
+  const restored = topLevel().find((task) => task.id === parent.id).children;
+  assert.equal(restored[wasAt].id, child.id, "unticking put it back where it came from");
+  assert.equal(restored[wasAt].sunkFrom, undefined, "and the bookmark is spent, not left lying around");
 });

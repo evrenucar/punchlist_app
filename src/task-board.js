@@ -1879,15 +1879,38 @@
       window.setTimeout(done, 250);
     }
 
-    // Moves a just-completed task to the end of its group's top level. Returns
-    // false when it is already the last top-level item, so the caller can keep
-    // its cheap in-place render instead of redrawing the board for nothing.
-    function sinkTaskToGroupBottom(found) {
-      if (!found || !found.group) return false;
-      const top = found.group.tasks;
-      if (!found.parent && top[top.length - 1] === found.item) return false;
-      found.list.splice(found.index, 1);
-      top.push(found.item);
+    // Evren corrected this on 2026-07-29, after using the v1.5.34 version:
+    // "it shouldn't be pushed to the bottom of the big group. If there is a sub
+    // sub group when I tick it should stay at the same hierarchy level but go to
+    // the bottom of that hierarchy level. If it has sub items it should move
+    // together with them." And: "I want it to remember where it came from and go
+    // back when unticked."
+    //
+    // So a sink never changes a task's parent. It slides down its OWN sibling
+    // list, carries its subtree because the item IS its subtree, and records
+    // where it started so unticking can undo it. Returns false when it is
+    // already last, so the caller keeps its cheap in-place render.
+    function sinkTaskAmongSiblings(found) {
+      if (!found) return false;
+      const siblings = found.list;
+      if (siblings[siblings.length - 1] === found.item) return false;
+      found.item.sunkFrom = found.index;
+      siblings.splice(found.index, 1);
+      siblings.push(found.item);
+      return true;
+    }
+
+    // The other half of his ask. Puts the task back where it was sitting when it
+    // was ticked, as long as that slot still makes sense: if the list changed
+    // underneath it, land as close as the list allows rather than refusing.
+    function restoreSunkTask(found) {
+      if (!found || typeof found.item.sunkFrom !== "number") return false;
+      const siblings = found.list;
+      const target = Math.min(found.item.sunkFrom, siblings.length - 1);
+      delete found.item.sunkFrom;
+      if (target === found.index) return false;
+      siblings.splice(found.index, 1);
+      siblings.splice(target, 0, found.item);
       return true;
     }
 
@@ -1900,13 +1923,11 @@
       if (options.pushUndo !== false) pushUndoState("complete", `${nextDone ? "Completed" : "Reopened"} "${shortText(item.text)}"`);
       item.done = nextDone;
       item.completedAt = nextDone ? now : null;
-      // Evren, 2026-07-28: "Add option to push checkmarked item down in its
-      // group when checked", and when asked how far: "To the bottom of its
-      // group, under everything", plus "do make it a setting and have it off by
-      // default". Under everything means exactly that: a nested item leaves its
-      // parent and lands at the group's top level, subtree and all. Unticking
-      // does not put it back, because nothing recorded where back was.
-      const sank = nextDone && state.settings.sinkCompleted && sinkTaskToGroupBottom(found);
+      // Ticking sinks it among its own siblings; unticking puts it back. Both
+      // are his, and the second half is why sunkFrom exists at all.
+      const moved = state.settings.sinkCompleted
+        && (nextDone ? sinkTaskAmongSiblings(found) : restoreSunkTask(found));
+      const sank = Boolean(moved);
       if (options.save !== false) saveState();
       if (sank) {
         if (options.render !== false) render();
@@ -3951,6 +3972,10 @@
       item.policyOverrides = item.policyOverrides && typeof item.policyOverrides === "object"
         ? item.policyOverrides
         : null;
+      // Where this task sat before ticking sank it, so unticking can put it
+      // back. Only meaningful while done; anything else in the field is noise
+      // from a hand-edited or older file.
+      if (typeof item.sunkFrom !== "number" || !item.done) delete item.sunkFrom;
       item.images = Array.isArray(item.images)
         ? item.images
           .filter((img) => img && (typeof img.assetId === "string" || (typeof img.src === "string" && img.src.startsWith("data:image/"))))
@@ -6483,14 +6508,15 @@
       window.open?.(buildBugReportUrl(bugTextEl?.value || "", bugSummaryEl?.value || ""), "_blank", "noopener");
       closeBugDialog();
     });
+    // Evren, 2026-07-29: "Copy evrens imail shouldn't copy summary. Can just
+    // copy the email. It already doesn't close the window user would be able to
+    // do their own copy paste." So the clipboard gets the address and nothing
+    // else; the dialog staying open is what makes that enough.
     bugEmailEl?.addEventListener("click", () => {
-      const summary = String(bugSummaryEl?.value || "").trim();
-      const description = String(bugTextEl?.value || "").trim();
-      const said = [summary, description].filter(Boolean).join("\n\n");
-      const text = said ? `${FEEDBACK_EMAIL}\n\n${said}` : FEEDBACK_EMAIL;
+      const text = FEEDBACK_EMAIL;
       const done = () => {
         // stays open and keeps the text on purpose: see clearBugFields
-        showToast(`${FEEDBACK_EMAIL}${said ? " and what you wrote" : ""} copied. Please send Evren a kind email.`);
+        showToast(`${FEEDBACK_EMAIL} copied. Your text is still here to paste into the email.`);
       };
       if (navigator.clipboard?.writeText) {
         navigator.clipboard.writeText(text).then(done).catch(() => {
