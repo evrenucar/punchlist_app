@@ -3629,3 +3629,27 @@ test("ticking a task sinks it among its own siblings, and unticking puts it back
   assert.equal(restored[wasAt].id, child.id, "unticking put it back where it came from");
   assert.equal(restored[wasAt].sunkFrom, undefined, "and the bookmark is spent, not left lying around");
 });
+
+test("the Lifecycle settings put each control row on one line", async () => {
+  // Evren, 2026-07-29, with a screenshot: "lifecycle menu is a big ugly it
+  // ideally needs to be cleaned up... The move tasks down can become a toggle.
+  // Completed tasks: hide after 7 and days should always just be on 1 row.
+  // there can be a tiny bit more gap between the lines. there can be div lines
+  // between the groups as well." Colours were explicitly out of scope.
+  const html = await readBoard();
+
+  // The number and its unit sit INSIDE the control row now, not in a block
+  // underneath it. That nesting is the whole fix, so pin it.
+  const lifecycle = html.slice(html.indexOf("<summary>Lifecycle</summary>"), html.indexOf("<summary>Planning</summary>"));
+  const completed = lifecycle.slice(lifecycle.indexOf("Completed tasks"), lifecycle.indexOf("Delete action"));
+  assert.match(completed, /settings-field__controls[\s\S]*data-completion-mode[\s\S]*data-completion-duration[\s\S]*data-completion-unit/, "mode, number and unit share one controls row");
+  assert.equal(/<div class="settings-duration"/.test(lifecycle), false, "no duration block left outside a controls row");
+  assert.match(lifecycle, /class="switch" data-sink-completed/, "the checkbox became a switch");
+
+  // The four visual asks, as rules rather than as a screenshot nobody re-checks.
+  const css = await readFile(path.join(root, "src", "task-board.css"), "utf8");
+  assert.match(css, /\.settings-field \+ \.settings-field \{\s*border-top: 1px solid var\(--line\);/, "divider lines between fields");
+  assert.match(css, /\.settings-section \{[\s\S]{0,200}gap: 12px;/, "more gap between the lines");
+  assert.match(css, /\.settings-field__controls \{[\s\S]{0,160}flex-wrap: nowrap;/, "the controls never wrap to a second row");
+  assert.match(css, /input\.switch:checked \{\s*background: var\(--accent\);/, "the switch uses the existing accent, no new colour");
+});

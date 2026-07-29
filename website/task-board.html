@@ -531,7 +531,92 @@
       border-radius: 8px;
       padding: 8px;
       display: grid;
-      gap: 8px;
+      gap: 12px; /* "a tiny bit more gap between the lines" */
+    }
+
+    /* Evren, 2026-07-29, with a screenshot: "lifecycle menu is a big ugly it
+       ideally needs to be cleaned up... Don't change colors etc. But just how
+       they look and behave." Four things he named, and no colour moves:
+       the label sits above its own row of controls so "Hide after 7 days" stops
+       wrapping onto two lines, the rows are separated by dividers, there is more
+       air between them, and the checkbox became a switch. */
+    .settings-field {
+      display: grid;
+      gap: 5px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .settings-field + .settings-field {
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .settings-field__label {
+      color: var(--text);
+    }
+
+    .settings-field__controls {
+      display: flex;
+      flex-wrap: nowrap; /* his ask: "should always just be on 1 row" */
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    /* The mode select sizes to its own text and the unit takes the remainder,
+       which works because the two are never both under pressure: the duration
+       is only on screen for "Hide after" and "For a period", and every LONGER
+       option ("Hide immediately", "Until purged") hides the duration and gets
+       the whole row to itself. */
+    .settings-field__controls > select {
+      flex: 0 1 auto;
+      min-width: 0;
+    }
+
+    /* Measured, not guessed: this row is 193px wide at the default sidebar, and
+       "Hide after" alone wants 125 of them at the panel's 13px. Three controls
+       do not fit at that size, and he asked for one row, so the compact controls
+       drop a point and lose their side padding. Nothing else in Settings moves.
+       A select is also as wide as its WIDEST option rather than its selected
+       one, which is why min-width:0 appears on every one of them: without it a
+       flex item refuses to go below "seconds" and starves its neighbour. */
+    .settings-field__controls select,
+    .settings-field__controls input[type="number"] {
+      min-width: 0;
+      padding-left: 3px;
+      padding-right: 1px;
+      font-size: 12px;
+    }
+
+    .settings-field__controls > select {
+      flex: 1 1 auto;
+    }
+
+    .settings-field__controls .settings-duration {
+      flex: 0 0 auto; /* the number and its unit hold their size; the mode gives */
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .settings-field__controls input[type="number"] {
+      flex: 0 0 36px;
+      text-align: center;
+    }
+
+    /* Pinned rather than content-sized, because content-sized means "as wide as
+       the word seconds" and that width is stolen from the mode select for the
+       entire life of the row. 60px shows "days" and "hours" whole, and the four
+       pixels come off the number, which only ever holds one or two digits. */
+    .settings-field__controls .settings-duration select {
+      flex: 0 0 60px;
+    }
+
+    .settings-field--switch {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
     }
 
     .settings-section summary {
@@ -576,10 +661,48 @@
       display: flex;
       gap: 6px;
       justify-content: flex-end;
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .settings-duration[hidden] {
       display: none;
+    }
+
+    /* Same switch the dark-mode row uses, now that a second setting wants one.
+       Sized down a touch because it shares a row with a label rather than
+       owning one. */
+    input.switch {
+      appearance: none;
+      flex: 0 0 auto;
+      width: 34px;
+      height: 19px;
+      margin: 0;
+      border-radius: 10px;
+      background: var(--line-strong);
+      position: relative;
+      cursor: pointer;
+      transition: background 160ms ease;
+    }
+
+    input.switch::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #ffffff;
+      transition: transform 160ms ease;
+    }
+
+    input.switch:checked {
+      background: var(--accent);
+    }
+
+    input.switch:checked::after {
+      transform: translateX(15px);
     }
 
     [data-sync-fields] {
@@ -2792,50 +2915,56 @@
             </label>
             <details class="settings-section">
               <summary>Lifecycle</summary>
-              <label class="settings-row">
-                Completed tasks
-                <select data-completion-mode>
-                  <option value="custom">Hide after</option>
-                  <option value="immediate">Hide immediately</option>
-                  <option value="never">Keep visible</option>
-                </select>
+              <label class="settings-field">
+                <span class="settings-field__label">Completed tasks</span>
+                <span class="settings-field__controls">
+                  <select data-completion-mode>
+                    <option value="custom">Hide after</option>
+                    <option value="immediate">Hide immediately</option>
+                    <option value="never">Keep visible</option>
+                  </select>
+                  <span class="settings-duration" data-completion-duration>
+                    <input type="number" min="1" step="1" aria-label="Completed task visibility duration" data-completion-value>
+                    <select aria-label="Completed task visibility unit" data-completion-unit>
+                      <option value="seconds">seconds</option>
+                      <option value="minutes">minutes</option>
+                      <option value="hours">hours</option>
+                      <option value="days">days</option>
+                    </select>
+                  </span>
+                </span>
               </label>
-              <div class="settings-duration" data-completion-duration>
-                <input type="number" min="1" step="1" aria-label="Completed task visibility duration" data-completion-value>
-                <select aria-label="Completed task visibility unit" data-completion-unit>
-                  <option value="seconds">seconds</option>
-                  <option value="minutes">minutes</option>
-                  <option value="hours">hours</option>
-                  <option value="days">days</option>
-                </select>
-              </div>
-              <label class="settings-row">
-                Delete action
-                <select data-delete-mode>
-                  <option value="trash">Move to Trash</option>
-                  <option value="permanent">Delete permanently</option>
-                </select>
+              <label class="settings-field">
+                <span class="settings-field__label">Delete action</span>
+                <span class="settings-field__controls">
+                  <select data-delete-mode>
+                    <option value="trash">Move to Trash</option>
+                    <option value="permanent">Delete permanently</option>
+                  </select>
+                </span>
               </label>
-              <label class="settings-row" title="When you tick a task it slides to the bottom of the list it is already in, keeping its place in the nesting and taking any sub-tasks with it. Untick it and it goes back where it was.">
-                Move done tasks down
-                <input type="checkbox" data-sink-completed>
+              <label class="settings-field" data-trash-mode-row>
+                <span class="settings-field__label">Keep Trash</span>
+                <span class="settings-field__controls">
+                  <select data-trash-mode>
+                    <option value="forever">Until purged</option>
+                    <option value="custom">For a period</option>
+                  </select>
+                  <span class="settings-duration" data-trash-duration>
+                    <input type="number" min="1" step="1" aria-label="Trash retention duration" data-trash-value>
+                    <select aria-label="Trash retention unit" data-trash-unit>
+                      <option value="seconds">seconds</option>
+                      <option value="minutes">minutes</option>
+                      <option value="hours">hours</option>
+                      <option value="days">days</option>
+                    </select>
+                  </span>
+                </span>
               </label>
-              <label class="settings-row" data-trash-mode-row>
-                Keep Trash
-                <select data-trash-mode>
-                  <option value="forever">Until purged</option>
-                  <option value="custom">For a period</option>
-                </select>
+              <label class="settings-field settings-field--switch" title="When you tick a task it slides to the bottom of the list it is already in, keeping its place in the nesting and taking any sub-tasks with it. Untick it and it goes back where it was.">
+                <span class="settings-field__label">Move done tasks down</span>
+                <input type="checkbox" class="switch" data-sink-completed>
               </label>
-              <div class="settings-duration" data-trash-duration>
-                <input type="number" min="1" step="1" aria-label="Trash retention duration" data-trash-value>
-                <select aria-label="Trash retention unit" data-trash-unit>
-                  <option value="seconds">seconds</option>
-                  <option value="minutes">minutes</option>
-                  <option value="hours">hours</option>
-                  <option value="days">days</option>
-                </select>
-              </div>
             </details>
             <details class="settings-section">
               <summary>Planning</summary>
@@ -3085,7 +3214,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.34";
+    const APP_VERSION = "1.5.35";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
