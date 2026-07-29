@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reminders, after the grill: the day strip</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 18px 80px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.015em; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 34px 0 10px; letter-spacing: -0.01em; }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  h4, h5, h6 { font-size: 14px; margin: 20px 0 6px; color: var(--muted); }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin: 0 0 6px; }
+  a { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+  pre code { border: 0; background: none; padding: 0; font-size: 12.5px; line-height: 1.5; }
+  blockquote { margin: 0 0 14px; padding: 2px 0 2px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+  .scroll { overflow-x: auto; margin: 0 0 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--surface); font-weight: 700; }
+  .stamp { color: var(--muted); font: 12px/1.5 var(--mono); margin: 0 0 26px; }
+  .chunk:empty { display: none; }
+  .note {
+    display: grid; gap: 5px; margin: 18px 0 30px;
+    border-left: 3px solid var(--line); padding: 10px 0 2px 14px;
+  }
+  .note-label { font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .note textarea {
+    width: 100%; font: inherit; font-size: 14px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 11px; resize: vertical; min-height: 44px;
+  }
+  .note textarea::placeholder { color: var(--muted); opacity: 0.75; }
+  .note.filled { border-left-color: var(--accent); }
+  .sendbar {
+    position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; margin-top: 30px; padding: 14px 0 10px; background: var(--bg);
+    border-top: 1px solid var(--line);
+  }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.clear {
+    font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--surface); color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+<p class="stamp">daystrip · generated from the finished work, not typed up afterwards</p>
+<section class="chunk">
+<h1>Reminders, after the grill: it was never a reminders problem</h1>
+<p>Parked at your request. This is here so that when you come back to it, the thinking is already done and you are not starting from a blank page.</p>
+</section>
+<section class="chunk" id="s-the-sentence-that-changed-the-feature">
+<h2>The sentence that changed the feature</h2>
+<p>You picked five answers to "what actually goes wrong when you forget something", and one of them contradicts the whole feature:</p>
+<blockquote><strong>"I never forget. I just do not start."</strong></blockquote>
+<p>A reminder solves forgetting. You do not forget. Everything else you said points the same way:</p>
+<ul>
+<li>"I lose the block. The work was meant for 2pm and 2pm went somewhere else."</li>
+<li>"I remember late, at 11pm, when I can no longer do it."</li>
+<li>"Too many steps to reach the field." — which is why you have never set one, in a year of using this daily.</li>
+</ul>
+<p>So the thing that has been on the roadmap as "reminders" is three different features wearing one coat, and only two of them are worth building.</p>
+<div class="scroll"><table><thead><tr><th>What you actually said</th><th>What it really is</th><th>Verdict</th></tr></thead><tbody><tr><td>"A day strip. What is now, what is next, what slipped."</td><td>A view</td><td><strong>Build this.</strong> It is the feature.</td></tr><tr><td>"Yes, daily habits. That is the real missing piece."</td><td>Recurrence</td><td><strong>Build this.</strong> Your words: the real missing piece.</td></tr><tr><td>"One quiet line. Three were due while you were away."</td><td>A catch-up line</td><td>Build, small, part of the strip</td></tr><tr><td>An alert that fires at a time</td><td>A notification</td><td><strong>Only in-tab, and only after the above</strong></td></tr></tbody></table></div>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="the-sentence-that-changed-the-feature" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-the-day-strip">
+<h2>The day strip</h2>
+<p>Not a list of everything. Three answers to three questions you actually ask, in one line at the top of the board.</p>
+<pre><code>   NOW              NEXT              SLIPPED
+   ───────────────  ────────────────  ─────────────────
+   Write the        Call Sam          Renew registration
+   release notes    in 40 min         from yesterday
+   started 12 min</code></pre>
+<ul>
+<li><strong>NOW</strong> is what you said you would be doing at this moment. It is the answer to "I lose the block".</li>
+<li><strong>NEXT</strong> is the only thing you need to see coming, and how long you have. It is the answer to "I remember late, at 11pm".</li>
+<li><strong>SLIPPED</strong> is what was meant for earlier and did not happen. It is the quiet line you asked for, and it replaces the popup you did not want.</li>
+</ul>
+<p>The strip is a view over tasks that already have a time. It invents nothing and it stores nothing new.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="the-day-strip" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-recurrence-which-is-the-part-with-real-weight">
+<h2>Recurrence, which is the part with real weight</h2>
+<p>You named two shapes and they behave differently:</p>
+<pre><code>  DAILY HABIT                          STANDING MEETING
+  "read 30 minutes"                    "Monday review, 10:00"
+
+  ticking it today must not            it is the same event every week,
+  delete tomorrow's                    and skipping one does not
+                                       cancel the series
+  ─────────────────────────            ─────────────────────────
+  one task, many days                  one series, many instances
+  history matters (streak)             history barely matters</code></pre>
+<p>The trap: if a repeating task is one row that you tick, then ticking it destroys the thing that has to come back. Every task app gets this wrong at least once.</p>
+<p>The honest model is that a repeating task is a <strong>rule that produces instances</strong>, and the rule is what you edit while the instance is what you tick.</p>
+<pre><code>   rule:  "read 30 minutes" · every day · 21:00
+             │
+             ├── Mon 28  [x] done
+             ├── Tue 29  [ ] today   ← this is the row on your board
+             └── Wed 30      not created yet</code></pre>
+<p>Only today's instance exists on the board. Yesterday's stays done, tomorrow's appears tomorrow. Ticking never touches the rule.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="recurrence-which-is-the-part-with-real-weight" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-what-fires-and-when">
+<h2>What fires, and when</h2>
+<p>You settled this one cleanly, so it needs no more discussion:</p>
+<pre><code>   is the board open in a tab?
+        │
+        ├── yes  →  one quiet in-tab line. No popup, no sound.
+        │           "Write the release notes was due 10 minutes ago."
+        │
+        └── no   →  nothing. You accepted this: "Punchlist only,
+                    while open. I accept that it misses things."
+                    Real notifications are a later, separate decision
+                    and they need an app per platform to be honest.</code></pre>
+<p>That is a two-line feature, and it only earns its place once the strip exists.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="what-fires-and-when" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-the-one-you-did-not-answer">
+<h2>The one you did not answer</h2>
+<p>"A task already has a date and a start time. Should the reminder be a third time?" — you said you would rather think about it with a diagram first. Here is the diagram.</p>
+<pre><code>   TODAY, on a task
+   ─────────────────────────────────────────────
+   date        29 Jul        when it belongs to
+   start       14:00         when you meant to begin
+   reminder    ?             when you get poked
+
+   Option A: no third time. The poke IS the start time.
+             simplest. "2pm" means both.
+
+   Option B: an offset, not a time. "10 minutes before".
+             one number, no new clock to set.
+
+   Option C: a free third time.
+             most flexible, most fields, and the reason
+             you never set one: "too many steps".</code></pre>
+<p>Given that the thing stopping you today is the number of steps, B costs one dropdown and A costs nothing.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="the-one-you-did-not-answer" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-order-when-you-come-back-to-this">
+<h2>Order, when you come back to this</h2>
+<ol>
+<li><strong>Day shape first.</strong> You already said it: "Nothing breaks today, but I want it back after the day shape work lands." Nothing here works until a task's time is easy to set and easy to see.</li>
+<li><strong>The strip.</strong> Now, next, slipped.</li>
+<li><strong>Recurrence</strong>, rule and instances, daily first, weekly after.</li>
+<li><strong>The quiet in-tab line.</strong> Two lines of code once the strip exists.</li>
+<li><strong>Notifications</strong>, only if an app per platform ever happens.</li>
+</ol>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="order-when-you-come-back-to-this" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-what-i-would-delete">
+<h2>What I would delete</h2>
+<p>The current reminder implementation. It has never been used once, it fires only while the tab is open, and it is a third time field reached through too many steps. Keeping it costs a settings row, a field on every task, and a scheduler that runs for nobody. It should go when the strip lands, not before, so nothing is lost in the gap.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="what-i-would-delete" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<div class="sendbar">
+  <button class="send" id="send">Send my notes</button>
+  <button class="clear" id="clear">Clear</button>
+  <span class="sendmsg" id="sendmsg"></span>
+</div>
+</main>
+<script>
+  const SLUG = "daystrip";
+  const TITLE = "Reminders, after the grill: the day strip";
+  const SECTIONS = [{"id":"the-sentence-that-changed-the-feature","heading":"The sentence that changed the feature"},{"id":"the-day-strip","heading":"The day strip"},{"id":"recurrence-which-is-the-part-with-real-weight","heading":"Recurrence, which is the part with real weight"},{"id":"what-fires-and-when","heading":"What fires, and when"},{"id":"the-one-you-did-not-answer","heading":"The one you did not answer"},{"id":"order-when-you-come-back-to-this","heading":"Order, when you come back to this"},{"id":"what-i-would-delete","heading":"What I would delete"}];
+  const KEY = "report-notes-" + SLUG;
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+
+  const boxes = [...document.querySelectorAll("[data-note]")];
+  for (const box of boxes) {
+    const id = box.dataset.note;
+    if (store[id]) box.value = store[id];
+    box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    box.addEventListener("input", () => {
+      if (box.value.trim()) store[id] = box.value;
+      else delete store[id];
+      try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {}
+      box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    });
+  }
+
+  document.getElementById("clear").addEventListener("click", () => {
+    localStorage.removeItem(KEY);
+    location.reload();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const msg = document.getElementById("sendmsg");
+    const lines = [];
+    for (const section of SECTIONS) {
+      const said = (store[section.id] || "").trim();
+      if (said) lines.push("- " + section.heading + ": " + said);
+    }
+    if (!lines.length) {
+      msg.textContent = "Nothing typed yet. Add a thought under any section first.";
+      msg.className = "sendmsg err";
+      return;
+    }
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text: "Notes on " + TITLE + ":\n" + lines.join("\n") }),
+      });
+      if (!res.ok) throw new Error();
+      msg.textContent = "Sent, " + lines.length + " note" + (lines.length === 1 ? "" : "s") + ". The agent has it.";
+      msg.className = "sendmsg ok";
+    } catch {
+      msg.textContent = "Could not reach the agent. Open this at http://localhost:4173/" + SLUG + " and retry.";
+      msg.className = "sendmsg err";
+    }
+  });
+</script>
+</body>
+</html>
