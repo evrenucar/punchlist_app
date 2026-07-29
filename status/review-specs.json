@@ -1719,152 +1719,194 @@
   {
     "key": "test",
     "spec": {
-      "title": "Test round — v1.5.32, the four you ranked",
-      "intro": "One question at a time now, your ask. Back and Next move you, skipping is fine, and the last stop shows everything you said before it goes anywhere. Any field takes pasted screenshots.",
-      "storageKey": "punchlist-test-round-v32",
+      "title": "Test round — v1.5.33 and v1.5.34",
+      "intro": "Everything shipped since your last round, one question at a time. Each one is something you can actually do in under a minute, in the Punchlist tab that is open beside this. Skipping is fine. Two questions at the end are me asking you, not the other way round.",
+      "storageKey": "punchlist-test-round-v34",
       "sendLabel": "Send it",
       "chatPrefix": "Test round:",
       "sections": [
         {
-          "heading": "The four you ranked — v1.5.32",
+          "heading": "Emoji — v1.5.34, your first pick",
           "items": [
             {
-              "id": "v32-data-safety",
-              "title": "Restoring the example board is hard to do by accident now",
-              "body": "You said it was far too easy to press. It was a full-width red button in the middle of Settings behind a single browser confirm. Now it is a small underlined line at the very bottom, under Report a bug. Pressing it opens a dialog that counts what you are about to lose in your own numbers, has Export JSON right there so the backup is one click, and asks a second time with different wording before anything happens. Try it and cancel, or press through twice on a board you do not care about.",
+              "id": "v34-emoji-basic",
+              "title": "Type a colon in a task and keep typing",
+              "body": "Click into any task, type : and then a few letters. Arrows move through the list, Enter or Tab inserts, Escape closes it. Try :fi, :bug, :done, :rocket.\n\nThe thing to judge is whether it gets out of your way. It follows the caret, so it should never cover the word you are typing.",
               "answers": {
                 "options": [
-                  "Safe now, and the dialog says the right things",
-                  "Safe, but the wording could be better",
-                  "Still too easy to trigger",
+                  "Works, and it feels right",
+                  "Works, but something about it is annoying",
+                  "The list is in a bad position on screen",
+                  "It did not open at all",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "If something felt off, say what you were typing at the time."
+            },
+            {
+              "id": "v34-emoji-triggers",
+              "title": "The four cases that would ruin normal typing",
+              "body": "These are the ones I built it around, worth 20 seconds to confirm on your own machine:\n\n1. Type a time like 10:30. No menu.\n2. Type note: something. No menu.\n3. Paste or type a URL with https://. No menu.\n4. Type :fire, press Escape when the menu opens, then finish the word. It should stay the literal text :fire, and not reopen while you finish that word.",
+              "answers": {
+                "multi": true,
+                "options": [
+                  "All four behave",
+                  "A clock time still opens it",
+                  "note: still opens it",
+                  "A URL still opens it",
+                  "Escape did not hold",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "v34-emoji-list",
+              "title": "Is 250 enough, and is anything you reached for missing?",
+              "body": "Your call was a few hundred rather than the full set, because the whole Unicode list with searchable names is around 200 KB, roughly half the app. The 250 lean towards status, work, time and feeling.\n\nIf you went looking for something and it was not there, that is the most useful thing you can tell me here.",
+              "answers": {
+                "options": [
+                  "Enough, found what I wanted",
+                  "Enough for now, but I have additions, see my note",
+                  "Too few, I want the full set even at the size cost",
+                  "Not tested yet"
+                ]
+              },
+              "placeholder": "Name the ones you reached for and did not find."
+            }
+          ]
+        },
+        {
+          "heading": "Move done tasks down — v1.5.34",
+          "items": [
+            {
+              "id": "v34-sink",
+              "title": "Turn it on in Settings, Lifecycle, then tick something",
+              "body": "It is off by default, your default. Settings, Lifecycle section, Move done tasks down.\n\nWith it on, ticking a task sends it to the bottom of its group, under everything.",
+              "answers": {
+                "options": [
+                  "Works, and this is what I wanted",
+                  "Works, but the animation or timing is off",
+                  "It should stop at the bottom of its siblings, not the group",
                   "Something is broken",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "Paste a screenshot if anything looks off."
+              "placeholder": ""
             },
             {
-              "id": "v32-settings-rows",
-              "title": "Views, History and Help are the same row now",
-              "body": "Views was a 32px uppercase caption with no icon while the other two were 44px rows with icons, and the gaps between them ran 10px, 12px and 22px depending on where you looked. Views is a proper row with its own icon now, and every row in the sidebar sits on the same 10px gap. Views also takes the blue highlight when it is open, the same way History does.",
+              "id": "v34-sink-nesting",
+              "title": "The consequence you should see before you leave it on",
+              "body": "You picked under everything over the option that kept nesting. So: tick a task that is nested under another one, and watch it leave that nesting to get to the bottom. Unticking does not put it back, because nothing recorded where back was.\n\nThis is working as designed. The question is whether the design is right once you have seen it happen.",
               "answers": {
                 "options": [
-                  "Even, and it reads as one list now",
-                  "Even, but I would change the Views icon",
-                  "The blue highlight on Views is too loud",
-                  "Still looks off",
+                  "Fine, leave it as it is",
+                  "I want it to keep its nesting after all",
+                  "I want it to remember where it came from and go back when unticked",
                   "Not tested yet"
                 ]
               },
-              "placeholder": "A screenshot of the sidebar tells me more than words here."
-            },
-            {
-              "id": "v32-drop-line",
-              "title": "The drop indicator is a straight line",
-              "body": "It used an inset shadow, which browsers paint inside the border box, so it followed the row corners and curled up at both ends. It is a positioned rule now: 3px, straight across, corners ignored. Drag a task between two others and watch the line.",
-              "answers": {
-                "options": [
-                  "Clean straight line, that is what I wanted",
-                  "Straight, but too thick or too thin",
-                  "Hard to see where it will land",
-                  "Still curls or reads as a border",
-                  "Not tested yet"
-                ]
-              },
-              "placeholder": "Paste a screenshot mid-drag if it still looks wrong."
-            },
-            {
-              "id": "v32-dead-scroll",
-              "title": "The dead scroll in the help menu, where I need you",
-              "body": "Honest answer first: I could not make it happen. I drove real mouse wheel events over the help text at four window sizes, with Settings open and closed, scrolled to the top, the middle and the bottom, and it scrolled every time. So I went hunting for anything that eats input over the sidebar and found one, now fixed: open the sidebar drawer while the window is narrow (under 980px), then widen the window. The drawer keeps its full-screen backdrop up, and once the window is wide the sidebar sits behind that backdrop, so every wheel and every click over the sidebar hits the backdrop instead of the app. The page looks slightly dimmed while it is happening. Was that yours?",
-              "answers": {
-                "options": [
-                  "That was it, it is fine now",
-                  "Not that, and it is still dead",
-                  "Not that, but I cannot reproduce it any more either",
-                  "Not tested yet"
-                ]
-              },
-              "placeholder": "If it is still dead: how wide is your window, which sections are open, and is the page dimmed? A shot of the whole window would settle it."
-            },
-            {
-              "id": "v32-regression",
-              "title": "Anything from this batch that made something else worse",
-              "body": "Four changes went into the sidebar and the board in one build. You are the one who uses it every day.",
-              "answers": {
-                "options": [
-                  "Nothing got worse",
-                  "Something got worse, see my note"
-                ]
-              },
-              "placeholder": "What broke, and where."
+              "placeholder": ""
             }
           ]
         },
         {
-          "heading": "The two things you just asked for",
+          "heading": "Bug report — v1.5.33",
           "items": [
             {
-              "id": "v32-stepper",
-              "title": "This page, one question at a time",
-              "body": "Your words: step by step questionnaires, before work, after things are completed, and when I am grilling you. This is the shared harness, so every review page from now on works this way: one question, Back and Next, a bar for how much is left, and a final list of everything you said with a Change button on each line before any of it is sent. Where you stopped is remembered if you close the tab.",
+              "id": "v33-bug-fields",
+              "title": "Settings, Report a bug: two fields now",
+              "body": "Type a summary and a description, then press Open a GitHub issue. It opens a real prefilled issue page. You do not have to post it, just look at the title.\n\nThe title used to be the words Bug report on every single issue. It is your summary now.",
               "answers": {
                 "options": [
-                  "Yes, this is what I meant",
-                  "Right idea, wrong details, see my note",
-                  "I preferred the single long page",
-                  "In between: one page for short rounds, stepped for long ones"
+                  "Title and body both arrive, that is the fix",
+                  "Title arrives but the body is wrong",
+                  "Something else is wrong, see my note",
+                  "Not tested yet"
                 ]
               },
-              "placeholder": "What would you change about the flow."
+              "placeholder": ""
             },
             {
-              "id": "v32-overview",
-              "title": "The process overview tab",
-              "body": "You asked me not to forget launching a process overview interface in the same window. One page already does something close: /batch shows the Focus group, the batch with its progress bar, everything closed today, then every open item grouped and counted, refreshed every four seconds. It is open in your window now. Tell me whether that is the thing you meant, or whether you want something else: what I am doing right now, phase by phase, rather than what is on the board.",
+              "id": "v33-bug-paths",
+              "title": "The two paths, and what happens to your text",
+              "body": "Purple opens the GitHub issue and clears the form, because by then your words are in the issue. Blue copies the email plus everything you wrote, keeps the dialog open and keeps your text, because a copy can fail silently and retyping a bug report is worse than an extra click. Closing the dialog is what clears it.\n\nThat was your rule, word for word. Worth checking it feels right in the hand.",
               "answers": {
                 "options": [
-                  "/batch is it, just always open it",
-                  "I want live agent progress, phase by phase, not the board",
-                  "I want both, on one page",
-                  "Something else, see my note"
+                  "Both behave the way I meant",
+                  "The colours are not doing their job",
+                  "The email button should also clear",
+                  "Not tested yet"
                 ]
               },
-              "placeholder": "Describe what you want to see when you glance at it."
+              "placeholder": ""
             }
           ]
         },
         {
-          "heading": "What I take next",
+          "heading": "The interface",
           "items": [
             {
-              "id": "next-order",
-              "title": "What is left, and what I take first",
-              "body": "Your batch has six open items. Four are the bug-report dialog and I would rather take those as one job than four: two fields with the GitHub issue autofilling both, pasted images riding along into the issue, the email path as a big button under small text, and the text clearing once you are done. The fifth is Settings going static once configured with an Edit button, which you have passed over twice now. The sixth is revoking a device properly, which needs a design session with you before any code.",
+              "id": "v34-progress",
+              "title": "The progress page, open beside this one",
+              "body": "You asked for live agent progress phase by phase rather than the board. That is /progress. It shows who is on duty, which board item, the phase they announced, how long they have been on it, and the trail behind them with how long each phase took.\n\nIt is written from heartbeats as they happen, so nothing on it is typed in after the fact.",
               "answers": {
-                "multi": true,
                 "options": [
-                  "Bug report, all four as one job",
-                  "Settings go static once configured, with Edit and Save",
-                  "Revoking a device: grill me on the design first",
-                  "Formatting round two: grill me on the design first",
-                  "Something not on this list, see my note"
+                  "Yes, this answers what is happening",
+                  "Close, but it is missing something, see my note",
+                  "Too much detail, I want fewer bigger phases",
+                  "I would still rather have the board view",
+                  "Not tested yet"
                 ]
               },
-              "placeholder": "Order them if you have one."
+              "placeholder": "What would you want to see on it that is not there?"
             },
             {
-              "id": "next-focus",
-              "title": "The bigger thing you raised",
-              "body": "You said: I have shared the app with many people but no-one seems to be using it. That is the most useful thing you have told me in a while and it is not a feature request. Worth an hour on why, before more features go in. It is on the board as a direction, not started.",
+              "id": "v34-closing-q",
+              "title": "The question at the end of every round",
+              "body": "Your ask, and it is built into the harness rather than into any one page, so a round cannot be written without it. It is the last question on this page too.",
               "answers": {
                 "options": [
-                  "Yes, dig into that next",
-                  "Later, keep shipping the batch",
-                  "Drop it for now"
+                  "Working as I wanted",
+                  "Change the wording, see my note",
+                  "Drop it, I will just say things in chat"
                 ]
               },
-              "placeholder": "Who did you share it with, and what did they say, if anything."
+              "placeholder": ""
+            }
+          ]
+        },
+        {
+          "heading": "Two things I need from you",
+          "items": [
+            {
+              "id": "v34-d-vs-e",
+              "title": "Your markdown menu: what is the difference between D and E?",
+              "body": "You listed five options for when markers are visible, and picked D. But I cannot build the menu until I know what D and E are:\n\nD — RAW while editing row\nE — Raw while editing the item\n\nMy guess is that a row is the single visual line your caret sits on, and an item is the whole task including the lines it wrapped onto. If that is right, D means only the line under your caret goes raw, and E means the whole task does. E is much simpler to build and much easier to predict. D is more like a document editor.\n\nThis is the only thing blocking formatting round two. The engine underneath is the same either way.",
+              "answers": {
+                "options": [
+                  "E: the whole task goes raw while I am editing it",
+                  "D: only the visual line my caret is on goes raw",
+                  "They were the same thing, I was thinking aloud",
+                  "Neither, see my note"
+                ]
+              },
+              "placeholder": ""
+            },
+            {
+              "id": "v34-audit-order",
+              "title": "Your audit: is my order right?",
+              "body": "I boarded it as two P0 and two P1, with the diagram part left out as you said.\n\nMy plan: both P0s first, because they are the ones that let a mistake reach you silently. Pages deploying without building or testing, and no real browser tests. Then latest.json for update checking. The big source split last, because it touches everything and is the one most likely to break something while it is half done.\n\nFormatting round two runs alongside, since you already answered that grill.",
+              "answers": {
+                "options": [
+                  "That order is right",
+                  "Do the source split sooner, it is slowing you down",
+                  "Do latest.json first, I care about my devices being current",
+                  "Pause the audit work, features first",
+                  "See my note"
+                ]
+              },
+              "placeholder": ""
             }
           ]
         }
