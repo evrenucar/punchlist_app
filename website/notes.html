@@ -288,12 +288,13 @@
     <article>
       <header>
         <h2>Bold, italic, strikethrough & code, without the caret games</h2>
-        <span class="entry-date">July 29, 2026 · build v1.5.37</span>
+        <span class="entry-date">July 29, 2026 · build v1.5.38</span>
       </header>
       <p><code>**bold**</code>, <code>*italic*</code>, <code>~~struck out~~</code>, backticks for <code>code</code>, & the underscore spellings. <code>***both***</code> nests. <kbd>Ctrl</kbd>+<kbd>B</kbd>, <kbd>Ctrl</kbd>+<kbd>I</kbd> & <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> apply them, & they write plain Markdown into the task so an export or a paste elsewhere carries the formatting with it.</p>
       <p><strong>The row you are typing in shows its markers. Every other row stays formatted.</strong> That is the whole design, & it is the reason this works where the first attempt did not. The markers are never removed from the text, only hidden, so clicking into a row re-renders nothing & your caret cannot end up somewhere you did not put it. While you edit, what is on screen is exactly what is stored.</p>
       <p><strong>Markers need a space outside them.</strong> So <code>2*3*4</code>, <code>some_file_name.txt</code> & <code>build_task_board</code> stay literal, while bolding a whole sentence still works. The test is the spaces outside the asterisks, not inside.</p>
       <p><strong>Settings → Formatting</strong> has all three switches: the mode (raw while editing, always rendered, or never rendered), the shortcuts on or off, & the whole-words rule on or off.</p>
+      <p><strong>Pasting formatted text keeps its formatting now.</strong> Copy a few paragraphs out of a browser, a document or a chat & the bold stays bold, the links stay links, & the line breaks stay where they were. It arrives as plain Markdown in the task rather than as foreign markup, so what lands in your board is text you could have typed yourself. One gap: a pasted table runs its cells together on one line.</p>
     </article>
 
     <article>
