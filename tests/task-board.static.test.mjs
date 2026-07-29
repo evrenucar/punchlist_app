@@ -200,6 +200,14 @@ test("the source parts are numbered without a gap and none is orphaned", async (
   const build = await readFile(path.join(root, "scripts", "build-task-board.mjs"), "utf8");
   assert.match(build, /readdir\(appDir\)/);
   assert.match(build, /misnumbered/);
+
+  // The split's own casualty, pinned so it cannot come back: moving the file
+  // that holds APP_VERSION looks to `git log -G` exactly like a milestone bump,
+  // so the anchor jumped to the move, the commit count fell to zero, and the
+  // build stamped v1.5.0 onto a v1.5.40 app. A bump modifies that constant; a
+  // move only adds it.
+  assert.match(build, /--diff-filter=M/);
+  assert.match(build, /"src\/app\/01-constants\.js", "src\/task-board\.js"/, "the pre-split path stays in the count or the version walks backwards");
 });
 
 test("legacy state migrates to version two without losing task data", async () => {

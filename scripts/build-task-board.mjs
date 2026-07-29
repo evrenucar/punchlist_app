@@ -55,8 +55,13 @@ try {
   const git = (args) => execFileSync("git", args, { cwd: root }).toString().trim();
   // the commit that set the current major.minor; before that bump is committed
   // there is no anchor yet, which correctly leaves the patch at 0 (X.Y.0).
+  // --diff-filter=M is load-bearing, learned on 2026-07-29: the source split
+  // ADDED a file already containing `APP_VERSION = "1.5.0"`, which reads to a
+  // plain -G exactly like a fresh milestone bump. The anchor jumped to the
+  // split, the count fell to zero, and the build cheerfully stamped v1.5.0 onto
+  // a v1.5.40 app. A bump MODIFIES the constant; a move only adds it.
   const anchor = base
-    ? git(["log", "-1", "--format=%H", "-G", `APP_VERSION.*"${base.replace(/\./g, "\\.")}`, "--", "src/app/01-constants.js", "src/task-board.js"])
+    ? git(["log", "-1", "--format=%H", "-G", `APP_VERSION.*"${base.replace(/\./g, "\\.")}`, "--diff-filter=M", "--", "src/app/01-constants.js", "src/task-board.js"])
     : "";
   if (anchor) {
     patch = parseInt(git(["rev-list", "--count", `${anchor}..HEAD`, "--", ...appFiles]), 10) || 0;
