@@ -1,0 +1,24 @@
+# The build stamps the built file's REAL byte count and KB size into the landing
+# page, so the bytes have to be the same everywhere or that number is a lie.
+#
+# They were not. On Windows with core.autocrlf=true the working tree is CRLF, so
+# a local build produced 436,274 bytes and stamped "426 KB" onto the page, while
+# the file GitHub Pages actually serves is the LF one at 433,199 bytes, 423 KB.
+# The page advertised a size no user ever downloaded, and any CI rebuild
+# disagreed with the committed artifact on those four lines forever.
+#
+# LF everywhere fixes both: the number on the page is the number people get, and
+# a rebuild on Linux matches the commit byte for byte, which is what lets the
+# stale-build check in .github/workflows/pr.yml mean anything.
+* text=auto eol=lf
+
+# Binaries must never be touched by any of that.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.stackdump binary

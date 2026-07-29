@@ -1,0 +1,63 @@
+name: Build and test
+
+# The deploy workflow rebuilds before it ships, so main can no longer serve a
+# stale app. This one covers the other half: the built file is COMMITTED (it is
+# the product, one HTML file), so a PR that edits src/ without rebuilding still
+# merges a repo whose outputs/ and website/ disagree with their own sources.
+# Catch that on the PR, where it costs a rerun, not after the merge.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Build the branch head, NOT the merge commit checkout hands us by
+          # default. The patch version counts commits, so the merge commit would
+          # count main's commits too and report "stale build" drift that the
+          # author cannot fix from their own branch. Empty on workflow_dispatch,
+          # which correctly falls back to the ref that was dispatched.
+          ref: ${{ github.event.pull_request.head.sha }}
+          # Counting commits needs the commits. See pages.yml.
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build the single-file app from src/
+        run: node scripts/build-task-board.mjs
+      - name: Test the built app
+        run: node --test tests/task-board.static.test.mjs
+
+      - name: Install Chromium for the browser suite
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Test the built app in a real browser
+        run: npx playwright test --config tests/playwright.config.mjs
+
+      # If rebuilding moved a committed artifact, the PR was built from stale
+      # sources: merging it would ship src/ changes the served app does not
+      # have. Fail here so a forgotten build costs a rerun, not a bad deploy.
+      #
+      # This gate only means something because .gitattributes pins every text
+      # file to LF. Without it a Linux rebuild produced a different byte count
+      # than a Windows one, the build stamps that count into the landing page,
+      # and the check failed on all twelve of the last twelve commits including
+      # ones that changed nothing but documentation.
+      #
+      # It also assumes the repo's two-commit habit: commit src/ first, then
+      # commit the rebuild. The patch version counts src/ commits at HEAD, so
+      # committing sources and their build together always reports a version one
+      # ahead of the artifact, and this gate would fire on a correct rebuild.
+      - name: Fail if the committed build is stale
+        run: git diff --exit-code -- outputs website/task-board.html website/index.html

@@ -35,3 +35,9 @@ status/ctx.json
 
 # Agent phase log behind /progress (session data, appended by the server)
 status/phases.jsonl
+
+# Browser-test tooling. The app still ships zero dependencies; these only exist
+# so tests/task-board.browser.test.mjs can drive a real Chromium.
+node_modules/
+test-results/
+playwright-report/

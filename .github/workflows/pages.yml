@@ -22,6 +22,35 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The build computes the patch version by COUNTING app-source commits
+          # since the last major.minor bump, so history is not optional here. A
+          # shallow clone (checkout's default depth of 1) has nothing to count
+          # and silently stamps v1.5.0 onto a v1.5.34 build. Verified, not
+          # theorised: `git clone --depth 1` of this repo builds "v1.5.0".
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Build from src/ instead of trusting the committed copy. Evren, on the
+      # 2026-07-28 audit: editing src/ and forgetting to build deployed a stale
+      # app, and "that has real history here". The deploy now ships whatever
+      # src/ actually says, and the tests get a veto before anything goes out.
+      - name: Build the single-file app from src/
+        run: node scripts/build-task-board.mjs
+      - name: Test the built app
+        run: node --test tests/task-board.static.test.mjs
+
+      # The browser suite runs HERE and not only on pull requests, because
+      # Evren pushes straight to main. A PR-only check would never once run on
+      # his actual workflow, which is the same class of mistake as a test that
+      # passes while the feature is broken: present, green, and asleep.
+      - name: Install Chromium for the browser suite
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Test the built app in a real browser
+        run: npx playwright test --config tests/playwright.config.mjs
+
       - uses: actions/configure-pages@v5
         with:
           enablement: true

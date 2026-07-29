@@ -1,0 +1,17 @@
+{
+  "name": "punchlist",
+  "private": true,
+  "type": "module",
+  "description": "Single-file local-first task board. The app itself has zero dependencies; everything here is test tooling and never ships inside outputs/task-board.html.",
+  "scripts": {
+    "build": "node scripts/build-task-board.mjs",
+    "pretest": "npm run build",
+    "test": "node --test tests/task-board.static.test.mjs",
+    "pretest:browser": "npm run build",
+    "test:browser": "playwright test --config tests/playwright.config.mjs",
+    "test:all": "npm run test && npm run test:browser"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
+  }
+}
