@@ -27,7 +27,25 @@ The user routinely dumps unstructured work, then needs to:
 
 ## Current state
 
-### Session delta 2026-07-28 night (Opus 5 — READ THIS FIRST; v1.5.32, his four ranked items, and the review harness went stepped)
+### Session delta 2026-07-29 (Opus 5 — READ THIS FIRST; v1.5.33 and v1.5.34 shipped, the grill was answered, and his architecture audit landed)
+
+**SHIPPED:** v1.5.33 (bug report: Summary becomes the issue TITLE, purple/blue paths, his exact clearing rule, images deliberately not carried) and v1.5.34 (`:` emoji picker, ~250 entries, trigger only on a colon that STARTS a word; plus "Move done tasks down", off by default). 148 tests. Both released, build notes written.
+
+**HE ANSWERED THE GRILL** (`/grill`, 16 questions, answers quoted on the board):
+- **Formatting round two is DECIDED and buildable.** Raw while editing that row, rendered everywhere else. Marks: bold, strikethrough, inline code, plus underscore syntax. Ctrl+B and friends as the default. Whole-block rule: `**a phrase with spaces**` renders, `2*3*4` and `some_file_name.txt` do not. He also wants a **markdown settings menu** with his five options A–E. **ONE THING STILL UNANSWERED: what separates his D ("raw while editing row") from E ("raw while editing the item").** Ask before building the menu; the engine does not depend on it.
+- **Revoking a device: CLOSED by him.** "Leave it, forgetting plus the guide is enough." The token-rotation answer he asked for is in chat and belongs in the sync guide — the gap he had not considered is a repo COLLABORATOR, which no token rotation removes.
+- **Reminders: he wants a DEEPER GRILL, not code.** "I never have used them... Maybe I don't even need them?" Settled so far: Punchlist owns the time, calendar is a shadow; keep it local and simple for now.
+- Feature requests ranked: emoji (shipped), push-down (shipped), drawing on images (a LAYER, always editable) still open.
+
+**HIS ARCHITECTURE AUDIT** is at `docs/audit-2026-07-29.md` and boarded as 2×P0 + 2×P1. He said explicitly to **ignore the diagram section**. Both P0s verified against the real repo, not taken on trust:
+- `pages.yml` really does upload the committed `website/` with no build and no tests.
+- There is no `package.json` and no Playwright anywhere in the repo.
+
+**IN FLIGHT:** a workflow (`resumeFromRunId: wf_da462171-6d3`) with agents on the two isolated P0s (Pages CI, browser suite) plus a judged three-way design for formatting round two and a design for the `latest.json` update channel. Agents were scoped to disjoint files on purpose: `.github/` for one, `tests/` + `package.json` for the other, nothing in `src/`. **Review their output before trusting it** — two adversarial reviewers are built into the run.
+
+**INTERFACE RULES HE ADDED TODAY** (all in AGENT_INTERFACE.md): four session-start tabs including Punchlist itself and `/progress`; review pages are step-by-step; every round ends with an open catch-all question the harness injects.
+
+### Session delta 2026-07-28 night (Opus 5 — v1.5.32, his four ranked items, and the review harness went stepped)
 
 Resumed the stopped session and worked the batch he ranked, as one batch with one round at the end, which is what he asked for.
 
