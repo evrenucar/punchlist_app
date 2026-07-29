@@ -12,7 +12,7 @@ Secondary links: [open the app directly](https://evrenucar.github.io/punchlist_a
 
 ## What it is
 
-The whole app is one 340 KB HTML file you can open straight from disk. Tasks save to your browser and export losslessly to JSON or clean Markdown. Nothing leaves the machine unless you turn on GitHub sync. The name is a construction term: the punch list is the last set of fixes before a building is handed over, worked down to zero. (The repository name predates the Punchlist branding.)
+The whole app is one 429 KB HTML file you can open straight from disk. Tasks save to your browser and export losslessly to JSON or clean Markdown. Nothing leaves the machine unless you turn on GitHub sync. The name is a construction term: the punch list is the last set of fixes before a building is handed over, worked down to zero. (The repository name predates the Punchlist branding.)
 
 ## Run it
 
@@ -66,3 +66,7 @@ Never hand-edit `outputs/task-board.html`; change `src/` and rebuild.
 - Desktop keyboard workflows and phone touch workflows are equal requirements.
 
 See [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) for implementation context, [`docs/DIRECTIONS.md`](docs/DIRECTIONS.md) for the current priority and next-direction plan, and [`docs/ROADMAP.md`](docs/ROADMAP.md) for prioritized work.
+
+## License
+
+[MIT](LICENSE). The whole point of Punchlist is that the file is yours and keeps working without anyone's permission, which is not true of a repository with no license at all: without one, nobody may legally fork or redistribute it. Copy it, change it, ship it.

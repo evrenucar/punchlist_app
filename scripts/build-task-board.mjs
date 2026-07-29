@@ -82,4 +82,16 @@ if (version) {
   }
 }
 
+// The same treatment for the hand-written docs, because they drifted badly:
+// on 2026-07-29 the README claimed 340 KB and DIRECTIONS.md claimed 267 KB
+// while the file was 423. A number a human has to remember to update is a
+// number that lies, and these two are the first thing a stranger reads.
+for (const doc of ["README.md", path.join("docs", "DIRECTIONS.md")]) {
+  const docPath = path.join(root, doc);
+  if (!existsSync(docPath)) continue;
+  const before = await readFile(docPath, "utf8");
+  const after = before.replace(/\b\d+ KB\b/g, `${kb} KB`);
+  if (after !== before) await writeFile(docPath, after, "utf8");
+}
+
 console.log(`Built ${path.relative(root, outputPath)} (+ website copy) — v${version || "?"}, ${kb} KB`);
