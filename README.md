@@ -38,7 +38,7 @@ Source files are authored in `src/` and inlined into the single distributable fi
 
 - `src/task-board.html` - semantic application shell
 - `src/task-board.css` - responsive light/dark presentation
-- `src/task-board.js` - state, editor, scheduling, and persistence
+- `src/app/NN-name.js` - state, editor, scheduling, and persistence, in 25 numbered parts the build concatenates in order into one script
 - `scripts/build-task-board.mjs` - bundler that emits `outputs/task-board.html`
 - `tests/task-board.static.test.mjs` - Node tests for state, lifecycle, scheduling, and output contract
 

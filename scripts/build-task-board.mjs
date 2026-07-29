@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
@@ -8,10 +8,32 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const sourceDir = path.join(root, "src");
 const outputPath = path.join(root, "outputs", "task-board.html");
 
+// The app source is src/app/NN-name.js, concatenated in numeric order into the
+// one script the product has always been. It is a CUT, not a rewrite: the parts
+// were sliced out of the old single file without a line moving, so the built
+// output did not change by a byte on the day it was split. There is no module
+// system and no bundler; the pieces share one script scope exactly as before,
+// which is why the order is fixed and why a part that RUNS things (25-app)
+// comes last. Numbering is checked below so a gap or a duplicate cannot go
+// unnoticed, and an editor's stray file cannot get into the build.
+const PART_PATTERN = /^(\d\d)-[a-z0-9-]+\.js$/;
+
+async function readAppScript() {
+  const appDir = path.join(sourceDir, "app");
+  const parts = (await readdir(appDir)).filter((name) => PART_PATTERN.test(name)).sort();
+  if (!parts.length) throw new Error("no source parts found in src/app");
+  parts.forEach((name, index) => {
+    const number = Number(name.match(PART_PATTERN)[1]);
+    if (number !== index + 1) throw new Error(`source parts are misnumbered at ${name}: expected ${String(index + 1).padStart(2, "0")}`);
+  });
+  const bodies = await Promise.all(parts.map((name) => readFile(path.join(appDir, name), "utf8")));
+  return bodies.join("");
+}
+
 const [template, css, script] = await Promise.all([
   readFile(path.join(sourceDir, "task-board.html"), "utf8"),
   readFile(path.join(sourceDir, "task-board.css"), "utf8"),
-  readFile(path.join(sourceDir, "task-board.js"), "utf8"),
+  readAppScript(),
 ]);
 
 if (!template.includes("<!-- TASK_BOARD_STYLES -->") || !template.includes("<!-- TASK_BOARD_SCRIPT -->")) {
@@ -23,7 +45,10 @@ if (!template.includes("<!-- TASK_BOARD_STYLES -->") || !template.includes("<!--
 // each milestone: it is the count of app-source commits since the major.minor
 // last changed. So a bump to 1.6 restarts the patch at 1.6.0. execFileSync
 // (no shell) keeps the -G pattern intact on Windows cmd too.
-const appFiles = ["src/task-board.js", "src/task-board.css", "src/task-board.html"];
+// src/task-board.js is the pre-split source and is listed on purpose: the patch
+// counts commits, so dropping the path the app lived in until 2026-07-29 would
+// make the version jump backwards the day it was split.
+const appFiles = ["src/app", "src/task-board.js", "src/task-board.css", "src/task-board.html"];
 const base = (script.match(/APP_VERSION\s*=\s*["'](\d+\.\d+)/) || [])[1];
 let patch = 0;
 try {
@@ -31,7 +56,7 @@ try {
   // the commit that set the current major.minor; before that bump is committed
   // there is no anchor yet, which correctly leaves the patch at 0 (X.Y.0).
   const anchor = base
-    ? git(["log", "-1", "--format=%H", "-G", `APP_VERSION.*"${base.replace(/\./g, "\\.")}`, "--", "src/task-board.js"])
+    ? git(["log", "-1", "--format=%H", "-G", `APP_VERSION.*"${base.replace(/\./g, "\\.")}`, "--", "src/app/01-constants.js", "src/task-board.js"])
     : "";
   if (anchor) {
     patch = parseInt(git(["rev-list", "--count", `${anchor}..HEAD`, "--", ...appFiles]), 10) || 0;

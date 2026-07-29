@@ -47,7 +47,7 @@ node --test tests/task-board.static.test.mjs   # full suite; must pass before an
 
 ## Layout
 
-- `src/` — task-board.html (shell), task-board.css, task-board.js (all logic)
+- `src/` — task-board.html (shell), task-board.css, and `src/app/NN-name.js`: the logic, split 2026-07-29 into 25 numbered parts the build concatenates in order. No module system, no bundler — the parts share ONE script scope, so the numbering IS the load order and `25-app.js` (the only part that runs anything) stays last. Add a part by dropping in the next number; the build and the suite both refuse a gap, a duplicate, or an unnumbered file.
 - `scripts/build-task-board.mjs` — zero-dependency bundler
 - `outputs/task-board.html` — the distributable (generated)
 - `website/` — static landing page + fresh app copy (generated on build)

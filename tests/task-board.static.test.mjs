@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import vm from "node:vm";
@@ -154,13 +154,14 @@ async function loadBoardApi(overrides = {}) {
 }
 
 test("build emits one standalone task board", async () => {
-  const [template, css, script, build, output] = await Promise.all([
+  const [template, css, parts, build, output] = await Promise.all([
     readFile(path.join(root, "src", "task-board.html"), "utf8"),
     readFile(path.join(root, "src", "task-board.css"), "utf8"),
-    readFile(path.join(root, "src", "task-board.js"), "utf8"),
+    readdir(path.join(root, "src", "app")),
     readFile(path.join(root, "scripts", "build-task-board.mjs"), "utf8"),
     readBoard(),
   ]);
+  const script = (await Promise.all(parts.sort().map((name) => readFile(path.join(root, "src", "app", name), "utf8")))).join("");
 
   assert.match(template, /TASK_BOARD_STYLES/);
   assert.match(template, /TASK_BOARD_SCRIPT/);
@@ -171,6 +172,34 @@ test("build emits one standalone task board", async () => {
   assert.equal(output.includes("TASK_BOARD_SCRIPT"), false);
   assert.match(output, /<style data-task-board-styles>/);
   assert.match(output, /<script data-task-board-script>/);
+});
+
+// The split of 2026-07-29 (his instruction: "after formatting round two, in one
+// go") was a CUT, not a rewrite. There is no module system here: the parts are
+// concatenated into one script scope, so ORDER is the only contract, and these
+// are the two ways it can silently break.
+test("the source parts are numbered without a gap and none is orphaned", async () => {
+  const appDir = path.join(root, "src", "app");
+  const names = (await readdir(appDir)).sort();
+
+  assert.ok(names.length >= 20, "the app source is in parts");
+  names.forEach((name, index) => {
+    assert.match(name, /^\d\d-[a-z0-9-]+\.js$/, `${name} is not a numbered part; the build would skip it`);
+    assert.equal(Number(name.slice(0, 2)), index + 1, `${name} breaks the numbering`);
+  });
+
+  // The last part is the only one that RUNS anything on load. If something is
+  // appended after it, that code executes before the app is wired up.
+  assert.match(names.at(-1), /-app\.js$/);
+  const parts = await Promise.all(names.map((name) => readFile(path.join(appDir, name), "utf8")));
+  parts.slice(0, -1).forEach((body, index) => {
+    assert.equal(/^ {4}(render\(\);|init\(\);)$/m.test(body), false, `${names[index]} runs the app before the end`);
+  });
+
+  // and the build reads them the same way, rather than by a list that drifts
+  const build = await readFile(path.join(root, "scripts", "build-task-board.mjs"), "utf8");
+  assert.match(build, /readdir\(appDir\)/);
+  assert.match(build, /misnumbered/);
 });
 
 test("legacy state migrates to version two without losing task data", async () => {

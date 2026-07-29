@@ -90,7 +90,7 @@ Long session, seven releases, three test rounds answered by him. Everything belo
 **CORRECTIONS I OWE THE NEXT AGENT (read these, they are the expensive lessons):**
 1. **I told him the formatting removal fixed his Enter bug. It did not.** It removed the bold *symptom* by removing the span. The bug was that a caret at the visual end of a rendered span sits INSIDE it, and `getMarkdownCaretOffset` stopped walking the moment it found the caret, so the closing marker was never counted. Links had it identically and were still broken. Fixed properly in v1.5.28.
 2. **The sidebar-walk test passed while the feature was broken.** The harness modelled visibility as a flag; Chrome hides a closed `<details>`'s content with content-visibility on the details slot, which leaves every child still reporting an `offsetParent`. Any visibility check in this codebase must ask the disclosure (`closest("details:not([open])")`), never the layout. The harness models it properly now.
-3. **Never `sed -i` `src/task-board.js`.** It flattens CRLF to LF, which silently shrinks the built file ~7 KB and changes the byte count stamped into the landing page. Happened twice; restored both times.
+3. **Never `sed -i` the app source** (`src/app/*.js` since the 2026-07-29 split, `src/task-board.js` before it). It flattens CRLF to LF, which silently shrinks the built file ~7 KB and changes the byte count stamped into the landing page. Happened twice; restored both times. The split preserved CRLF and was verified byte-identical, so this trap is exactly as live as it was.
 4. I reported "11 of 19" when the page correctly said 9. He noticed. Read the page rather than counting from memory.
 
 **HIS STANDING INSTRUCTIONS ADDED TODAY (binding):**
