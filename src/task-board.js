@@ -3621,6 +3621,84 @@
       return true;
     }
 
+    // A rich paste (out of a browser, a document, a chat) arrives as HTML.
+    // Dropping it to plain text was the right answer while nothing rendered:
+    // turning a pasted <strong> into **text** would have written asterisks into
+    // his task that he never typed. Round two renders those markers, so the
+    // same conversion is now the right answer instead, and it was the first
+    // thing he sent back: "if I paste in markdown. links disappear, formatting
+    // disappears etc... should paste in without loosing formatting and the line
+    // breaks etc."
+    //
+    // It happens at PASTE time and lands as plain text, rather than by teaching
+    // the serializer to read foreign markup. That keeps the editable holding
+    // nothing but text and our own render, which is the invariant the caret
+    // walk depends on: no foreign element ever sits between the caret and a
+    // marker. Pure, so it is tested without a DOM.
+    const PASTE_MARKERS = { strong: "**", b: "**", em: "*", i: "*", del: "~~", s: "~~", strike: "~~", code: "`" };
+    // A paragraph gets a blank line after it and a div gets one newline, which
+    // is the difference between the two in the source he pasted: editors use a
+    // div per line, documents use a p per paragraph.
+    const PASTE_BLOCKS = {
+      div: "\n", tr: "\n", li: "\n",
+      p: "\n\n", blockquote: "\n\n", pre: "\n\n", section: "\n\n", article: "\n\n", figure: "\n\n",
+      h1: "\n\n", h2: "\n\n", h3: "\n\n", h4: "\n\n", h5: "\n\n", h6: "\n\n",
+    };
+
+    function markdownFromNodes(nodes) {
+      return [...(nodes || [])].map((node) => {
+        if (node.nodeType === 3) return (node.nodeValue || "").replace(/\s+/g, " ");
+        const tag = node.tagName?.toLowerCase();
+        if (tag === "br") return "\n";
+        if (tag === "script" || tag === "style") return "";
+        if (tag === "a") {
+          const href = node.getAttribute?.("href") || "";
+          const label = markdownFromNodes(node.childNodes).trim();
+          if (!/^https?:\/\//i.test(href)) return label;
+          return label && label !== href ? `[${label}](${href})` : href;
+        }
+        const inner = markdownFromNodes(node.childNodes);
+        // Our own markup pasted back in already carries its markers as text in
+        // md-mark siblings. Wrapping it again would give ****bold****.
+        if (/\bmd-f\b/.test(node.getAttribute?.("class") || "")) return inner;
+        const marker = PASTE_MARKERS[tag];
+        if (marker) {
+          // markers hug the words: " bold " wrapped as "** bold **" would fail
+          // his own spaces-outside rule and render as literal asterisks
+          const [, lead, body, tail] = /^(\s*)([\s\S]*?)(\s*)$/.exec(inner);
+          return body ? lead + marker + body + marker + tail : inner;
+        }
+        if (tag === "li") return inner.trim() ? `- ${inner.trim()}\n` : "";
+        const block = PASTE_BLOCKS[tag];
+        if (block) return inner.trim() ? inner.trim() + block : "";
+        return inner;
+      }).join("");
+    }
+
+    // The whitespace BETWEEN two blocks is a text node of its own, so source
+    // indentation arrives as a space sitting on the front of every line. A
+    // space either side of a line break never means anything, here or in HTML.
+    function tidyPastedMarkdown(text) {
+      return String(text || "").replace(/[^\S\n]*\n[^\S\n]*/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    }
+
+    function markdownFromPastedHtml(html) {
+      if (!html || typeof DOMParser === "undefined") return "";
+      const doc = new DOMParser().parseFromString(String(html), "text/html");
+      return tidyPastedMarkdown(markdownFromNodes(doc.body?.childNodes));
+    }
+
+    // Shared by the board rows and the focus overlay: both are task text, and
+    // pasting into one behaved differently from the other only by accident.
+    function pasteRichTextIntoEditable(event, editable) {
+      const markdown = markdownFromPastedHtml(event.clipboardData?.getData("text/html"));
+      if (!markdown) return false;
+      event.preventDefault();
+      pushUndoState("board", "Pasted formatted text");
+      insertTextAtSelection(markdown, editable);
+      return true;
+    }
+
     function applyUrlPasteToText(text, start, end, url) {
       const source = String(text || "");
       const safeStart = Math.max(0, Math.min(source.length, Number(start) || 0));
@@ -5419,13 +5497,18 @@
       }
       if (captionEl) return;
       const pasted = event.clipboardData?.getData("text/plain")?.trim() || "";
-      if (!/^https?:\/\/\S+$/i.test(pasted)) return;
-      const selection = window.getSelection();
-      if (!selection || !selection.rangeCount || selection.isCollapsed || !selectionContainsEditableContents(textEl)) return;
-      const label = selection.toString();
-      if (!label) return;
-      event.preventDefault();
-      insertTextAtSelection(`[${label}](${pasted})`, textEl);
+      if (/^https?:\/\/\S+$/i.test(pasted)) {
+        const selection = window.getSelection();
+        if (selection?.rangeCount && !selection.isCollapsed && selectionContainsEditableContents(textEl)) {
+          const label = selection.toString();
+          if (label) {
+            event.preventDefault();
+            insertTextAtSelection(`[${label}](${pasted})`, textEl);
+            return;
+          }
+        }
+      }
+      pasteRichTextIntoEditable(event, textEl);
     });
 
     boardEl.addEventListener("focusout", (event) => {
@@ -5900,6 +5983,11 @@
         deleteTaskWithPolicy(id);
         renderFocusMode();
       }
+    });
+
+    focusTaskEl?.addEventListener("paste", (event) => {
+      const textEl = event.target.closest?.("[data-focus-task-text]");
+      if (textEl) pasteRichTextIntoEditable(event, textEl);
     });
 
     focusTaskEl?.addEventListener("input", (event) => {
@@ -7871,6 +7959,8 @@
       getMarkdownTextFromEditable,
       getMarkdownCaretOffset,
       toggleMarkdownStyle,
+      markdownFromNodes,
+      tidyPastedMarkdown,
       shouldCancelLongPress,
       resolveTaskItem,
       getLinkCount,

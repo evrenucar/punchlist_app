@@ -457,15 +457,65 @@ function fakeEl(tagName, childNodes, extra = {}) {
     dataset: {},
     childNodes,
     textContent: childNodes.map((node) => node.nodeValue || node.textContent || "").join(""),
-    getAttribute: () => extra.href || "",
+    getAttribute: (name) => (name === "class" ? extra.attrs?.class || "" : extra.href || ""),
     ...extra,
   };
 }
 
-test("a rich paste arrives as plain text and never adds markers of its own", async () => {
-  // Pasting bold text out of a browser or a document drops real <strong> nodes
-  // into the editable. They used to serialize back to **text**, which now that
-  // nothing renders would mean a paste silently writes asterisks into his task.
+// Evren, 2026-07-29, on round two: "if I paste in markdown. links disappear,
+// formatting disappears etc. Something like this should paste in without
+// loosing formatting and the line breaks etc."
+test("a rich paste keeps its formatting, its links and its line breaks", async () => {
+  const api = await loadBoardApi();
+  const md = (nodes) => api.markdownFromNodes(nodes);
+
+  assert.equal(md([fakeEl("STRONG", [fakeText("bold")])]), "**bold**");
+  assert.equal(md([fakeEl("EM", [fakeText("soft")])]), "*soft*");
+  assert.equal(md([fakeEl("CODE", [fakeText("x = 1")])]), "`x = 1`");
+  // markers hug the words, or his own spaces-outside rule rejects them
+  assert.equal(md([fakeEl("B", [fakeText(" bold ")])]), " **bold** ");
+
+  // line breaks: a div is one line, a paragraph gets a blank line after it
+  // (that is the difference in what he pasted), and a list reads as a list
+  assert.equal(md([fakeEl("DIV", [fakeText("one")]), fakeEl("DIV", [fakeText("two")])]), "one\ntwo\n");
+  assert.equal(md([fakeEl("P", [fakeText("one")]), fakeEl("P", [fakeText("two")])]), "one\n\ntwo\n\n");
+  assert.equal(md([fakeText("a"), fakeEl("BR", []), fakeText("b")]), "a\nb");
+  assert.equal(
+    md([fakeEl("UL", [fakeEl("LI", [fakeText("first")]), fakeEl("LI", [fakeText("second")])])]),
+    "- first\n- second\n",
+  );
+
+  // the whitespace between two blocks is a text node of its own, and it used to
+  // arrive as a space on the front of every line
+  assert.equal(
+    api.tidyPastedMarkdown(md([fakeEl("P", [fakeText("one")]), fakeText("\n  "), fakeEl("P", [fakeText("two")])])),
+    "one\n\ntwo",
+  );
+
+  // links survive as markdown, and a bare one is not doubled up
+  assert.equal(md([fakeEl("A", [fakeText("docs")], { href: "https://e.com" })]), "[docs](https://e.com)");
+  assert.equal(md([fakeEl("A", [fakeText("https://e.com")], { href: "https://e.com" })]), "https://e.com");
+
+  // his own row pasted back in: the markers are already there as text, so
+  // wrapping the <strong> again would give ****bold****
+  assert.equal(
+    md([
+      fakeEl("SPAN", [fakeText("**")], { attrs: { class: "md-mark" } }),
+      fakeEl("STRONG", [fakeText("bold")], { attrs: { class: "md-f" } }),
+      fakeEl("SPAN", [fakeText("**")], { attrs: { class: "md-mark" } }),
+    ]),
+    "**bold**",
+  );
+
+  // HTML whitespace is HTML whitespace: source indentation is not a line break
+  assert.equal(md([fakeText("a\n   b")]), "a b");
+});
+
+test("the editable itself still takes a stray rich node as plain text", async () => {
+  // Paste is intercepted and converted before it lands, so the editable holds
+  // nothing but text and our own render. Anything that slips past that (a drag
+  // and drop, say) must not invent markers of its own inside the row, because
+  // the caret walk assumes no foreign element sits between it and a marker.
   const api = await loadBoardApi();
   const editable = fakeEl("DIV", [
     fakeText("a "),
