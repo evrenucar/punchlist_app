@@ -91,9 +91,13 @@ Open all of these in the ONE automated Chrome window, without being asked. His w
 | Tab | URL | Why |
 |---|---|---|
 | the board | `http://localhost:4173/` | chat, graph, board |
-| the overview | `http://localhost:4173/batch` | reads `/state` every few seconds: Focus group, the batch with its bar, everything closed today, every open item grouped and counted |
+| the overview | `http://localhost:4173/progress` | **the one he asked for.** Live agent progress phase by phase: who is on duty, the board item resolved by id, the announced phase, the running clock, and the trail with each phase's duration |
 | the current round | `http://localhost:4173/<review page>` | whatever grill or test round is live |
 | **Punchlist itself** | `https://evrenucar.github.io/punchlist_app/task-board.html` | the app, so he can try a change the moment it ships |
+
+`/batch` is the board view of the same question and it still exists, but he answered directly on 2026-07-28: "I want live agent progress, phase by phase, not the board." So `/progress` is the overview tab; open `/batch` only when the question is genuinely about the board.
+
+**`/progress` is only as good as the heartbeats.** Re-run `node ../aide-board/agent-heartbeat.mjs <name> <taskId> "<phase>"` at every real phase change, or the page shows one stale line all session. The keepalive must beat WITHOUT a status (the server keeps the last one), or it overwrites every phase you announce.
 
 **Use the hosted copy for that last one**, not `outputs/task-board.html`. Two reasons: Pages auto-deploys on every push so it is always the newest build, and its storage under the `github.io` origin holds the example board. The `file://` copy in the repo holds the DEVELOPMENT board (Braindump, Agent_Active, Ship log) which is live data, and this window is one an agent automates. If he ever names the path of his own downloaded copy, that supersedes this.
 
