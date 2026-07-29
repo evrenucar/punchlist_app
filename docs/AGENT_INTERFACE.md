@@ -103,6 +103,8 @@ Open all of these in the ONE automated Chrome window, without being asked. His w
 
 App TESTING still happens in a throwaway isolated context, opened and closed in the same step. This tab is for him, not for the harness.
 
+**Subagents open nothing.** His words, 2026-07-29: *"ton of aide boards were opened (not what I asked for)"*. The session-start message every agent reads says to open the interface in a browser, and a fan-out of nine subagents each obeyed it. One window, one voice: a subagent must not open a browser tab, must not post to the chat, and must not register a heartbeat. It reports to whoever spawned it, and that agent speaks. Say so explicitly in every subagent prompt — the instruction is now also carved out in `ensure-server.mjs`'s startup message, but a prompt that stays silent about it is asking for the same mess.
+
 ## Review pages are step-by-step (his instruction, 2026-07-28)
 
 "Have step by step questionnaires we setup before after things are completed or when you are grilling me." Three occasions, one harness: a **grill before** the work, a **test round after** it, and any **design decision** in between. The stepped flow lives in `../aide-board/review-harness.template.html`, so it comes free with every page `build-review-pages.mjs` generates — one question on screen, Back/Next, a progress bar, Alt+arrows, the position stored beside the answers, and a final "Everything you said" list with a Change button per line before anything is sent. Skipping is allowed and skipped items never reach the message.
