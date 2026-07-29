@@ -82,6 +82,28 @@
               </select>
             </label>
             <details class="settings-section">
+              <summary>Formatting</summary>
+              <label class="settings-field">
+                <span class="settings-field__label">Markdown</span>
+                <span class="settings-field__controls">
+                  <select data-markdown-mode>
+                    <option value="edit" title="The row you are typing in shows its markers; every other row stays formatted.">Raw while editing</option>
+                    <option value="rendered" title="Formatted everywhere, including while you type. The markers never show.">Always rendered</option>
+                    <option value="raw" title="Nothing is formatted. Markers show as the characters they are.">Never rendered</option>
+                  </select>
+                </span>
+              </label>
+              <p class="settings-note">**bold**, *italic*, ~~strikethrough~~, `code`, and the underscore spellings. Links always render.</p>
+              <label class="settings-field settings-field--switch" title="Ctrl+B bold, Ctrl+I italic, Ctrl+Shift+S strikethrough, inside a task's text">
+                <span class="settings-field__label">Formatting shortcuts</span>
+                <input type="checkbox" class="switch" data-markdown-shortcuts>
+              </label>
+              <label class="settings-field settings-field--switch" title="Markers only count with a space, a bracket or nothing outside them. Keeps 2*3*4 and some_file_name.txt literal. Bolding a whole sentence still works: the test is the spaces outside, not inside.">
+                <span class="settings-field__label">Whole words only</span>
+                <input type="checkbox" class="switch" data-markdown-whole-words>
+              </label>
+            </details>
+            <details class="settings-section">
               <summary>Lifecycle</summary>
               <label class="settings-field">
                 <span class="settings-field__label">Completed tasks</span>

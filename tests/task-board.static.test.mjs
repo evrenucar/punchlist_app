@@ -84,8 +84,16 @@ async function loadBoardApi(overrides = {}) {
       activeElement: null,
       body: {
         classes: new Set(),
-        setAttribute() {},
-        removeAttribute() {},
+        attrs: new Map(),
+        setAttribute(name, value) {
+          context.document.body.attrs.set(name, String(value));
+        },
+        getAttribute(name) {
+          return context.document.body.attrs.get(name) ?? null;
+        },
+        removeAttribute(name) {
+          context.document.body.attrs.delete(name);
+        },
         addEventListener() {},
         classList: {
           add(name) {
@@ -276,42 +284,145 @@ test("task text renders clickable URLs and selected URL paste creates markdown l
   assert.match(api.renderInlineMarkdown(`Open ${url}`), /data-auto-link="true"/);
 });
 
-// Evren, 2026-07-28: "get rid of all formatting inside text", and he picked the
-// render-side removal over stripping markers from what he has stored. So the
-// markers come back as themselves and his text is never touched. Links are not
-// formatting and stay.
-test("style markers render as literal text; only links still render", async () => {
+// Round two of inline formatting, built to his grill answers of 2026-07-29.
+// The invariant the whole design rests on: a marker is never deleted from the
+// DOM, only hidden by CSS, so the rendered text and the stored text are the
+// same characters in the same order. Strip the tags and you get the source
+// back — that is what makes the caret safe, and what round one never had.
+const visibleText = (html) => html.replace(/<[^>]+>/g, "");
+
+test("formatting renders, and the markers stay in the DOM as text", async () => {
+  const api = await loadBoardApi();
+
+  const cases = [
+    ["a **bold** b", "<strong"],
+    ["a *italic* b", "<em"],
+    ["a ~~gone~~ b", "<del"],
+    ["a `code` b", "<code"],
+    ["a _italic_ b", "<em"],
+    ["a __bold__ b", "<strong"],
+    ["***both***", "<em"],
+    ["___both___", "<strong"],
+  ];
+  for (const [source, tag] of cases) {
+    const html = api.renderInlineMarkdown(source);
+    assert.match(html, new RegExp(tag), `${source} renders ${tag}`);
+    assert.equal(visibleText(html), source, `${source} keeps every character it was written with`);
+  }
+
+  // ***both*** nests, which is what broke round one's caret walk. Both tags
+  // are present and the three asterisks survive on each side.
+  const nested = api.renderInlineMarkdown("***both***");
+  assert.match(nested, /<strong[^>]*><em/);
+  assert.equal(visibleText(nested), "***both***");
+
+  // Code is literal inside: no link, no bold, no escape trouble.
+  const code = api.renderInlineMarkdown("`**a** https://e.com`");
+  assert.doesNotMatch(code, /<strong|<a /);
+  assert.equal(visibleText(code), "`**a** https://e.com`");
+
+  // Markup inside the text is still escaped, markers or not.
+  assert.equal(visibleText(api.renderInlineMarkdown("**<i>**")), "**&lt;i&gt;**");
+  // Newlines break in every run, not just the tail after the last match.
+  assert.equal(api.renderInlineMarkdown("a\nb"), "a<br>b");
+  assert.match(api.renderInlineMarkdown("a\nb **c**"), /a<br>b/);
+
+  // Links: both spellings, including URLs carrying marker characters, and a
+  // link inside a bold span (the reason links are matched before the marks).
+  assert.match(api.renderInlineMarkdown("see [x](https://e.com) now"), /<a[^>]+href="https:\/\/e\.com"[^>]*>x<\/a>/);
+  assert.match(api.renderInlineMarkdown("https://e.com/~a_b_c"), /data-auto-link="true"/);
+  const boldLink = api.renderInlineMarkdown("**see [x](https://e.com) now**");
+  assert.match(boldLink, /<strong[^>]*>.*<a /);
+});
+
+// His literals rule, his words: "the test is spaces OUTSIDE the asterisks, not
+// inside". Default on, and a settings toggle turns it off.
+test("markers only count with a space outside them, and that is a toggle", async () => {
   const api = await loadBoardApi();
 
   for (const source of [
-    "a **bold** b",
-    "a *italic* b",
-    "a ~~gone~~ b",
-    "***both***",
-    "**a *b* c**",
-    "a _italic_ b",
-    "a __bold__ b",
-    "___both___",
-    "2 * 3 * 4",
-    "snake_case_name",
-    "__init__ and __main__",
+    "2*3*4",
     "a*b*c",
+    "snake_case_name",
+    "some_file_name.txt",
+    "build_task_board",
   ]) {
-    assert.equal(api.renderInlineMarkdown(source), source, `${source} renders as itself`);
-  }
-  for (const tag of ["<strong>", "<em>", "<del>"]) {
-    assert.doesNotMatch(api.renderInlineMarkdown("**a** *b* ~~c~~ __d__ _e_"), new RegExp(tag));
+    assert.equal(api.renderInlineMarkdown(source), source, `${source} stays literal`);
   }
 
-  // Markup inside the text is still escaped, markers or not.
-  assert.equal(api.renderInlineMarkdown("**<i>**"), "**&lt;i&gt;**");
-  // Newlines still break, that is layout rather than formatting.
-  assert.equal(api.renderInlineMarkdown("a\nb"), "a<br>b");
+  // The one case where his rule and CommonMark agree and the answer still
+  // surprises: __init__ has spaces outside it, so it is bold. Standing alone
+  // is exactly what the rule asks for. Inside a word it is safe again.
+  assert.match(api.renderInlineMarkdown("__init__ and __main__"), /<strong/);
+  assert.equal(api.renderInlineMarkdown("a__init__b"), "a__init__b");
 
-  // Links: both spellings, including URLs carrying marker characters.
-  assert.match(api.renderInlineMarkdown("see [x](https://e.com) now"), /<a[^>]+href="https:\/\/e\.com"[^>]*>x<\/a>/);
-  assert.match(api.renderInlineMarkdown("https://e.com/~a_b_c"), /data-auto-link="true"/);
-  assert.equal(api.renderInlineMarkdown("**see [x](https://e.com) now**").startsWith("**see "), true, "a marker beside a link stays literal");
+  // ...and the case the rule must NOT break: spaces inside are fine.
+  const sentence = api.renderInlineMarkdown("**a whole sentence bolded**");
+  assert.match(sentence, /<strong/);
+  assert.equal(visibleText(sentence), "**a whole sentence bolded**");
+  // punctuation after a closing marker still closes it, or **bold**. at the
+  // end of a sentence would never render
+  assert.match(api.renderInlineMarkdown("that is **bold**."), /<strong/);
+  assert.match(api.renderInlineMarkdown("(**bold**)"), /<strong/);
+
+  api.state.settings.markdownWholeWords = false;
+  assert.match(api.renderInlineMarkdown("a*b*c"), /<em/, "off, a marker mid-word renders");
+  assert.equal(api.renderInlineMarkdown("snake_case_name"), "snake_case_name", "underscores keep their intraword guard either way");
+  api.state.settings.markdownWholeWords = true;
+});
+
+test("the markdown mode rides on every render, not just the settings control", async () => {
+  // A sync pull or an import replaces settings wholesale; both end in render(),
+  // which is why the attribute is written there and not beside the <select>.
+  const api = await loadBoardApi();
+  const body = api.testDocument.body;
+  assert.equal(api.state.settings.markdownMode, "edit", "his default is mode E");
+
+  api.updateSettings({ markdownMode: "raw" });
+  assert.equal(body.getAttribute("data-md-mode"), "raw");
+
+  api.updateSettings({ markdownMode: "nonsense" });
+  assert.equal(body.getAttribute("data-md-mode"), "edit", "a bad value falls back to his default");
+
+  api.updateSettings({ markdownMode: "rendered" });
+  assert.equal(body.getAttribute("data-md-mode"), "rendered");
+  api.updateSettings({ markdownMode: "edit" });
+});
+
+test("the Formatting settings are three controls, each on one line", async () => {
+  // Same rule the Lifecycle section had to be dragged into: a switch row is a
+  // settings-field, not a settings-row, or the label wraps and the switch drops
+  // to a line of its own in a 211px sidebar. Caught in a real browser, pinned
+  // here so nobody re-learns it.
+  const html = await readBoard();
+  const section = html.slice(html.indexOf("<summary>Formatting</summary>"), html.indexOf("<summary>Lifecycle</summary>"));
+
+  assert.match(section, /data-markdown-mode[\s\S]*value="edit"[\s\S]*value="rendered"[\s\S]*value="raw"/, "all three of his modes are offered");
+  for (const control of ["data-markdown-shortcuts", "data-markdown-whole-words"]) {
+    assert.match(section, new RegExp(`class="settings-field settings-field--switch"[\\s\\S]{0,400}${control}`), `${control} is a one-line switch row`);
+    assert.match(section, new RegExp(`class="switch" ${control}`), `${control} uses the existing switch`);
+  }
+  // Mode D (only the caret's visual line goes raw) is boarded as future. If it
+  // ever ships this assertion is the reminder to update the copy with it.
+  assert.equal(/data-markdown-mode[\s\S]{0,600}value="line"/.test(section), false);
+});
+
+test("Ctrl+B and friends toggle the marker on the text, not on the DOM", async () => {
+  const api = await loadBoardApi();
+
+  // wrap a selection (the result crosses a vm realm, so compare its fields)
+  assert.deepEqual({ ...api.toggleMarkdownStyle("make this bold", 5, 9, "**") }, {
+    text: "make **this** bold", start: 7, end: 11, caret: 13,
+  });
+  // and take it off again
+  assert.equal(api.toggleMarkdownStyle("make **this** bold", 7, 11, "**").text, "make this bold");
+  // a collapsed caret grabs the word under it
+  assert.equal(api.toggleMarkdownStyle("one two", 5, 5, "~~").text, "one ~~two~~");
+  // bolding a part-bold selection makes all of it bold rather than nesting
+  // markers (his report, 2026-07-26: "even bolder")
+  assert.equal(api.toggleMarkdownStyle("hello **test** world", 0, 20, "**").text, "**hello test world**");
+  // nothing to toggle
+  assert.equal(api.toggleMarkdownStyle("   ", 0, 3, "**"), null);
 });
 
 test("pulling the styling never rewrites a single character he stored", async () => {

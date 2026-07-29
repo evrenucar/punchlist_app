@@ -1370,6 +1370,42 @@
       color: #79b8ff;
     }
 
+    /* Inline formatting, round two. The markers are real text in the task,
+       wrapped in .md-mark, and these rules are the only thing that decides
+       whether they show. Nothing re-renders when they do, so the caret cannot
+       fall out of step with the text underneath it. */
+    .md-mark {
+      display: none;
+      color: var(--muted);
+    }
+
+    .md-c {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      background: rgba(127, 127, 127, 0.16);
+      border-radius: 4px;
+      padding: 0 3px;
+    }
+
+    /* his mode E, the default: raw in the row he is editing, rendered
+       everywhere else. Mode A is raw everywhere; mode B never shows a marker. */
+    body[data-md-mode="raw"] .md-mark,
+    body[data-md-mode="edit"] [data-task-text]:focus .md-mark,
+    body[data-md-mode="edit"] [data-focus-task-text]:focus .md-mark {
+      display: inline;
+    }
+
+    /* raw means raw: the styling comes off with the markers, so the row reads
+       as the characters he stored */
+    body[data-md-mode="raw"] .md-f,
+    body[data-md-mode="edit"] [data-task-text]:focus .md-f,
+    body[data-md-mode="edit"] [data-focus-task-text]:focus .md-f {
+      font: inherit;
+      text-decoration-line: none;
+      background: none;
+      padding: 0;
+    }
+
     .board.is-touch-dragging,
     .board.is-touch-selecting {
       user-select: none;
