@@ -3653,3 +3653,35 @@ test("the Lifecycle settings put each control row on one line", async () => {
   assert.match(css, /\.settings-field__controls \{[\s\S]{0,160}flex-wrap: nowrap;/, "the controls never wrap to a second row");
   assert.match(css, /input\.switch:checked \{\s*background: var\(--accent\);/, "the switch uses the existing accent, no new colour");
 });
+
+test("a marker-less element between the caret and a wrap does not eat the closing marker", async () => {
+  // Found by an adversarial review of the formatting round-two plan, 2026-07-29,
+  // before a line of it was written. The caret walk spent its "at the visual
+  // end" signal on EVERY element it passed, including ones that contribute no
+  // marker. So a marker-less element in between swallowed the signal and every
+  // ancestor above skipped its own closing marker.
+  //
+  // It cannot fire in today's build: <a> is the only wrap-bearing element and
+  // its only child is a text node. It fires the moment nested marks render,
+  // where ***both*** is an <em> inside a <strong>, which is Evren's original bug
+  // returning: "two asterisks go to the line below when I press Enter".
+  const api = await loadBoardApi();
+  const label = fakeText("docs");
+  const inner = fakeEl("SPAN", [label]); // contributes no marker of its own
+  const link = fakeEl("A", [inner], { href: "https://e.com" });
+  const source = "see [docs](https://e.com)";
+  const editable = fakeEl("DIV", [fakeText("see "), link]);
+
+  // Caret at the end of the label, two elements deep. The link's ](url) is
+  // still behind it, so the offset must be the whole string.
+  assert.equal(
+    api.getMarkdownCaretOffset(editable, label, 4),
+    source.length,
+    "the closing ](url) is counted even through a marker-less wrapper",
+  );
+
+  // And the consequence that Evren actually feels: Enter must not split a marker.
+  const plan = api.getTaskSplitPlan(source, api.getMarkdownCaretOffset(editable, label, 4));
+  assert.equal(plan.beforeText, source, "the link stays whole");
+  assert.equal(plan.afterText, "", "and the new line starts empty");
+});

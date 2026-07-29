@@ -6706,7 +6706,16 @@
         }
         if (!found || atEndOfNode) {
           offset += wrap[1].length;
-          atEndOfNode = false; // spent here; each level up decides for itself
+          // Only an element that actually CONTRIBUTED a closing marker may spend
+          // the at-the-visual-end signal. Resetting unconditionally meant any
+          // marker-less element in between swallowed it, and every ancestor
+          // above silently skipped its own closing marker. Latent today, because
+          // <a> is the only wrap-bearing element and its only child is text, so
+          // nothing marker-less can sit between the caret and a wrap. It stops
+          // being latent the moment nested marks render: ***both*** would put an
+          // <em> inside a <strong> and reproduce Evren's original bug exactly,
+          // caret three characters left of where he left it.
+          if (wrap[1]) atEndOfNode = false;
         }
       }
       walk(element);
