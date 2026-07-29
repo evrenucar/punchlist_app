@@ -3523,3 +3523,70 @@ test("Views, History and Help are the same row at the same spacing", async () =>
   assert.match(css, /\.views-menu \{\s*margin-bottom: 10px;\s*\}/);
   assert.equal(/\.views-nav \{[\s\S]{0,200}margin-bottom: 22px/.test(css), false);
 });
+
+test("typing a colon offers emoji, and only when it starts a word", async () => {
+  // Evren, 2026-07-28: ": and then type emoji creation and insertion", and on
+  // how big the list may be, since it ships inside the one file: "A few hundred
+  // common ones is plenty."
+  const html = await readBoard();
+  assert.match(html, /data-emoji-menu/, "the menu ships");
+  assert.match(html, /\.emoji-menu \{/, "and is styled");
+
+  const api = await loadBoardApi();
+  const count = api.emojiCount();
+  assert.ok(count > 150 && count < 500, `a few hundred, not the whole Unicode set (got ${count})`);
+
+  // The trigger fires on a colon that starts a word, and nowhere else. These
+  // are the three that would ruin ordinary typing if it were sloppier.
+  const trigger = (text) => { const hit = api.emojiTriggerAt(text); return hit && `${hit.token}|${hit.query}`; };
+  assert.equal(trigger(":fi"), ":fi|fi");
+  assert.equal(trigger("ship it :fi"), ":fi|fi");
+  assert.equal(api.emojiTriggerAt("standup at 10:30"), null, "a clock time is not a trigger");
+  assert.equal(api.emojiTriggerAt("note: something"), null, "a colon followed by a space is not a trigger");
+  assert.equal(api.emojiTriggerAt("https://example.com"), null, "a URL is not a trigger");
+  assert.equal(trigger(":"), ":|", "a bare colon opens the list");
+
+  // Prefix matching on whole words, so "fi" finds fire but not "specific".
+  const fi = api.searchEmoji("fi").map(([glyph]) => glyph);
+  assert.ok(fi.includes("🔥"), "fi finds fire");
+  assert.ok(api.searchEmoji("bug").some(([glyph]) => glyph === "🐛"), "bug finds the beetle");
+  assert.ok(api.searchEmoji("done").some(([glyph]) => glyph === "✅"), "done finds the tick");
+  assert.equal(api.searchEmoji("").length, 8, "a bare colon shows a starter set");
+  assert.equal(api.searchEmoji("zzzzz").length, 0, "no pretend matches");
+});
+
+test("ticking a task can move it to the bottom of its group, off by default", async () => {
+  // Evren, 2026-07-28: "Add option to push checkmarked item down in its group
+  // when checked", then "To the bottom of its group, under everything" and
+  // "also do make it a setting and have it off by default".
+  const html = await readBoard();
+  assert.match(html, /data-sink-completed/, "the setting ships");
+  assert.match(html, /Move done tasks down/);
+
+  const api = await loadBoardApi();
+  assert.equal(api.migrateState({}, "2026-07-29T00:00:00.000Z").settings.sinkCompleted, false, "off by default");
+
+  const group = api.getExportState().groups[0];
+  const first = group.tasks[0];
+  const last = group.tasks[group.tasks.length - 1];
+  assert.notEqual(first.id, last.id, "the fixture needs at least two tasks");
+
+  // Off: ticking leaves it exactly where it was.
+  api.setTaskCompleted(first.id, true, "2026-07-29T00:00:00.000Z", { render: false });
+  assert.equal(api.getExportState().groups[0].tasks[0].id, first.id, "nothing moves while the setting is off");
+
+  // On: it goes under everything, and a nested one leaves its nesting to do it.
+  api.updateSettings({ sinkCompleted: true });
+  const parent = group.tasks.find((task) => (task.children || []).length);
+  assert.ok(parent, "the fixture needs a nested task");
+  const child = parent.children[0];
+  api.setTaskCompleted(child.id, true, "2026-07-29T00:00:00.000Z", { render: false });
+
+  const after = api.getExportState().groups[0].tasks;
+  assert.equal(after[after.length - 1].id, child.id, "the ticked child is now last in the group");
+  assert.equal(
+    (api.getExportState().groups[0].tasks.find((task) => task.id === parent.id).children || []).some((c) => c.id === child.id),
+    false,
+    "and it is no longer nested under its old parent",
+  );
+});

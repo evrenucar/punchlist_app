@@ -1970,6 +1970,56 @@
       background: var(--surface-2);
     }
 
+    /* Evren, 2026-07-28: ": and then type emoji creation and insertion".
+       Follows the caret, so it never covers the word being typed. */
+    .emoji-menu {
+      position: fixed;
+      z-index: 90;
+      display: grid;
+      gap: 1px;
+      max-height: 232px;
+      width: 264px;
+      overflow-y: auto;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      padding: 4px;
+      scrollbar-width: thin;
+    }
+
+    .emoji-menu[hidden] {
+      display: none;
+    }
+
+    .emoji-menu button {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--text);
+      padding: 5px 8px;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    .emoji-menu button .glyph {
+      font-size: 17px;
+      line-height: 1;
+    }
+
+    .emoji-menu button .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .emoji-menu button[aria-selected="true"] {
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+
     .focus-outline {
       list-style: none;
       margin: 0;

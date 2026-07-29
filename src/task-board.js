@@ -24,6 +24,7 @@
       focusTiming: true,
       metadata: false,
       policyOverrides: false,
+      sinkCompleted: false, // his ask, and his default: off
       pasteMode: "alias",
       imageResolution: "medium",
       completionRetentionSeconds: 7 * 24 * 60 * 60,
@@ -96,6 +97,7 @@
     const exportCompletedEl = document.querySelector("[data-export-completed]");
     const exportTrashEl = document.querySelector("[data-export-trash]");
     const policyOverridesEl = document.querySelector("[data-policy-overrides]");
+    const sinkCompletedEl = document.querySelector("[data-sink-completed]");
     const featureMetadataEl = document.querySelector("[data-feature-metadata]");
     const featureTimelineEl = document.querySelector("[data-feature-timeline]");
     const featureRemindersEl = document.querySelector("[data-feature-reminders]");
@@ -1877,6 +1879,18 @@
       window.setTimeout(done, 250);
     }
 
+    // Moves a just-completed task to the end of its group's top level. Returns
+    // false when it is already the last top-level item, so the caller can keep
+    // its cheap in-place render instead of redrawing the board for nothing.
+    function sinkTaskToGroupBottom(found) {
+      if (!found || !found.group) return false;
+      const top = found.group.tasks;
+      if (!found.parent && top[top.length - 1] === found.item) return false;
+      found.list.splice(found.index, 1);
+      top.push(found.item);
+      return true;
+    }
+
     function setTaskCompleted(id, done, now = new Date().toISOString(), options = {}) {
       const found = findTask(id);
       if (!found) return false;
@@ -1886,7 +1900,18 @@
       if (options.pushUndo !== false) pushUndoState("complete", `${nextDone ? "Completed" : "Reopened"} "${shortText(item.text)}"`);
       item.done = nextDone;
       item.completedAt = nextDone ? now : null;
+      // Evren, 2026-07-28: "Add option to push checkmarked item down in its
+      // group when checked", and when asked how far: "To the bottom of its
+      // group, under everything", plus "do make it a setting and have it off by
+      // default". Under everything means exactly that: a nested item leaves its
+      // parent and lands at the group's top level, subtree and all. Unticking
+      // does not put it back, because nothing recorded where back was.
+      const sank = nextDone && state.settings.sinkCompleted && sinkTaskToGroupBottom(found);
       if (options.save !== false) saveState();
+      if (sank) {
+        if (options.render !== false) render();
+        return true;
+      }
       if (options.render !== false) {
         if (nextDone && isTaskHiddenFromActive(found.item, found.group)) {
           // the row leaves for the Completed section: retire exactly the rows
@@ -5730,6 +5755,7 @@
       if (exportCompletedEl) exportCompletedEl.checked = settings.exportCompleted !== false;
       if (exportTrashEl) exportTrashEl.checked = Boolean(settings.exportTrash);
       if (policyOverridesEl) policyOverridesEl.checked = Boolean(settings.policyOverrides);
+      if (sinkCompletedEl) sinkCompletedEl.checked = Boolean(settings.sinkCompleted);
       if (featureMetadataEl) featureMetadataEl.checked = Boolean(settings.metadata);
       if (featureTimelineEl) featureTimelineEl.checked = Boolean(settings.timelineView);
       if (featureRemindersEl) featureRemindersEl.checked = Boolean(settings.reminders);
@@ -5811,6 +5837,7 @@
     exportCompletedEl?.addEventListener("change", () => updateSettings({ exportCompleted: exportCompletedEl.checked }));
     exportTrashEl?.addEventListener("change", () => updateSettings({ exportTrash: exportTrashEl.checked }));
     policyOverridesEl?.addEventListener("change", () => updateSettings({ policyOverrides: policyOverridesEl.checked }));
+    sinkCompletedEl?.addEventListener("change", () => updateSettings({ sinkCompleted: sinkCompletedEl.checked }));
     usernameEl?.addEventListener("change", () => updateSettings({ username: usernameEl.value.trim() }));
     deviceNameEl?.addEventListener("change", () => {
       const wasActive = syncIsActive();
@@ -5850,6 +5877,477 @@
     });
 
     checkUpdatesEl?.addEventListener("change", () => updateSettings({ checkForUpdates: checkUpdatesEl.checked }));
+
+    // Evren, 2026-07-28: ": and then type emoji creation and insertion", and
+    // when asked how big the list should be, given it ships inside the one
+    // file: "A few hundred common ones is plenty." The full Unicode set with
+    // searchable names is ~200 KB, about half the app. This is ~250, weighted
+    // towards what a task board actually needs: status, work, time, feeling.
+    // One line each, glyph then the words it answers to. Order is the tie
+    // break, so the most useful sits at the top of a shared prefix.
+    const EMOJI_SOURCE = `
+✅ check done tick complete yes
+❌ x cross no fail wrong
+⚠️ warning caution careful risk
+🔥 fire hot urgent burning lit
+⭐ star favourite favorite important
+🚀 rocket ship launch fast release
+🐛 bug insect defect issue beetle
+📌 pin pinned stick important
+📍 pin location place here
+⏰ alarm clock time reminder wake
+⏳ hourglass waiting time pending
+⌛ hourglass done time up
+🎯 target goal aim bullseye focus
+💡 idea bulb light think
+❓ question ask unknown
+❗ exclamation important warning
+‼️ double exclamation urgent
+🔴 red circle stop blocked critical
+🟠 orange circle warning medium
+🟡 yellow circle caution waiting
+🟢 green circle go ok done
+🔵 blue circle info note
+🟣 purple circle
+⚫ black circle
+⚪ white circle
+🔒 lock locked private secure
+🔓 unlock open unlocked
+🔑 key password access
+🛡️ shield security protect defend
+👀 eyes look watch review seeing
+✏️ pencil write edit draft
+📝 memo note write document
+📄 page document file paper
+📁 folder directory files
+🗂️ dividers files organise organize
+📊 chart bar data stats analytics
+📈 chart up growth increase win
+📉 chart down decrease loss drop
+🗓️ calendar date schedule plan
+📅 calendar date day schedule
+🕐 clock time hour
+⏱️ stopwatch timer speed
+🔔 bell notification alert reminder
+🔕 bell off mute silent
+📢 megaphone announce loud news
+💬 speech bubble comment chat talk
+💭 thought bubble thinking idea
+📣 megaphone shout announce
+✉️ envelope mail email letter
+📧 email mail message
+📮 postbox send mail
+📦 package box ship delivery
+🎁 gift present surprise
+🛠️ tools build fix repair
+🔧 wrench fix tool repair settings
+🔨 hammer build fix
+⚙️ gear settings config cog options
+🧰 toolbox tools kit
+🧪 test tube experiment lab try
+🔬 microscope research inspect science
+🧹 broom clean cleanup sweep tidy
+🗑️ trash bin delete remove waste
+♻️ recycle reuse refresh loop
+🔁 repeat loop again recurring
+🔄 refresh sync reload update
+↩️ undo back return
+⏭️ next skip forward
+⏸️ pause hold wait
+▶️ play start go run
+⏹️ stop end halt
+🆕 new fresh
+🆗 ok fine good
+🆙 up level upgrade
+🔝 top up best
+🔜 soon later next
+🔙 back previous
+💯 hundred perfect full score
+✔️ check tick yes done
+➕ plus add new more
+➖ minus remove less
+✖️ multiply times cross
+➗ divide
+🟩 green square done ok
+🟥 red square blocked stop
+🟨 yellow square waiting
+🟦 blue square info
+⬛ black square
+⬜ white square
+🔺 red triangle up increase
+🔻 red triangle down decrease
+🔷 blue diamond
+🔶 orange diamond
+💎 diamond gem valuable precious
+👍 thumbs up yes good agree like
+👎 thumbs down no bad disagree
+👌 ok perfect fine good
+🙏 pray thanks please grateful
+👏 clap applause well done bravo
+🙌 raise hands celebrate praise
+🤝 handshake deal agree partner
+💪 muscle strong effort power
+✊ fist power solidarity
+👋 wave hello hi bye
+🤞 fingers crossed hope luck
+🫶 heart hands love thanks
+👉 point right this next
+👈 point left back previous
+👆 point up above
+👇 point down below
+🖐️ hand stop five
+🤙 call me shaka
+🧠 brain think smart mind idea
+👤 person user profile someone
+👥 people users team group
+🧑‍💻 developer coder programmer working
+👨‍💻 man developer coder programmer
+👩‍💻 woman developer coder programmer
+🦸 hero super saviour
+😀 grin smile happy
+😃 smile happy joy
+😄 laugh happy smile
+😁 beam grin happy
+😆 laughing lol funny
+😅 sweat smile relief phew nervous
+🤣 rofl laughing hard funny
+😂 joy tears laughing crying funny
+🙂 slight smile ok fine
+🙃 upside down irony sarcasm
+😉 wink joking
+😊 blush happy smile warm
+😇 innocent halo angel
+🥰 love hearts adore
+😍 heart eyes love amazing
+😘 kiss love
+😋 yum tasty delicious
+😎 cool sunglasses awesome
+🤩 star struck amazing wow
+🥳 party celebrate birthday
+😏 smirk sly
+😐 neutral meh flat
+😑 expressionless blank
+😶 no mouth silent speechless
+🙄 eye roll whatever annoyed
+😬 grimace awkward yikes
+🤔 thinking hmm consider question
+🤨 raised eyebrow suspicious doubt
+😴 sleeping tired zzz asleep
+😪 sleepy tired
+😮‍💨 exhale relief sigh
+😤 huff frustrated determined
+😠 angry mad annoyed
+😡 rage furious angry
+🤯 mind blown shocked wow
+😱 scream shocked fear
+😨 fearful scared worried
+😰 anxious worried sweat
+😢 cry sad tear
+😭 sobbing crying very sad
+😔 sad down disappointed
+😞 disappointed sad
+🙁 frown sad
+☹️ frowning sad
+😕 confused unsure
+😩 weary tired frustrated
+😫 tired exhausted done
+🥱 yawn bored tired
+🤒 sick ill fever
+🤕 hurt injured bandage
+🤢 nauseous sick gross
+🤮 vomit sick disgusting
+🥴 woozy dizzy confused
+🤐 zipper quiet secret
+🤫 shush quiet secret
+🤭 oops giggle
+🫠 melting overwhelmed hot
+🫡 salute yes sir on it
+❤️ heart love red
+🧡 orange heart
+💛 yellow heart
+💚 green heart
+💙 blue heart
+💜 purple heart
+🖤 black heart
+🤍 white heart
+💔 broken heart sad
+💖 sparkling heart love
+✨ sparkles magic new shiny clean
+🎉 party tada celebrate confetti launch
+🎊 confetti celebrate party
+🏆 trophy win award first
+🥇 gold medal first win
+🥈 silver medal second
+🥉 bronze medal third
+🎖️ medal honour award
+👑 crown king queen best
+🔮 crystal ball predict future
+🎲 dice random chance luck
+🎨 art paint design creative
+🎵 music note song
+🎧 headphones music listen focus
+📷 camera photo picture screenshot
+🎥 movie video film record
+📱 phone mobile device
+💻 laptop computer work
+🖥️ desktop computer monitor screen
+⌨️ keyboard type shortcut
+🖱️ mouse click
+🖨️ printer print
+💾 floppy save disk
+💽 disk data
+🗄️ cabinet archive storage files
+🌐 globe web internet www world
+🔗 link url chain connect
+📡 satellite signal network sync
+🔌 plug power connect
+🔋 battery power charge
+⚡ lightning fast power energy zap
+☀️ sun sunny day clear
+🌤️ sun cloud partly
+☁️ cloud cloudy
+🌧️ rain wet weather
+⛈️ storm thunder
+❄️ snow cold winter freeze
+🌙 moon night late
+🌟 glowing star shine
+🌈 rainbow colour pride
+🔥 flame hot
+🌱 seedling grow new start
+🌳 tree growth nature
+🍀 clover luck fortune
+🌸 blossom flower spring
+🐢 turtle slow steady
+🐇 rabbit fast quick
+🐝 bee busy work
+🦋 butterfly change transform
+🐳 whale big
+🐙 octopus many arms multitask
+🦉 owl wise night
+🐈 cat kitty
+🐕 dog puppy
+☕ coffee morning caffeine break
+🍵 tea break calm
+🍺 beer drink celebrate
+🍕 pizza food lunch
+🍔 burger food
+🍎 apple fruit healthy
+🍌 banana fruit
+🥕 carrot vegetable
+🍞 bread food
+🧀 cheese food
+🍫 chocolate sweet treat
+🍰 cake birthday sweet
+🍪 cookie sweet snack
+🏠 house home
+🏢 office building work
+🏥 hospital health
+🏦 bank money
+🏫 school study learn
+🚗 car drive travel
+🚕 taxi cab
+🚌 bus transport
+🚆 train transport commute
+✈️ plane flight travel holiday
+🚲 bicycle bike ride
+🛴 scooter ride
+⛵ sailboat sail slow
+🏝️ island holiday vacation break
+🗺️ map plan route explore
+🧭 compass direction navigate find
+💰 money bag cash budget
+💵 dollar money cash
+💳 card payment pay
+🧾 receipt invoice expense bill
+📃 scroll document
+🔍 search find magnify look
+🔎 search find zoom
+📚 books read study learn
+📖 open book read docs
+🏁 finish flag done end race
+🚩 flag mark issue attention
+🎬 action clapper start film
+`.trim();
+
+    // Parsed once: [glyph, "words that find it"].
+    const EMOJI_LIST = EMOJI_SOURCE.split("\n").map((line) => {
+      const at = line.indexOf(" ");
+      return at < 0 ? null : [line.slice(0, at), line.slice(at + 1)];
+    }).filter(Boolean);
+
+    // A query matches when any word in the entry STARTS with it, so ":fi"
+    // finds fire and finish but not "specific". Prefix beats mid-word here
+    // because he is typing forwards; substring matching made ":ch" return
+    // things whose only claim was the middle of a word.
+    function searchEmoji(query, limit = 8) {
+      const q = String(query || "").toLowerCase();
+      if (!q) return EMOJI_LIST.slice(0, limit);
+      const hits = [];
+      for (const entry of EMOJI_LIST) {
+        const words = entry[1].split(" ");
+        if (words.some((word) => word.startsWith(q))) hits.push(entry);
+        if (hits.length >= limit) break;
+      }
+      return hits;
+    }
+
+    // The trigger: a colon that STARTS a word, then letters. Anchored to the
+    // caret. "10:30" and "note: something" never match, because the colon in
+    // both has a non-space before it or a space after it.
+    const EMOJI_TRIGGER = /(?:^|\s)(:([a-z0-9_+-]*))$/i;
+
+    function emojiTriggerAt(textBeforeCaret) {
+      const match = EMOJI_TRIGGER.exec(String(textBeforeCaret || ""));
+      return match ? { token: match[1], query: match[2] } : null;
+    }
+
+    const emojiMenuEl = document.querySelector("[data-emoji-menu]");
+    let emojiState = null; // { editable, token, matches, index }
+    // Escape has to mean something, and what it means here is "I am typing a
+    // real word that happens to start with a colon". So it stays shut while he
+    // keeps typing that word, and only forgets once the token stops growing
+    // from the one he dismissed.
+    let emojiDismissed = null;
+
+    function closeEmojiMenu() {
+      emojiState = null;
+      if (emojiMenuEl) emojiMenuEl.hidden = true;
+    }
+
+    function paintEmojiMenu() {
+      if (!emojiMenuEl || !emojiState) return;
+      emojiMenuEl.replaceChildren();
+      emojiState.matches.forEach(([glyph, words], index) => {
+        const row = document.createElement("button");
+        row.type = "button";
+        row.setAttribute("role", "option");
+        row.setAttribute("aria-selected", index === emojiState.index ? "true" : "false");
+        const g = document.createElement("span");
+        g.className = "glyph";
+        g.textContent = glyph;
+        const name = document.createElement("span");
+        name.className = "name";
+        name.textContent = words.split(" ")[0];
+        row.append(g, name);
+        // mousedown, not click: click lands after the editable has already lost
+        // the caret, and the caret is what we are inserting at.
+        row.addEventListener("mousedown", (event) => {
+          event.preventDefault();
+          insertEmoji(glyph);
+        });
+        emojiMenuEl.appendChild(row);
+      });
+      const selected = emojiMenuEl.children[emojiState.index];
+      selected?.scrollIntoView?.({ block: "nearest" });
+    }
+
+    function placeEmojiMenu() {
+      if (!emojiMenuEl) return;
+      const selection = window.getSelection?.();
+      let rect = null;
+      if (selection && selection.rangeCount) {
+        rect = selection.getRangeAt(0).getBoundingClientRect();
+        // a collapsed range in an empty text node reports all zeroes
+        if (!rect.width && !rect.height) rect = emojiState?.editable?.getBoundingClientRect?.() || rect;
+      }
+      if (!rect) return;
+      const width = 264;
+      const height = Math.min(232, emojiMenuEl.scrollHeight || 232);
+      const room = window.innerHeight - rect.bottom;
+      const top = room < height + 12 ? Math.max(8, rect.top - height - 6) : rect.bottom + 6;
+      emojiMenuEl.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))}px`;
+      emojiMenuEl.style.top = `${top}px`;
+    }
+
+    function openEmojiMenu(editable) {
+      if (!emojiMenuEl || !editable) return;
+      const text = getMarkdownTextFromEditable(editable);
+      const caret = getCaretOffset(editable);
+      const trigger = emojiTriggerAt(text.slice(0, caret));
+      if (!trigger) {
+        emojiDismissed = null;
+        return closeEmojiMenu();
+      }
+      if (emojiDismissed && trigger.token.startsWith(emojiDismissed)) return closeEmojiMenu();
+      emojiDismissed = null;
+      const matches = searchEmoji(trigger.query);
+      if (!matches.length) return closeEmojiMenu();
+      emojiState = { editable, token: trigger.token, matches, index: 0 };
+      emojiMenuEl.hidden = false;
+      paintEmojiMenu();
+      placeEmojiMenu();
+    }
+
+    // Replaces the typed ":word" with the glyph in the DOM, at the caret,
+    // rather than rewriting the whole task and re-rendering it. Re-rendering
+    // would move his caret, which is the one thing an inline picker must never
+    // do. The input event afterwards is what saves it, through the same path
+    // as any other typing.
+    function insertEmoji(glyph) {
+      if (!emojiState) return false;
+      const { editable, token } = emojiState;
+      const selection = window.getSelection?.();
+      if (!selection || !selection.rangeCount) return false;
+      const range = selection.getRangeAt(0);
+      const node = range.endContainer;
+      if (node.nodeType !== 3 || range.endOffset < token.length) {
+        closeEmojiMenu();
+        return false;
+      }
+      const before = node.nodeValue.slice(0, range.endOffset - token.length);
+      const after = node.nodeValue.slice(range.endOffset);
+      node.nodeValue = `${before}${glyph}${after}`;
+      const next = document.createRange();
+      next.setStart(node, before.length + glyph.length);
+      next.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(next);
+      closeEmojiMenu();
+      editable.dispatchEvent(new Event("input", { bubbles: true }));
+      return true;
+    }
+
+    // Capture, so the menu answers the arrows and Enter before the board does.
+    // Without it Enter would split the task under the open menu.
+    document.addEventListener("keydown", (event) => {
+      if (!emojiState) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        emojiDismissed = emojiState.token;
+        closeEmojiMenu();
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        event.stopPropagation();
+        const step = event.key === "ArrowDown" ? 1 : -1;
+        emojiState.index = (emojiState.index + step + emojiState.matches.length) % emojiState.matches.length;
+        paintEmojiMenu();
+        return;
+      }
+      if (event.key === "Enter" || event.key === "Tab") {
+        event.preventDefault();
+        event.stopPropagation();
+        insertEmoji(emojiState.matches[emojiState.index][0]);
+      }
+    }, true);
+
+    document.addEventListener("selectionchange", () => {
+      if (!emojiState) return;
+      // the caret left the field the menu belongs to
+      if (!emojiState.editable.contains(window.getSelection?.()?.anchorNode || null)) closeEmojiMenu();
+    });
+
+    // Every editable that holds text he might want an emoji in: task rows,
+    // group titles, image captions, and their focus-mode twins.
+    const EMOJI_FIELDS = "[data-task-text], [data-focus-task-text], [data-group-title], [data-focus-group-title], [data-image-caption]";
+
+    document.addEventListener("input", (event) => {
+      const editable = event.target?.closest?.(EMOJI_FIELDS);
+      if (editable) openEmojiMenu(editable);
+      else closeEmojiMenu();
+    });
 
     const FEEDBACK_EMAIL = "evrenucar1999@gmail.com";
     const BUG_ISSUE_BASE = "https://github.com/evrenucar/punchlist_app/issues/new";
@@ -7184,6 +7682,9 @@
       buildBugReportUrl,
       openBugDialog,
       closeBugDialog,
+      searchEmoji,
+      emojiTriggerAt,
+      emojiCount: () => EMOJI_LIST.length,
       openResetDialog,
       closeResetDialog,
       countBoard,

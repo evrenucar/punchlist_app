@@ -107,6 +107,10 @@
                   <option value="permanent">Delete permanently</option>
                 </select>
               </label>
+              <label class="settings-row" title="When you tick a task, move it to the bottom of its group, under everything. A task nested under another leaves that nesting and does not return if you untick it.">
+                Move done tasks down
+                <input type="checkbox" data-sink-completed>
+              </label>
               <label class="settings-row" data-trash-mode-row>
                 Keep Trash
                 <select data-trash-mode>
@@ -344,6 +348,8 @@
       </div>
     </div>
   </div>
+
+  <div class="emoji-menu" data-emoji-menu role="listbox" aria-label="Emoji" hidden></div>
 
   <section class="focus-mode" data-focus-mode hidden>
     <div class="focus-mode__bar">
