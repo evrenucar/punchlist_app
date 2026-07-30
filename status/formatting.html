@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Formatting round two</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 18px 80px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.015em; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 34px 0 10px; letter-spacing: -0.01em; }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  h4, h5, h6 { font-size: 14px; margin: 20px 0 6px; color: var(--muted); }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin: 0 0 6px; }
+  a { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+  pre code { border: 0; background: none; padding: 0; font-size: 12.5px; line-height: 1.5; }
+  blockquote { margin: 0 0 14px; padding: 2px 0 2px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+  .scroll { overflow-x: auto; margin: 0 0 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--surface); font-weight: 700; }
+  .stamp { color: var(--muted); font: 12px/1.5 var(--mono); margin: 0 0 26px; }
+  .chunk:empty { display: none; }
+  .note {
+    display: grid; gap: 5px; margin: 18px 0 30px;
+    border-left: 3px solid var(--line); padding: 10px 0 2px 14px;
+  }
+  .note-label { font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .note textarea {
+    width: 100%; font: inherit; font-size: 14px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 11px; resize: vertical; min-height: 44px;
+  }
+  .note textarea::placeholder { color: var(--muted); opacity: 0.75; }
+  .note.filled { border-left-color: var(--accent); }
+  .sendbar {
+    position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; margin-top: 30px; padding: 14px 0 10px; background: var(--bg);
+    border-top: 1px solid var(--line);
+  }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.clear {
+    font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--surface); color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+<p class="stamp">formatting · generated from the finished work, not typed up afterwards</p>
+<section class="chunk">
+<h1>Formatting round two</h1>
+<p>Shipped in v1.5.37, built to the answers you gave in the grill on 2026-07-29.</p>
+<p>Round one was pulled on the 28th because of one bug you reported in one sentence: two asterisks went to the line below when you pressed Enter with a bolded word at the end of a line. That bug was never really about asterisks. It was about a caret sitting inside a rendered span, with characters either side of it that existed in your text but not on your screen.</p>
+</section>
+<section class="chunk" id="s-what-you-can-do-now">
+<h2>What you can do now</h2>
+<p>Type these inside a task and they render:</p>
+<div class="scroll"><table><thead><tr><th>You type</th><th>You get</th></tr></thead><tbody><tr><td><code>**bold**</code></td><td><strong>bold</strong></td></tr><tr><td><code>*italic*</code></td><td><em>italic</em></td></tr><tr><td><code>~~struck out~~</code></td><td><del>struck out</del></td></tr><tr><td>a backtick either side of the words</td><td>a monospace chip</td></tr><tr><td><code>__bold__</code>, <code>_italic_</code>, <code>___both___</code></td><td>the underscore spellings, same result</td></tr><tr><td><code>***both***</code></td><td>bold and italic together, nested</td></tr></tbody></table></div>
+<p>Ctrl+B, Ctrl+I and Ctrl+Shift+S are back. They write plain Markdown into the task, so a copy, an export or a paste into Obsidian carries the formatting with it. Pressing the same pair again takes it off.</p>
+<p>Links are not formatting and render in every mode. That was your line, and it is the rule.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="what-you-can-do-now" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-the-one-decision-the-whole-thing-rests-on">
+<h2>The one decision the whole thing rests on</h2>
+<p>You said it yourself: raw while editing the row, rendered everywhere else. I did not build that by swapping the row's contents when you click in. Swapping is what round one did, in effect, and swapping is what moves carets.</p>
+<p>The markers are never removed at all. They sit in the row as ordinary text, wrapped in a span, and one line of CSS decides whether that span is displayed.</p>
+<p>So when you click into a row, nothing re-renders. The text does not change, the DOM does not change, the caret does not move. The asterisks simply become visible.</p>
+<p>That has three consequences worth knowing, because they are why this round should hold where the last one did not.</p>
+<p><strong>What you see is the stored text.</strong> While you are editing, the row shows exactly the characters saved on disk. Not a representation of them. Them.</p>
+<p><strong>Enter splits where you can see it split.</strong> Put the caret after the d in <code>**bold**</code> and press Enter, and you get <code>**bold</code> and <code>**</code>. That is not the old bug coming back. The old bug was that you could not see the asterisks and the split surprised you. Now they are on screen, in front of the caret, and the split is the one you aimed at.</p>
+<p><strong>Nested marks work.</strong> <code>***both***</code> puts an italic inside a bold. Under round one's machinery that arrangement reproduced your original bug exactly. It cannot here, because neither tag hides a single character.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="the-one-decision-the-whole-thing-rests-on" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-settings-formatting">
+<h2>Settings, Formatting</h2>
+<p>Three controls, all of them yours from the grill.</p>
+<p><strong>Markdown</strong> is the mode. <em>Raw while editing</em> is your mode E and the default. <em>Always rendered</em> never shows a marker. <em>Never rendered</em> formats nothing at all, so the row reads as the characters you typed.</p>
+<p><strong>Formatting shortcuts</strong> turns Ctrl+B and friends on or off. Your words: "default can be standard shortcuts tho".</p>
+<p><strong>Whole words only</strong> is the literals rule. On by default.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="settings-formatting" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-the-literals-rule-and-the-one-case-that-will-sur">
+<h2>The literals rule, and the one case that will surprise you</h2>
+<p>Your test, quoted: the spaces are OUTSIDE the asterisks, not inside. So a marker only counts when there is a space, a bracket or nothing at all on the outside of it.</p>
+<p>Safe, all of these stay literal: <code>2*3*4</code>, <code>some_file_name.txt</code>, <code>build_task_board</code>, <code>a*b*c</code>.</p>
+<p>Still works, because the spaces are outside: <code>**a whole sentence bolded**</code>. And <code>**bold**.</code> at the end of a sentence renders, because I let punctuation close a marker. Without that, every bolded word at the end of a sentence would have stayed raw, which is not what you meant.</p>
+<p>Here is the case worth knowing before you hit it. <code>__init__</code> standing on its own DOES go bold. The spaces are outside it, so by your own rule it qualifies, and CommonMark agrees. Inside a word it is safe again: <code>a__init__b</code> stays literal. If that annoys you, turn Whole words only off and the looser behaviour is one click away, or say so and I will special-case a double underscore.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="the-literals-rule-and-the-one-case-that-will-sur" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-what-i-did-not-build-and-why">
+<h2>What I did not build, and why</h2>
+<p>Two answers on the board disagreed with each other, so I went with the later one.</p>
+<p>The grill said build D and E both, because you defined both and asked for the menu. The v1.5.35 round, which came after it, said "Ship A, B and E first, add C and D once E is proven" with a note to board the others as future.</p>
+<p>So the menu offers A, B and E. Mode D, where only the visual line your caret is on goes raw, is still on the board as future and is now the only piece of round two left. It needs machinery to find which wrapped line a caret sits on, which is the kind of thing that broke round one, and E does not need it at all.</p>
+<p>Tell me if you want D anyway and I will build it.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="what-i-did-not-build-and-why" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-what-i-checked-rather-than-assumed">
+<h2>What I checked, rather than assumed</h2>
+<p>154 tests pass, up from 149.</p>
+<p>In a real browser, against the built file, at desktop and phone width: rendered when the row is idle, raw with markers showing while editing, the caret offset exact on both sides of a bold word, Enter splitting where the markers say it will, Ctrl+B applying to a selection, and the three settings rows each sitting on one line.</p>
+<p>One bug fixed on the way past, and it was in shipped code rather than in the new work: a line break in the text between two matches lost its break. It was invisible while links were the only thing that matched. With bold and friends matching too, it would not have stayed invisible.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="what-i-checked-rather-than-assumed" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<div class="sendbar">
+  <button class="send" id="send">Send my notes</button>
+  <button class="clear" id="clear">Clear</button>
+  <span class="sendmsg" id="sendmsg"></span>
+</div>
+</main>
+<script>
+  const SLUG = "formatting";
+  const TITLE = "Formatting round two";
+  const SECTIONS = [{"id":"what-you-can-do-now","heading":"What you can do now"},{"id":"the-one-decision-the-whole-thing-rests-on","heading":"The one decision the whole thing rests on"},{"id":"settings-formatting","heading":"Settings, Formatting"},{"id":"the-literals-rule-and-the-one-case-that-will-sur","heading":"The literals rule, and the one case that will surprise you"},{"id":"what-i-did-not-build-and-why","heading":"What I did not build, and why"},{"id":"what-i-checked-rather-than-assumed","heading":"What I checked, rather than assumed"}];
+  const KEY = "report-notes-" + SLUG;
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+
+  const boxes = [...document.querySelectorAll("[data-note]")];
+  for (const box of boxes) {
+    const id = box.dataset.note;
+    if (store[id]) box.value = store[id];
+    box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    box.addEventListener("input", () => {
+      if (box.value.trim()) store[id] = box.value;
+      else delete store[id];
+      try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {}
+      box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    });
+  }
+
+  document.getElementById("clear").addEventListener("click", () => {
+    localStorage.removeItem(KEY);
+    location.reload();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const msg = document.getElementById("sendmsg");
+    const lines = [];
+    for (const section of SECTIONS) {
+      const said = (store[section.id] || "").trim();
+      if (said) lines.push("- " + section.heading + ": " + said);
+    }
+    if (!lines.length) {
+      msg.textContent = "Nothing typed yet. Add a thought under any section first.";
+      msg.className = "sendmsg err";
+      return;
+    }
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text: "Notes on " + TITLE + ":\n" + lines.join("\n") }),
+      });
+      if (!res.ok) throw new Error();
+      msg.textContent = "Sent, " + lines.length + " note" + (lines.length === 1 ? "" : "s") + ". The agent has it.";
+      msg.className = "sendmsg ok";
+    } catch {
+      msg.textContent = "Could not reach the agent. Open this at http://localhost:4173/" + SLUG + " and retry.";
+      msg.className = "sendmsg err";
+    }
+  });
+</script>
+</body>
+</html>

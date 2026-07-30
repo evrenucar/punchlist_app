@@ -2342,5 +2342,92 @@
         }
       ]
     }
+  },
+  {
+    "key": "waiting",
+    "spec": {
+      "title": "Four things waiting on you",
+      "intro": "Nothing here is a grill. Each one is a decision I cannot make for you, and each is blocking something real. Pick an option or write your own.",
+      "storageKey": "punchlist-waiting-2026-07-29",
+      "sendLabel": "Send my answers to chat",
+      "chatPrefix": "Waiting decisions:",
+      "sections": [
+        {
+          "heading": "Push, or keep sitting on it",
+          "items": [
+            {
+              "id": "wait-push",
+              "title": "The hosted copy is five builds behind. Push to it?",
+              "body": "Everything from today is committed and nothing is pushed: formatting round two, the paste fix, Ctrl+Up/Down in focus mode, the source split, and the version bug that split turned up. Hosted is still v1.5.35, local is v1.5.41. Pushing runs the build and both test suites in CI before it deploys, so a stale or broken app cannot go out. I have not pushed because it is outward facing and you have not asked.",
+              "answers": {
+                "options": [
+                  "Push it now, all of it.",
+                  "Push it, but cut a Release too so downloaded copies get told.",
+                  "Not yet. Let it sit until I have tried the local file.",
+                  "Push from now on without asking, unless I say otherwise."
+                ]
+              },
+              "placeholder": "Or say when."
+            }
+          ]
+        },
+        {
+          "heading": "Underline",
+          "items": [
+            {
+              "id": "wait-underline",
+              "title": "Markdown has no underline. Which spelling do you want?",
+              "body": "You said we forgot underscore. I read that as underlined TEXT, from your older note (bold text --- underscore text ---), not the _italic_ spelling, which does ship. Markdown itself has no underline, so whichever we pick is ours. Ctrl+U works either way.",
+              "answers": {
+                "options": [
+                  "++underline++ — exports as an <ins>, the plus signs survive a round trip to Obsidian and back.",
+                  "<u>text</u> — literal HTML, everyone recognises it, uglier to type.",
+                  "Make __double underscore__ mean underline, like Discord. Bold then belongs to ** only.",
+                  "I actually meant something else by underscore."
+                ]
+              },
+              "placeholder": "Or describe what you meant."
+            }
+          ]
+        },
+        {
+          "heading": "The security gate",
+          "items": [
+            {
+              "id": "wait-origin",
+              "title": "Your sync token and signing key share a storage box with six other sites. Which fix?",
+              "body": "GitHub Pages puts every one of your repos on evrenucar.github.io, and the browser draws its security line around the hostname, not the project. I proved it on your own two sites: standing on nokta_labs_website_v1 I wrote into Punchlist sync slot and read it back. Only a hostname of its own fixes it. This has been open three turns and it is the gate you set in front of distribution.",
+              "answers": {
+                "options": [
+                  "A GitHub organisation now. Free, own hostname today, stays on GitHub.",
+                  "Cloudflare Pages. Free, own hostname, off GitHub.",
+                  "Wait for the custom domain. The gate stays shut until I buy one.",
+                  "Explain the trade-offs again before I pick."
+                ]
+              },
+              "placeholder": "Or name the domain if you have one in mind."
+            }
+          ]
+        },
+        {
+          "heading": "One I might have got wrong",
+          "items": [
+            {
+              "id": "wait-ctrl",
+              "title": "Ctrl+Up and Ctrl+Down: did I fix the right thing?",
+              "body": "You asked me to implement it. It already worked on the board, on tasks and groups, and while typing in a row. I checked with real key events before building. The place it did nothing was focus mode, whose outline drew the same chevrons with no key bound, so that is what I fixed. If you hit it somewhere else, this was the wrong fix.",
+              "answers": {
+                "options": [
+                  "Focus mode was it. Correct fix.",
+                  "No, I hit it on the board and it did nothing for me. Look again.",
+                  "I meant somewhere else entirely."
+                ]
+              },
+              "placeholder": "Where were you when it did not work?"
+            }
+          ]
+        }
+      ]
+    }
   }
 ]

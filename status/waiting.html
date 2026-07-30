@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punchlist review</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px 16px 72px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
+  .progress { font-size: 13px; font-weight: 700; color: var(--accent); margin: 0 0 10px; }
+  h2 { font-size: 13px; margin: 26px 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 700; }
+  /* Evren, 2026-07-28: "have step by step questionnaires". One question on
+     screen at a time, so a long round reads as a few seconds of work instead
+     of a wall of cards. The bar is the only thing that says how much is left. */
+  .bar { height: 4px; border-radius: 999px; background: var(--line); margin: 0 0 8px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 0; background: var(--accent); transition: width 220ms ease; }
+  .eyebrow { font-size: 11.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 18px 0 6px; }
+  .navbar { display: flex; gap: 10px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  button.nav {
+    font: inherit; font-size: 13.5px; font-weight: 700; padding: 8px 16px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+    color: var(--text); cursor: pointer;
+  }
+  button.nav:disabled { opacity: 0.4; cursor: default; }
+  button.nav.next { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .review { list-style: none; padding: 0; margin: 0; }
+  .review li {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px 13px; margin: 6px 0; font-size: 13.5px;
+  }
+  .review li b { display: block; font-size: 12.5px; color: var(--muted); font-weight: 700; margin-bottom: 2px; }
+  .review li.skipped { border-style: dashed; color: var(--muted); }
+  .review button.jump {
+    font: inherit; font-size: 12px; margin-top: 7px; padding: 3px 10px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+    color: var(--muted); cursor: pointer;
+  }
+  .review button.jump:hover { border-color: var(--accent); color: var(--accent); }
+  .item {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; margin: 8px 0;
+  }
+  .item.noted { border-color: var(--accent); }
+  .shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .shot { position: relative; display: block; line-height: 0; }
+  .shot img {
+    max-width: 190px; max-height: 140px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg);
+  }
+  .shot-drop {
+    position: absolute; top: -6px; right: -6px; width: 20px; height: 20px;
+    border: 1px solid var(--line); border-radius: 50%; background: var(--surface);
+    color: var(--muted); font: 700 13px/1 system-ui; cursor: pointer;
+  }
+  .shot-drop:hover { color: var(--warn); }
+  .item h3 { font-size: 15px; margin: 0 0 3px; }
+  .item p { margin: 0 0 8px; color: var(--muted); font-size: 13.5px; white-space: pre-line; }
+  .answers { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 9px; }
+  .chip {
+    font: inherit; font-size: 12.5px; line-height: 1.3; padding: 5px 11px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg);
+    color: var(--text); cursor: pointer; text-align: left;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .chip.picked { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .sketch { margin: 2px 0 10px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+  .sketch svg { display: block; width: 100%; height: auto; max-width: 340px; color: var(--muted); }
+  .fb {
+    width: 100%; font: inherit; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--bg);
+    color: var(--text); padding: 8px 10px; resize: vertical; min-height: 36px;
+  }
+  .fb::placeholder { color: var(--muted); opacity: 0.7; }
+  .sendbar { display: flex; gap: 10px; align-items: center; margin-top: 26px; flex-wrap: wrap;
+    position: sticky; bottom: 0; background: var(--bg); padding: 14px 0 4px; }
+  /* an author display beats the UA sheet's [hidden], so say it here */
+  .sendbar[hidden] { display: none; }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.reset {
+    font: inherit; font-size: 12px; padding: 6px 12px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title"></h1>
+  <p class="sub" id="intro"></p>
+  <div class="bar"><div class="bar-fill" id="barfill"></div></div>
+  <p class="progress" id="progress"></p>
+  <p class="eyebrow" id="eyebrow"></p>
+  <div id="content"></div>
+  <div class="navbar">
+    <button class="nav" id="back">Back</button>
+    <button class="nav next" id="next">Next</button>
+    <span class="hint" id="hint"></span>
+  </div>
+  <div class="sendbar" id="sendbar" hidden>
+    <button class="send" id="send">Send</button>
+    <button class="reset" id="reset">Clear</button>
+    <span class="sendmsg" id="sendmsg"></span>
+  </div>
+</main>
+<script>
+  const SPEC = {"title":"Four things waiting on you","intro":"Nothing here is a grill. Each one is a decision I cannot make for you, and each is blocking something real. Pick an option or write your own.","storageKey":"punchlist-waiting-2026-07-29","sendLabel":"Send my answers to chat","chatPrefix":"Waiting decisions:","sections":[{"heading":"Push, or keep sitting on it","items":[{"id":"wait-push","title":"The hosted copy is five builds behind. Push to it?","body":"Everything from today is committed and nothing is pushed: formatting round two, the paste fix, Ctrl+Up/Down in focus mode, the source split, and the version bug that split turned up. Hosted is still v1.5.35, local is v1.5.41. Pushing runs the build and both test suites in CI before it deploys, so a stale or broken app cannot go out. I have not pushed because it is outward facing and you have not asked.","answers":{"options":["Push it now, all of it.","Push it, but cut a Release too so downloaded copies get told.","Not yet. Let it sit until I have tried the local file.","Push from now on without asking, unless I say otherwise."]},"placeholder":"Or say when."}]},{"heading":"Underline","items":[{"id":"wait-underline","title":"Markdown has no underline. Which spelling do you want?","body":"You said we forgot underscore. I read that as underlined TEXT, from your older note (bold text --- underscore text ---), not the _italic_ spelling, which does ship. Markdown itself has no underline, so whichever we pick is ours. Ctrl+U works either way.","answers":{"options":["++underline++ — exports as an <ins>, the plus signs survive a round trip to Obsidian and back.","<u>text</u> — literal HTML, everyone recognises it, uglier to type.","Make __double underscore__ mean underline, like Discord. Bold then belongs to ** only.","I actually meant something else by underscore."]},"placeholder":"Or describe what you meant."}]},{"heading":"The security gate","items":[{"id":"wait-origin","title":"Your sync token and signing key share a storage box with six other sites. Which fix?","body":"GitHub Pages puts every one of your repos on evrenucar.github.io, and the browser draws its security line around the hostname, not the project. I proved it on your own two sites: standing on nokta_labs_website_v1 I wrote into Punchlist sync slot and read it back. Only a hostname of its own fixes it. This has been open three turns and it is the gate you set in front of distribution.","answers":{"options":["A GitHub organisation now. Free, own hostname today, stays on GitHub.","Cloudflare Pages. Free, own hostname, off GitHub.","Wait for the custom domain. The gate stays shut until I buy one.","Explain the trade-offs again before I pick."]},"placeholder":"Or name the domain if you have one in mind."}]},{"heading":"One I might have got wrong","items":[{"id":"wait-ctrl","title":"Ctrl+Up and Ctrl+Down: did I fix the right thing?","body":"You asked me to implement it. It already worked on the board, on tasks and groups, and while typing in a row. I checked with real key events before building. The place it did nothing was focus mode, whose outline drew the same chevrons with no key bound, so that is what I fixed. If you hit it somewhere else, this was the wrong fix.","answers":{"options":["Focus mode was it. Correct fix.","No, I hit it on the board and it did nothing for me. Look again.","I meant somewhere else entirely."]},"placeholder":"Where were you when it did not work?"}]}]};
+  const KEY = SPEC.storageKey;
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+  store.notes = store.notes || {};
+  store.picks = store.picks || {};
+  store.shots = store.shots || {};
+
+  document.title = "Punchlist — " + SPEC.title;
+  document.getElementById("title").textContent = SPEC.title;
+  document.getElementById("intro").textContent = SPEC.intro;
+  document.getElementById("send").textContent = SPEC.sendLabel;
+
+  // Evren, 2026-07-28: "also at the end nice to ask if I have ideas issue or
+  // other things that pop into my mind". It lives here rather than in a spec so
+  // that no round can be written without it. A spec that wants its own wording
+  // supplies an item with this id and keeps it.
+  if (!SPEC.sections.some((s) => s.items.some((i) => i.id === "open-catchall"))) {
+    SPEC.sections = [...SPEC.sections, {
+      heading: "Before you send",
+      items: [{
+        id: "open-catchall",
+        title: "Anything else on your mind",
+        body: "An idea, something that has been annoying you, a bug you never reported, a direction you keep coming back to. Whatever surfaced while you were answering these. It goes on the board in your words, before any code gets written.",
+        placeholder: "Type anything. Screenshots welcome, paste them straight in.",
+      }],
+    }];
+  }
+
+  const root = document.getElementById("content");
+  const allIds = [];
+
+  // Screenshots are data URLs, and a few of them outweigh everything else on the
+  // page. If they push localStorage over quota, keep the answers (the part that
+  // is expensive to retype) and let the images live in memory for this visit.
+  function persist() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(store));
+    } catch {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ ...store, shots: {} }));
+      } catch {}
+    }
+  }
+  function hasInput(id) {
+    return (store.picks[id] && store.picks[id].length)
+      || (store.notes[id] && store.notes[id].trim())
+      || (store.shots[id] && store.shots[id].length);
+  }
+
+  // Evren, 2026-07-28: "it would be nice if I can easily paste in an image with
+  // the feedback I add here. Multiple images would also even be better."
+  // Shrunk on the way in: a phone screenshot is several MB, the chat endpoint
+  // caps a message at 2.5 MB, and nothing here needs more than screen detail.
+  const SHOT_MAX_EDGE = 1600;
+  function shrinkToDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("could not read that image"));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("that file is not an image"));
+        img.onload = () => {
+          const scale = Math.min(1, SHOT_MAX_EDGE / Math.max(img.width, img.height));
+          if (scale === 1 && reader.result.length < 900_000) return resolve(reader.result);
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/webp", 0.85));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  function paintCard(card, id) { card.classList.toggle("noted", Boolean(hasInput(id))); }
+  function paintProgress() {
+    const n = allIds.filter(hasInput).length;
+    document.getElementById("progress").textContent =
+      n ? n + " of " + allIds.length + " answered" : "Click the answers that fit and add notes, then send";
+    document.getElementById("barfill").style.width =
+      Math.round((Math.min(at, steps.length) / Math.max(1, steps.length)) * 100) + "%";
+  }
+
+  const steps = [];
+  for (const section of SPEC.sections) {
+    for (const item of section.items) {
+      allIds.push(item.id);
+      const card = document.createElement("div");
+      card.className = "item";
+      card.dataset.id = item.id;
+
+      const h3 = document.createElement("h3");
+      h3.textContent = item.title;
+      card.appendChild(h3);
+
+      if (item.body) {
+        const p = document.createElement("p");
+        p.textContent = item.body;
+        card.appendChild(p);
+      }
+      if (item.sketch) {
+        const s = document.createElement("div");
+        s.className = "sketch";
+        s.innerHTML = item.sketch;
+        card.appendChild(s);
+      }
+      if (item.answers && Array.isArray(item.answers.options)) {
+        const multi = Boolean(item.answers.multi);
+        const wrap = document.createElement("div");
+        wrap.className = "answers";
+        for (const opt of item.answers.options) {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "chip";
+          b.textContent = opt;
+          if ((store.picks[item.id] || []).includes(opt)) b.classList.add("picked");
+          b.addEventListener("click", () => {
+            let cur = store.picks[item.id] || [];
+            if (multi) cur = cur.includes(opt) ? cur.filter((x) => x !== opt) : [...cur, opt];
+            else cur = cur.includes(opt) ? [] : [opt];
+            store.picks[item.id] = cur;
+            if (!cur.length) delete store.picks[item.id];
+            persist();
+            const picked = store.picks[item.id] || [];
+            [...wrap.children].forEach((c) => c.classList.toggle("picked", picked.includes(c.textContent)));
+            paintCard(card, item.id);
+            paintProgress();
+          });
+          wrap.appendChild(b);
+        }
+        card.appendChild(wrap);
+      }
+
+      const ta = document.createElement("textarea");
+      ta.className = "fb";
+      ta.dataset.fb = item.id;
+      ta.placeholder = item.placeholder || "Add a note (optional). Paste a screenshot straight in.";
+      ta.value = store.notes[item.id] || "";
+      ta.addEventListener("input", () => {
+        if (ta.value.trim()) store.notes[item.id] = ta.value;
+        else delete store.notes[item.id];
+        persist();
+        paintCard(card, item.id);
+        paintProgress();
+      });
+      card.appendChild(ta);
+
+      const strip = document.createElement("div");
+      strip.className = "shots";
+      card.appendChild(strip);
+
+      function paintShots() {
+        strip.replaceChildren();
+        for (const [index, src] of (store.shots[item.id] || []).entries()) {
+          const fig = document.createElement("span");
+          fig.className = "shot";
+          const img = document.createElement("img");
+          img.src = src;
+          img.alt = "Screenshot " + (index + 1);
+          const drop = document.createElement("button");
+          drop.type = "button";
+          drop.className = "shot-drop";
+          drop.textContent = "×";
+          drop.title = "Remove this image";
+          drop.addEventListener("click", () => {
+            store.shots[item.id].splice(index, 1);
+            if (!store.shots[item.id].length) delete store.shots[item.id];
+            persist();
+            paintShots();
+            paintCard(card, item.id);
+            paintProgress();
+          });
+          fig.append(img, drop);
+          strip.appendChild(fig);
+        }
+      }
+      paintShots();
+
+      ta.addEventListener("paste", async (event) => {
+        const files = [...(event.clipboardData?.items || [])]
+          .filter((entry) => entry.kind === "file" && entry.type.startsWith("image/"))
+          .map((entry) => entry.getAsFile())
+          .filter(Boolean);
+        if (!files.length) return; // ordinary text paste, leave it alone
+        event.preventDefault();
+        for (const file of files) {
+          try {
+            const src = await shrinkToDataUrl(file);
+            (store.shots[item.id] = store.shots[item.id] || []).push(src);
+          } catch {}
+        }
+        persist();
+        paintShots();
+        paintCard(card, item.id);
+        paintProgress();
+      });
+
+      paintCard(card, item.id);
+      steps.push({ heading: section.heading, item, card });
+    }
+  }
+
+  // The last stop is not a question, it is everything he said, in one list, so
+  // nothing gets sent that he cannot see first. Any line jumps back to its own
+  // question. Where he stopped is remembered, so a reload resumes.
+  const backEl = document.getElementById("back");
+  const nextEl = document.getElementById("next");
+  const hintEl = document.getElementById("hint");
+  const eyebrowEl = document.getElementById("eyebrow");
+  const sendbarEl = document.getElementById("sendbar");
+  let at = Math.min(Math.max(Number(store.at) || 0, 0), steps.length);
+
+  function buildReview() {
+    const list = document.createElement("ul");
+    list.className = "review";
+    steps.forEach((step, index) => {
+      const li = document.createElement("li");
+      const label = document.createElement("b");
+      label.textContent = step.item.title;
+      li.appendChild(label);
+      const picks = store.picks[step.item.id] || [];
+      const note = (store.notes[step.item.id] || "").trim();
+      const shots = (store.shots[step.item.id] || []).length;
+      const parts = [];
+      if (picks.length) parts.push(picks.join(" | "));
+      if (note) parts.push(picks.length ? "(" + note + ")" : note);
+      if (shots) parts.push("[" + shots + " image" + (shots === 1 ? "" : "s") + "]");
+      if (!parts.length) {
+        li.classList.add("skipped");
+        li.append("Skipped");
+      } else {
+        li.append(parts.join(" "));
+      }
+      const jump = document.createElement("button");
+      jump.type = "button";
+      jump.className = "jump";
+      jump.textContent = parts.length ? "Change" : "Answer it";
+      jump.addEventListener("click", () => show(index));
+      li.appendChild(document.createElement("br"));
+      li.appendChild(jump);
+      list.appendChild(li);
+    });
+    return list;
+  }
+
+  function show(index) {
+    at = Math.min(Math.max(index, 0), steps.length);
+    store.at = at;
+    persist();
+    const onReview = at === steps.length;
+    root.replaceChildren(onReview ? buildReview() : steps[at].card);
+    eyebrowEl.textContent = onReview ? "Everything you said" : steps[at].heading;
+    backEl.disabled = at === 0;
+    nextEl.textContent = onReview ? "Back to the last question" : (at === steps.length - 1 ? "Review" : "Next");
+    if (onReview) nextEl.classList.remove("next");
+    else nextEl.classList.add("next");
+    hintEl.textContent = onReview
+      ? "Send when it looks right. Anything you skipped is simply left out."
+      : "Question " + (at + 1) + " of " + steps.length + ". Skipping is fine.";
+    sendbarEl.hidden = !onReview;
+    paintProgress();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  backEl.addEventListener("click", () => show(at - 1));
+  nextEl.addEventListener("click", () => show(at === steps.length ? at - 1 : at + 1));
+  document.addEventListener("keydown", (event) => {
+    if (!event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.key === "ArrowRight") { event.preventDefault(); show(at + 1); }
+    if (event.key === "ArrowLeft") { event.preventDefault(); show(at - 1); }
+  });
+  show(at);
+
+  document.getElementById("reset").addEventListener("click", () => {
+    store.notes = {};
+    store.picks = {};
+    store.shots = {};
+    store.at = 0;
+    persist();
+    location.reload();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const lines = [];
+    for (const section of SPEC.sections) {
+      for (const item of section.items) {
+        if (!hasInput(item.id)) continue;
+        const picks = store.picks[item.id] || [];
+        const note = (store.notes[item.id] || "").trim();
+        const shots = store.shots[item.id] || [];
+        let line = "- " + item.title;
+        if (picks.length) line += ": " + picks.join(" | ");
+        if (note) line += picks.length ? " (note: " + note + ")" : ": " + note;
+        if (shots.length) line += " [" + shots.length + " image" + (shots.length === 1 ? "" : "s") + " below]";
+        lines.push(line);
+      }
+    }
+    const sendmsg = document.getElementById("sendmsg");
+    if (!lines.length) {
+      sendmsg.textContent = "Nothing to send yet, click an answer or type a note first.";
+      sendmsg.className = "sendmsg err";
+      return;
+    }
+    const text = SPEC.chatPrefix + "\n" + lines.join("\n");
+    const post = async (body) => {
+      const r = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error();
+    };
+    try {
+      await post({ from: "user", text });
+      // The chat endpoint carries one image per message, so each screenshot
+      // follows as its own line, captioned with the item it belongs to. Sent
+      // after the summary so the answers land first and the images read as
+      // attachments to them.
+      let sentShots = 0;
+      for (const section of SPEC.sections) {
+        for (const item of section.items) {
+          for (const [index, img] of (store.shots[item.id] || []).entries()) {
+            const of = (store.shots[item.id] || []).length;
+            await post({ from: "user", text: item.title + (of > 1 ? " (" + (index + 1) + " of " + of + ")" : ""), img });
+            sentShots += 1;
+          }
+        }
+      }
+      sendmsg.textContent = sentShots
+        ? "Sent, with " + sentShots + " image" + (sentShots === 1 ? "" : "s") + ". The agent has it."
+        : "Sent, the agent has it.";
+      sendmsg.className = "sendmsg ok";
+    } catch {
+      sendmsg.textContent = "Could not reach the agent. Open this at http://localhost:4173" + location.pathname + " and retry.";
+      sendmsg.className = "sendmsg err";
+    }
+  });
+</script>
+</body>
+</html>
