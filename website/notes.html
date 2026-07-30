@@ -287,6 +287,17 @@
 
     <article>
       <header>
+        <h2>Ctrl+↑ & Ctrl+↓ reach focus mode</h2>
+        <span class="entry-date">July 29, 2026 · build v1.5.39</span>
+      </header>
+      <p><kbd>Ctrl</kbd>+<kbd>↑</kbd> folds the row your caret is in, <kbd>Ctrl</kbd>+<kbd>↓</kbd> opens it back up. On the board that already worked, on tasks & on groups, & it kept working while you were typing inside the row. In focus mode it did nothing at all. The outline there draws the same chevrons the board does & had no key bound to them, so the pair you reach for was dead in the one view built for concentrating on a subtree.</p>
+      <p><strong>The caret holds its row through the fold.</strong> The outline redraws when a row collapses, & landing somewhere else afterwards would cost you your place, which is the whole point of being in focus mode.</p>
+      <p><strong>The row you focused on is left out on purpose.</strong> Focus mode draws its children whatever its own folded state says, so folding the root would change the board underneath you while nothing moved on screen. A key that quietly edits state you cannot see is worse than no key.</p>
+      <p>The chevron names its shortcut on hover now, the way the other row controls do.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Bold, italic, strikethrough & code, without the caret games</h2>
         <span class="entry-date">July 29, 2026 · build v1.5.38</span>
       </header>
