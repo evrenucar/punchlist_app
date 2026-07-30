@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punchlist codebase orientation</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f2; --surface: #ffffff; --text: #202422; --muted: #65716b;
+    --line: #d8ded8; --accent: #246bfe; --done: #2d7d46; --warn: #bd6f23;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151716; --surface: #202321; --text: #f1f4ef; --muted: #a8b2aa; --line: #3a403c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 18px 80px;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 26px; letter-spacing: -0.015em; margin: 0 0 6px; }
+  h2 { font-size: 20px; margin: 34px 0 10px; letter-spacing: -0.01em; }
+  h3 { font-size: 16px; margin: 24px 0 8px; }
+  h4, h5, h6 { font-size: 14px; margin: 20px 0 6px; color: var(--muted); }
+  p { margin: 0 0 14px; }
+  ul, ol { margin: 0 0 14px; padding-left: 22px; }
+  li { margin: 0 0 6px; }
+  a { color: var(--accent); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0; }
+  code { font-family: var(--mono); font-size: 0.88em; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  pre { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; }
+  pre code { border: 0; background: none; padding: 0; font-size: 12.5px; line-height: 1.5; }
+  blockquote { margin: 0 0 14px; padding: 2px 0 2px 14px; border-left: 3px solid var(--line); color: var(--muted); }
+  .scroll { overflow-x: auto; margin: 0 0 16px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--surface); font-weight: 700; }
+  .stamp { color: var(--muted); font: 12px/1.5 var(--mono); margin: 0 0 26px; }
+  .chunk:empty { display: none; }
+  .note {
+    display: grid; gap: 5px; margin: 18px 0 30px;
+    border-left: 3px solid var(--line); padding: 10px 0 2px 14px;
+  }
+  .note-label { font-size: 11.5px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+  .note textarea {
+    width: 100%; font: inherit; font-size: 14px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 11px; resize: vertical; min-height: 44px;
+  }
+  .note textarea::placeholder { color: var(--muted); opacity: 0.75; }
+  .note.filled { border-left-color: var(--accent); }
+  .sendbar {
+    position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; margin-top: 30px; padding: 14px 0 10px; background: var(--bg);
+    border-top: 1px solid var(--line);
+  }
+  button.send {
+    font: inherit; font-size: 14px; font-weight: 700; padding: 9px 16px;
+    border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.clear {
+    font: inherit; font-size: 12px; padding: 6px 12px; border: 1px solid var(--line);
+    border-radius: 8px; background: var(--surface); color: var(--muted); cursor: pointer;
+  }
+  .sendmsg { font-size: 13px; color: var(--muted); }
+  .sendmsg.ok { color: var(--done); font-weight: 700; }
+  .sendmsg.err { color: var(--warn); font-weight: 700; }
+</style>
+</head>
+<body>
+<main>
+<p class="stamp">codebase-orientation · generated from the finished work, not typed up afterwards</p>
+<section class="chunk">
+<h1>Codebase orientation</h1>
+</section>
+<section class="chunk" id="s-what-this-is">
+<h2>What this is</h2>
+<p>Punchlist is a local-first personal task planner. The product is a directly-openable HTML file, with no runtime dependencies or server requirement. Browser storage is canonical, JSON export is lossless, and GitHub sync is optional.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="what-this-is" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-architecture">
+<h2>Architecture</h2>
+<ul>
+<li><code>src/task-board.html</code> is the shell and <code>src/task-board.css</code> owns presentation.</li>
+<li><code>src/app/01-constants.js</code> through <code>25-app.js</code> are concatenated in numeric order into one shared script scope.</li>
+<li><code>scripts/build-task-board.mjs</code> produces <code>outputs/task-board.html</code>, refreshes <code>website/task-board.html</code>, pins <code>status/board.html</code>, and stamps the version plus byte size on the landing page.</li>
+<li>The test suite reads the built output. Build before running the static tests.</li>
+</ul>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="architecture" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-current-state">
+<h2>Current state</h2>
+<p>The most recent commits split the former 8,151-line app into 25 ordered parts and corrected the build version anchor. The static suite contains 157 declared tests. CI now rebuilds, tests, and runs a Playwright browser suite before deploys and on pull requests.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="current-state" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-constraints-that-matter">
+<h2>Constraints that matter</h2>
+<p>Keep it dependency-free and static. Do not hand-edit generated files. Preserve the localStorage key and user data. Feature flags default off. Any behavior change needs a regression test, build, full test run, and isolated desktop plus phone browser check.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="constraints-that-matter" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<section class="chunk" id="s-highest-priority-context">
+<h2>Highest-priority context</h2>
+<p>Formatting round two, paste preservation, focus-mode folding, and the source split have shipped. The major strategic risk is the hosted app sharing a GitHub Pages origin and therefore localStorage with sibling sites; the direction is a dedicated origin, ideally a custom domain. Mobile/touch polish and sync safety remain core quality work.</p>
+<label class="note">
+  <span class="note-label">Your thoughts on this section</span>
+  <textarea data-note="highest-priority-context" rows="2" placeholder="Anything: an idea, a disagreement, something this missed."></textarea>
+</label>
+</section>
+<div class="sendbar">
+  <button class="send" id="send">Send my notes</button>
+  <button class="clear" id="clear">Clear</button>
+  <span class="sendmsg" id="sendmsg"></span>
+</div>
+</main>
+<script>
+  const SLUG = "codebase-orientation";
+  const TITLE = "Punchlist codebase orientation";
+  const SECTIONS = [{"id":"what-this-is","heading":"What this is"},{"id":"architecture","heading":"Architecture"},{"id":"current-state","heading":"Current state"},{"id":"constraints-that-matter","heading":"Constraints that matter"},{"id":"highest-priority-context","heading":"Highest-priority context"}];
+  const KEY = "report-notes-" + SLUG;
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+
+  const boxes = [...document.querySelectorAll("[data-note]")];
+  for (const box of boxes) {
+    const id = box.dataset.note;
+    if (store[id]) box.value = store[id];
+    box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    box.addEventListener("input", () => {
+      if (box.value.trim()) store[id] = box.value;
+      else delete store[id];
+      try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {}
+      box.closest(".note").classList.toggle("filled", Boolean(box.value.trim()));
+    });
+  }
+
+  document.getElementById("clear").addEventListener("click", () => {
+    localStorage.removeItem(KEY);
+    location.reload();
+  });
+
+  document.getElementById("send").addEventListener("click", async () => {
+    const msg = document.getElementById("sendmsg");
+    const lines = [];
+    for (const section of SECTIONS) {
+      const said = (store[section.id] || "").trim();
+      if (said) lines.push("- " + section.heading + ": " + said);
+    }
+    if (!lines.length) {
+      msg.textContent = "Nothing typed yet. Add a thought under any section first.";
+      msg.className = "sendmsg err";
+      return;
+    }
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ from: "user", text: "Notes on " + TITLE + ":\n" + lines.join("\n") }),
+      });
+      if (!res.ok) throw new Error();
+      msg.textContent = "Sent, " + lines.length + " note" + (lines.length === 1 ? "" : "s") + ". The agent has it.";
+      msg.className = "sendmsg ok";
+    } catch {
+      msg.textContent = "Could not reach the agent. Open this at http://localhost:4173/" + SLUG + " and retry.";
+      msg.className = "sendmsg err";
+    }
+  });
+</script>
+</body>
+</html>
