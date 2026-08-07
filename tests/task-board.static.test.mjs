@@ -2642,89 +2642,115 @@ test("update check against latest.json: 404, malformed JSON, and an up-to-date r
 
 // Notes freshness (task-aud-4-2gmn, part B): the failure this guards against
 // is latest.json announcing a version, the user clicking "What changed", and
-// notes.html having nothing to say about it. Detection walks the real markup
+// notes.html having nothing recent to say. Detection walks the real markup
 // (every <span class="entry-date">…</span>, the running notes page's actual
 // convention) rather than a substring search over the whole file, because a
 // naive `html.includes("v1.5.4")` would also match "v1.5.40", "v1.5.41", etc.
 // Entries name either one build ("build v1.5.39") or a batch range ("builds
-// v1.5.28 to v1.5.31"); a range covers every patch in between, since the
-// patch climbs by commit count and nothing in that span ever gets its own
-// entry.
+// v1.5.28 to v1.5.31"); every version mentioned anywhere counts as documented.
 //
-// SEVERITY CALL: this lives in the test suite, not build-task-board.mjs. The
-// patch digit advances on essentially every commit that touches src/app (see
-// the version-derivation test above), while notes entries are written once
-// per finished batch, after the fact, often as a range covering several
-// commits at once — that is the project's own established practice (see e.g.
-// the "builds v1.5.28 to v1.5.31" entry, or the 2026-07-28 handoff note "gained
-// entries for v1.5.26 AND v1.5.25"). A hard failure inside the build itself
-// would break `node scripts/build-task-board.mjs` on nearly every ordinary
-// WIP commit made before that batch's note is written, which is exactly the
-// "blocks ordinary work" outcome to avoid. The test suite already gates
-// commits ("must pass before any commit", AGENTS.md) and ships/rebuilds
-// ("Behavior changes ship with: a regression test, a full suite run, a
-// rebuild", AGENTS.md) — piggybacking on that existing checkpoint means no
-// new process is invented, and the loud failure lands exactly where the harm
-// would otherwise ship quietly: the point where you were about to commit.
-function notesEntryVersionRanges(notesHtml) {
+// SEVERITY CALL, round two. The first cut of this guard required an EXACT
+// match for the version being stamped, and it broke on its own first re-run:
+// the build derives the version from a git commit COUNT, so the very commit
+// that adds "covers v1.5.42" moves HEAD, and the next build (no new commit
+// needed) stamps v1.5.43. write-notes -> commit -> version moves -> notes are
+// stale again, forever, on every single commit that touches src/app. That is
+// not a corner case; the version bumps on essentially every such commit (see
+// the version-derivation test above), while real notes entries land once per
+// finished batch (see e.g. "builds v1.5.28 to v1.5.31", or the 2026-07-28
+// handoff note "gained entries for v1.5.26 AND v1.5.25") — an exact-match
+// guard is therefore incompatible with "tests pass before every commit"
+// (AGENTS.md) by construction, not by neglect.
+//
+// The fix keeps this a TEST (not a build failure — same reasoning as before:
+// no new process, the loud failure lands at the existing pre-commit/pre-ship
+// checkpoint) but swaps exact coverage for a bounded staleness check: fresh
+// if the newest documented version is within NOTES_STALENESS_TOLERANCE patch
+// numbers of the version being stamped, on the same major.minor line. Crossing
+// a milestone (major.minor changes) gets ZERO tolerance — patch resets to 0
+// there, so "close enough" has no meaning, and a milestone is exactly the
+// moment Evren already treats as note-worthy on purpose.
+//
+// Two rejected alternatives, and why:
+// - An open-ended range ("builds v1.5.42 and later") is self-defeating: once
+//   written, it silently covers every future version until someone remembers
+//   to close it, so the guard can never fail again — a guard that can no
+//   longer fail is worse than no guard, because it reads as coverage.
+// - Checking only the major.minor line would not have caught the incident
+//   that motivated this feature at all: those 24 stale builds were all inside
+//   the same 1.5.x line, so a minor-only check would have stayed silent
+//   through the entire thing.
+// The tolerance is grounded in this project's own history, not guessed: the
+// largest patch gap ever left between two consecutive real notes entries is 5
+// (v1.5.19 -> v1.5.14). NOTES_STALENESS_TOLERANCE=10 doubles that headroom —
+// no ordinary batch trips it — while staying far under the 24-build gap that
+// prompted this guard in the first place, so genuine neglect still fails loud
+// well before it repeats that incident.
+const NOTES_STALENESS_TOLERANCE = 10;
+function notesEntryVersions(notesHtml) {
   const spans = [...notesHtml.matchAll(/<span class="entry-date">([\s\S]*?)<\/span>/g)].map((m) => m[1]);
-  return spans
-    .map((text) => [...text.matchAll(/v(\d+\.\d+\.\d+)/g)].map((m) => m[1]))
-    .filter((versions) => versions.length > 0)
-    .map((versions) => {
-      const tuples = versions.map((v) => v.split(".").map(Number));
-      const min = tuples.reduce((a, b) => (compareTuples(a, b) <= 0 ? a : b));
-      const max = tuples.reduce((a, b) => (compareTuples(a, b) >= 0 ? a : b));
-      return [min.join("."), max.join(".")];
-    });
+  return spans.flatMap((text) => [...text.matchAll(/v(\d+\.\d+\.\d+)/g)].map((m) => m[1].split(".").map(Number)));
 }
 function compareTuples(a, b) {
   for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] - b[i];
   return 0;
 }
-function notesCoverVersion(notesHtml, version) {
+function notesFreshnessGap(notesHtml, version) {
   const target = version.split(".").map(Number);
-  return notesEntryVersionRanges(notesHtml).some(([lo, hi]) => {
-    const loT = lo.split(".").map(Number);
-    const hiT = hi.split(".").map(Number);
-    return compareTuples(target, loT) >= 0 && compareTuples(target, hiT) <= 0;
-  });
+  const versions = notesEntryVersions(notesHtml);
+  if (!versions.length) return Infinity; // nothing documented at all
+  const newest = versions.reduce((a, b) => (compareTuples(a, b) >= 0 ? a : b));
+  if (compareTuples(target, newest) <= 0) return 0; // already documented, or older than the newest entry
+  if (target[0] !== newest[0] || target[1] !== newest[1]) return Infinity; // undocumented milestone: no tolerance
+  return target[2] - newest[2];
+}
+function notesAreFresh(notesHtml, version, tolerance = NOTES_STALENESS_TOLERANCE) {
+  return notesFreshnessGap(notesHtml, version) <= tolerance;
 }
 
-test("notes freshness helper: fires when the version is missing, stays quiet when it's covered", () => {
+test("notes freshness helper: fires when notes are stale or absent, stays quiet within tolerance", () => {
   const single = `<article><span class="entry-date">July 1, 2026 · build v1.5.10</span></article>`;
-  assert.equal(notesCoverVersion(single, "1.5.10"), true, "an exact single-build entry covers its own version");
-  assert.equal(notesCoverVersion(single, "1.5.9"), false, "a version with no entry at all is not covered");
-  assert.equal(notesCoverVersion(single, "1.5.11"), false, "a newer version than any entry is not covered");
+  assert.equal(notesAreFresh(single, "1.5.10"), true, "the exact documented version is fresh");
+  assert.equal(notesAreFresh(single, "1.5.9"), true, "older than the newest entry is fresh (already covered by history)");
+  assert.equal(notesAreFresh(single, "1.5.20"), true, "10 patches ahead is inside the tolerance");
+  assert.equal(notesAreFresh(single, "1.5.21"), false, "11 patches ahead exceeds the tolerance");
 
   const range = `<article><span class="entry-date">July 2, 2026 · builds v1.5.28 to v1.5.31</span></article>`;
-  assert.equal(notesCoverVersion(range, "1.5.28"), true, "a range covers its low end");
-  assert.equal(notesCoverVersion(range, "1.5.30"), true, "a range covers the builds in between, not just the endpoints");
-  assert.equal(notesCoverVersion(range, "1.5.31"), true, "a range covers its high end");
-  assert.equal(notesCoverVersion(range, "1.5.32"), false, "one past the range is not covered");
+  assert.equal(notesAreFresh(range, "1.5.31"), true, "the top of a range is fresh");
+  assert.equal(notesAreFresh(range, "1.5.41"), true, "10 ahead of a range's top is still inside the tolerance");
+  assert.equal(notesAreFresh(range, "1.5.42"), false, "11 ahead of a range's top exceeds the tolerance");
+
+  // A milestone bump (major.minor changes) with nothing documented yet gets
+  // zero tolerance: patch resets to 0, so "close enough" is meaningless, and
+  // this is exactly the moment a note is expected on purpose.
+  assert.equal(notesAreFresh(single, "1.6.0"), false, "a new milestone with zero notes is never fresh, however small the patch gap looks");
 
   const noVersion = `<article><span class="entry-date">July 19, 2026</span></article>`;
-  assert.equal(notesCoverVersion(noVersion, "1.5.0"), false, "an entry naming no version covers nothing");
+  assert.equal(notesAreFresh(noVersion, "1.5.0"), false, "an entry naming no version documents nothing");
+  assert.equal(notesAreFresh(`<p>no entries at all</p>`, "1.5.0"), false, "an empty notes page is never fresh");
 
   // Robust against substring collisions a naive html.includes() would get
   // wrong: "v1.5.4" must not appear to cover "v1.5.40" or "v1.5.41".
   const trap = `<article><span class="entry-date">July 20, 2026 · build v1.5.4</span></article>`;
-  assert.equal(notesCoverVersion(trap, "1.5.40"), false, "a shorter version number must not falsely match a longer one");
-  assert.equal(notesCoverVersion(trap, "1.5.4"), true);
+  assert.equal(notesAreFresh(trap, "1.5.40"), false, "a shorter version number must not falsely match a longer one as 'newest'");
 });
 
-test("notes freshness: website/notes.html has an entry covering the version this build just stamped", async () => {
+test("notes freshness: website/notes.html is not more than 10 patches behind the version this build just stamped", async () => {
   const [output, notesHtml] = await Promise.all([
     readBoard(),
     readFile(path.join(root, "website", "notes.html"), "utf8"),
   ]);
   const stamped = (output.match(/APP_VERSION\s*=\s*["'](\d+\.\d+\.\d+)["']/) || [])[1];
   assert.ok(stamped, "expected a stamped APP_VERSION in the built output");
+  const gap = notesFreshnessGap(notesHtml, stamped);
   assert.ok(
-    notesCoverVersion(notesHtml, stamped),
-    `website/notes.html has no entry (single or range) covering v${stamped}. ` +
-      `Add an <article> with <span class="entry-date">…build v${stamped}</span> (or extend an ` +
-      `existing "builds vX.Y.Z to vX.Y.Z" range to include it) describing what shipped, then rebuild.`
+    gap <= NOTES_STALENESS_TOLERANCE,
+    gap === Infinity
+      ? `website/notes.html documents nothing on the v${stamped.split(".")[0]}.${stamped.split(".")[1]}.x line that v${stamped} belongs to. ` +
+        `Add an <article> with <span class="entry-date">…build v${stamped}</span> describing what shipped, then rebuild.`
+      : `website/notes.html's newest entry is ${gap} patch versions behind v${stamped} (tolerance is ${NOTES_STALENESS_TOLERANCE}). ` +
+        `Add an <article> with <span class="entry-date">…build v${stamped}</span> (or extend the latest "builds vX.Y.Z to vX.Y.Z" ` +
+        `range to include it) describing what shipped, then rebuild.`
   );
 });
 
