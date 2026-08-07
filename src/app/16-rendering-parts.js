@@ -708,19 +708,24 @@
       return IS_LOCAL_FILE && !IS_DEMO && state.settings.checkForUpdates !== false;
     }
 
-    // Fire-and-forget on load: one GitHub Releases request, silent on any
-    // failure (offline, rate limit, bad JSON). Never blocks or alarms.
+    // Fire-and-forget on load: one request to the build's own latest.json
+    // (see build-task-board.mjs), silent on any failure (offline, rate limit,
+    // 404, bad JSON). Never blocks or alarms. Deliberately NOT GitHub
+    // Releases: a Release is a milestone Evren cuts by hand and can sit
+    // behind for weeks on purpose; latest.json is whatever actually shipped,
+    // so a downloaded copy hears about every build again.
     async function checkForUpdate() {
       if (!updateChecksEnabled() || typeof fetch !== "function") return;
       try {
-        const response = await fetch(UPDATE_RELEASE_API, { cache: "no-store" });
+        const response = await fetch(LATEST_JSON_URL, { cache: "no-store" });
         if (!response.ok) return;
-        const release = await response.json();
-        const latest = String(release?.tag_name || "").trim();
+        const info = await response.json();
+        const latest = String(info?.version || "").trim();
         if (!latest || compareVersions(latest, APP_VERSION) <= 0) return;
         const dismissed = localStorage.getItem(UPDATE_DISMISS_KEY) || "";
         if (dismissed && compareVersions(latest, dismissed) <= 0) return;
-        showUpdateToast(latest, String(release?.html_url || UPDATE_RELEASES_PAGE));
+        const downloadUrl = String(info?.download || "").trim() || UPDATE_RELEASES_PAGE;
+        showUpdateToast(latest, downloadUrl);
       } catch {
         // offline, blocked, rate-limited, or malformed: skip in silence.
       }
@@ -728,7 +733,7 @@
 
     // Reuses the toast element and its show/fade; the rich variant just carries
     // links and an X. Guarded so the DOM-less vm harness is a safe no-op.
-    function showUpdateToast(latest, releaseUrl) {
+    function showUpdateToast(latest, downloadUrl) {
       if (!toastEl || typeof document.createElement !== "function") return;
       toastEl.textContent = "";
       toastEl.classList.add("toast--rich");
@@ -745,7 +750,7 @@
         link.textContent = text;
         return link;
       };
-      actions.append(linkTo(releaseUrl, `Get ${latest}`), linkTo(UPDATE_NOTES_URL, "What changed"));
+      actions.append(linkTo(downloadUrl, `Get ${latest}`), linkTo(UPDATE_NOTES_URL, "What changed"));
       const dismiss = document.createElement("button");
       dismiss.type = "button";
       dismiss.className = "toast-dismiss";

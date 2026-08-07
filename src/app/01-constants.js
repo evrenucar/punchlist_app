@@ -12,7 +12,14 @@
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
     const APP_VERSION = "1.5.0";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
-    const UPDATE_RELEASE_API = "https://api.github.com/repos/evrenucar/punchlist_app/releases/latest";
+    // The update channel: build-task-board.mjs writes this file fresh on every
+    // build ({version, download, notes}), so a downloaded copy learns about
+    // the latest DEPLOYED build, not the latest GitHub Release milestone —
+    // those are cut by hand now and can sit behind for weeks on purpose.
+    const LATEST_JSON_URL = LATEST_BUILD_URL + "latest.json";
+    // No longer polled for update checks (see checkForUpdate); kept as the
+    // human-facing fallback link if a fetched latest.json ever comes back
+    // without a usable download URL.
     const UPDATE_RELEASES_PAGE = "https://github.com/evrenucar/punchlist_app/releases";
     const UPDATE_NOTES_URL = "https://evrenucar.github.io/punchlist_app/notes.html";
     const RESEARCH_TASK_TEXT = "Research task management apps and planning pain points";

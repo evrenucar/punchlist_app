@@ -210,6 +210,31 @@ test("the source parts are numbered without a gap and none is orphaned", async (
   assert.match(build, /"src\/app\/01-constants\.js", "src\/task-board\.js"/, "the pre-split path stays in the count or the version walks backwards");
 });
 
+// task-aud-4-2gmn: the update channel is website/latest.json, written on every
+// build, not GitHub Releases (those are cut by hand at milestones and can sit
+// behind for weeks on purpose). This pins the contract a downloaded copy
+// relies on: the version in latest.json must be the SAME version the build
+// just stamped into the app, not a parallel computation that happens to agree.
+test("build writes website/latest.json as the update channel, agreeing with the stamped version", async () => {
+  const [output, latestJsonRaw, gitignore] = await Promise.all([
+    readBoard(),
+    readFile(path.join(root, "website", "latest.json"), "utf8"),
+    readFile(path.join(root, ".gitignore"), "utf8"),
+  ]);
+  const stamped = (output.match(/APP_VERSION\s*=\s*["'](\d+\.\d+\.\d+)["']/) || [])[1];
+  assert.ok(stamped, "expected a stamped APP_VERSION in the built output");
+
+  const latest = JSON.parse(latestJsonRaw); // throws (loudly) if the build ever emits bad JSON
+  assert.equal(latest.version, stamped, "latest.json must announce the exact version the build just stamped, not a re-derived one");
+  assert.match(latest.download, /^https:\/\/.+task-board\.html$/, "download must be an absolute link to the actual buildable file");
+  assert.match(latest.notes, /^https:\/\//, "notes must be an absolute URL");
+
+  assert.doesNotMatch(gitignore, /(^|\n)\s*(website\/)?latest\.json\s*($|\n)/, "latest.json is a served build output and must not be gitignored");
+
+  const build = await readFile(path.join(root, "scripts", "build-task-board.mjs"), "utf8");
+  assert.match(build, /latest\.json/);
+});
+
 test("legacy state migrates to version two without losing task data", async () => {
   const api = await loadBoardApi();
   const legacy = {
@@ -2541,17 +2566,21 @@ test("update check: numeric version compare, and only a downloaded copy checks",
   await demo.checkForUpdate();
   assert.equal(demoCalls.length, 0, "demo mode makes no network call");
 
-  // Downloaded copy with the setting on: exactly one request to the releases API.
+  // Downloaded copy with the setting on: exactly one request, to the build's
+  // own latest.json — never the old GitHub Releases API.
   const localCalls = [];
   const local = await loadBoardApi({
     location: { protocol: "file:" },
-    fetch: async (url) => { localCalls.push(String(url)); return { ok: true, status: 200, json: async () => ({ tag_name: "v" + api.APP_VERSION }) }; },
+    fetch: async (url) => {
+      localCalls.push(String(url));
+      return { ok: true, status: 200, json: async () => ({ version: "99.0.0", download: "https://evrenucar.github.io/punchlist_app/task-board.html", notes: "https://evrenucar.github.io/punchlist_app/notes.html" }) };
+    },
   });
   assert.equal(local.updateChecksEnabled(), true, "a downloaded copy with the setting on checks");
   localCalls.length = 0; // ignore the fire-and-forget boot call
   await local.checkForUpdate();
   assert.equal(localCalls.length, 1, "a downloaded copy makes exactly one request");
-  assert.match(localCalls[0], /api\.github\.com\/repos\/evrenucar\/punchlist_app\/releases\/latest/);
+  assert.equal(localCalls[0], "https://evrenucar.github.io/punchlist_app/latest.json", "the update channel is the build's own latest.json, not GitHub Releases");
 
   // Turning the setting off cuts the local file off entirely.
   local.updateSettings({ checkForUpdates: false });
@@ -2563,6 +2592,140 @@ test("update check: numeric version compare, and only a downloaded copy checks",
   const html = await readBoard();
   assert.match(html, /data-updates-section/);
   assert.match(html, /data-check-updates/);
+  assert.doesNotMatch(html, /releases\/latest/, "the shipped app never references the GitHub Releases API for update detection");
+});
+
+test("update check against latest.json: 404, malformed JSON, and an up-to-date reply are all silent", async () => {
+  const api = await loadBoardApi();
+
+  // A 404 (site not yet deployed, or the path is wrong): checkForUpdate must
+  // not throw. Awaiting it with no try/catch here IS the assertion — if the
+  // source ever dropped its own try/catch, this await would reject and fail
+  // the test loudly, exactly the "asserted, not assumed" bar.
+  const notFoundCalls = [];
+  const notFound = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async (url) => { notFoundCalls.push(String(url)); return { ok: false, status: 404, json: async () => { throw new Error("no body on a 404"); } }; },
+  });
+  notFoundCalls.length = 0;
+  await notFound.checkForUpdate();
+  assert.equal(notFoundCalls.length, 1, "still exactly one request on a 404");
+
+  // Malformed JSON (a captive portal's HTML error page, a truncated response):
+  // response.json() rejects, and that must be swallowed too.
+  const badJsonCalls = [];
+  const badJson = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async (url) => { badJsonCalls.push(String(url)); return { ok: true, status: 200, json: async () => { throw new SyntaxError("Unexpected token < in JSON"); } }; },
+  });
+  badJsonCalls.length = 0;
+  await badJson.checkForUpdate();
+  assert.equal(badJsonCalls.length, 1);
+
+  // A network failure (offline, DNS, CORS refusal): fetch itself rejects.
+  const offline = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async () => { throw new TypeError("Failed to fetch"); },
+  });
+  await offline.checkForUpdate(); // must not throw
+
+  // Already up to date: latest.json's version is not newer than APP_VERSION.
+  // No toast, no error, and updateChecksEnabled still reports true (the
+  // gate, not the outcome, is what that flag reports).
+  const current = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async () => ({ ok: true, status: 200, json: async () => ({ version: api.APP_VERSION, download: "x", notes: "y" }) }),
+  });
+  assert.equal(current.updateChecksEnabled(), true);
+  await current.checkForUpdate();
+});
+
+// Notes freshness (task-aud-4-2gmn, part B): the failure this guards against
+// is latest.json announcing a version, the user clicking "What changed", and
+// notes.html having nothing to say about it. Detection walks the real markup
+// (every <span class="entry-date">…</span>, the running notes page's actual
+// convention) rather than a substring search over the whole file, because a
+// naive `html.includes("v1.5.4")` would also match "v1.5.40", "v1.5.41", etc.
+// Entries name either one build ("build v1.5.39") or a batch range ("builds
+// v1.5.28 to v1.5.31"); a range covers every patch in between, since the
+// patch climbs by commit count and nothing in that span ever gets its own
+// entry.
+//
+// SEVERITY CALL: this lives in the test suite, not build-task-board.mjs. The
+// patch digit advances on essentially every commit that touches src/app (see
+// the version-derivation test above), while notes entries are written once
+// per finished batch, after the fact, often as a range covering several
+// commits at once — that is the project's own established practice (see e.g.
+// the "builds v1.5.28 to v1.5.31" entry, or the 2026-07-28 handoff note "gained
+// entries for v1.5.26 AND v1.5.25"). A hard failure inside the build itself
+// would break `node scripts/build-task-board.mjs` on nearly every ordinary
+// WIP commit made before that batch's note is written, which is exactly the
+// "blocks ordinary work" outcome to avoid. The test suite already gates
+// commits ("must pass before any commit", AGENTS.md) and ships/rebuilds
+// ("Behavior changes ship with: a regression test, a full suite run, a
+// rebuild", AGENTS.md) — piggybacking on that existing checkpoint means no
+// new process is invented, and the loud failure lands exactly where the harm
+// would otherwise ship quietly: the point where you were about to commit.
+function notesEntryVersionRanges(notesHtml) {
+  const spans = [...notesHtml.matchAll(/<span class="entry-date">([\s\S]*?)<\/span>/g)].map((m) => m[1]);
+  return spans
+    .map((text) => [...text.matchAll(/v(\d+\.\d+\.\d+)/g)].map((m) => m[1]))
+    .filter((versions) => versions.length > 0)
+    .map((versions) => {
+      const tuples = versions.map((v) => v.split(".").map(Number));
+      const min = tuples.reduce((a, b) => (compareTuples(a, b) <= 0 ? a : b));
+      const max = tuples.reduce((a, b) => (compareTuples(a, b) >= 0 ? a : b));
+      return [min.join("."), max.join(".")];
+    });
+}
+function compareTuples(a, b) {
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+function notesCoverVersion(notesHtml, version) {
+  const target = version.split(".").map(Number);
+  return notesEntryVersionRanges(notesHtml).some(([lo, hi]) => {
+    const loT = lo.split(".").map(Number);
+    const hiT = hi.split(".").map(Number);
+    return compareTuples(target, loT) >= 0 && compareTuples(target, hiT) <= 0;
+  });
+}
+
+test("notes freshness helper: fires when the version is missing, stays quiet when it's covered", () => {
+  const single = `<article><span class="entry-date">July 1, 2026 · build v1.5.10</span></article>`;
+  assert.equal(notesCoverVersion(single, "1.5.10"), true, "an exact single-build entry covers its own version");
+  assert.equal(notesCoverVersion(single, "1.5.9"), false, "a version with no entry at all is not covered");
+  assert.equal(notesCoverVersion(single, "1.5.11"), false, "a newer version than any entry is not covered");
+
+  const range = `<article><span class="entry-date">July 2, 2026 · builds v1.5.28 to v1.5.31</span></article>`;
+  assert.equal(notesCoverVersion(range, "1.5.28"), true, "a range covers its low end");
+  assert.equal(notesCoverVersion(range, "1.5.30"), true, "a range covers the builds in between, not just the endpoints");
+  assert.equal(notesCoverVersion(range, "1.5.31"), true, "a range covers its high end");
+  assert.equal(notesCoverVersion(range, "1.5.32"), false, "one past the range is not covered");
+
+  const noVersion = `<article><span class="entry-date">July 19, 2026</span></article>`;
+  assert.equal(notesCoverVersion(noVersion, "1.5.0"), false, "an entry naming no version covers nothing");
+
+  // Robust against substring collisions a naive html.includes() would get
+  // wrong: "v1.5.4" must not appear to cover "v1.5.40" or "v1.5.41".
+  const trap = `<article><span class="entry-date">July 20, 2026 · build v1.5.4</span></article>`;
+  assert.equal(notesCoverVersion(trap, "1.5.40"), false, "a shorter version number must not falsely match a longer one");
+  assert.equal(notesCoverVersion(trap, "1.5.4"), true);
+});
+
+test("notes freshness: website/notes.html has an entry covering the version this build just stamped", async () => {
+  const [output, notesHtml] = await Promise.all([
+    readBoard(),
+    readFile(path.join(root, "website", "notes.html"), "utf8"),
+  ]);
+  const stamped = (output.match(/APP_VERSION\s*=\s*["'](\d+\.\d+\.\d+)["']/) || [])[1];
+  assert.ok(stamped, "expected a stamped APP_VERSION in the built output");
+  assert.ok(
+    notesCoverVersion(notesHtml, stamped),
+    `website/notes.html has no entry (single or range) covering v${stamped}. ` +
+      `Add an <article> with <span class="entry-date">…build v${stamped}</span> (or extend an ` +
+      `existing "builds vX.Y.Z to vX.Y.Z" range to include it) describing what shipped, then rebuild.`
+  );
 });
 
 test("github sync: decision table and utf8 base64 roundtrip", async () => {
