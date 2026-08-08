@@ -96,7 +96,7 @@
       return imgs.map((img) => {
         const src = getAssetSrc(img);
         return src
-          ? `<img class="${cls}" src="${src}" alt="${escapeHtml(img.caption || "Image")}" draggable="false" decoding="sync">`
+          ? `<img class="${cls}" src="${escapeHtml(src)}" alt="${escapeHtml(img.caption || "Image")}" draggable="false" decoding="sync">`
           : "";
       }).join("");
     }

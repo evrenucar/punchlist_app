@@ -93,6 +93,23 @@
       return normalizeColor(GROUP_COLORS[group.id]) || GROUP_PALETTES[index % GROUP_PALETTES.length].color;
     }
 
+    // Every id on the board is written straight into an HTML attribute by the
+    // renderers (data-task, data-node-id, data-image-task, data-trash-id) and
+    // into a querySelector by the in-place repaints. An imported, synced or
+    // hand-edited board can carry any string it likes in those fields, and one
+    // quote is enough to close the attribute and open a tag of its own. So ids
+    // are pinned to the shape createId generates, here at the one seam every
+    // board passes through. Fields that POINT at another id drop to null
+    // instead of getting a fresh one: an invented target resolves to nothing
+    // anyway, and the renderers already handle a link that doesn't resolve.
+    function safeIdRef(value) {
+      return typeof value === "string" && /^[A-Za-z0-9_-]+$/.test(value) ? value : null;
+    }
+
+    function safeId(value, prefix) {
+      return safeIdRef(value) || createId(prefix);
+    }
+
     function migrateState(boardState, now = new Date().toISOString(), options = {}) {
       const source = boardState && typeof boardState === "object" ? boardState : seedState();
       const previousVersion = Number(source.version) || 1;
@@ -144,32 +161,54 @@
         ...(boardState.settings && typeof boardState.settings === "object" ? boardState.settings : {}),
       };
       boardState.trash = Array.isArray(boardState.trash) ? boardState.trash : [];
+      // Trash carries whole subtrees back onto the board on Restore without
+      // passing through here again, so the records get the same treatment as
+      // live ones: their own id (it renders as data-trash-id) and everything
+      // waiting inside them.
+      boardState.trash.forEach((record) => {
+        if (!record || typeof record !== "object") return;
+        record.id = safeId(record.id, "trash");
+        if (record.source && typeof record.source === "object") {
+          record.source.groupId = safeIdRef(record.source.groupId);
+          record.source.parentId = safeIdRef(record.source.parentId);
+        }
+        if (!record.item || typeof record.item !== "object") return;
+        if (record.kind === "group") normalizeGroup(record.item, 0, now);
+        else normalizeTask(record.item, { now });
+      });
       boardState.history = Array.isArray(boardState.history) ? boardState.history.slice(-50) : [];
       boardState.devices = boardState.devices && typeof boardState.devices === "object" && !Array.isArray(boardState.devices) ? boardState.devices : {};
       boardState.contacts = boardState.contacts && typeof boardState.contacts === "object" && !Array.isArray(boardState.contacts) ? boardState.contacts : {};
       boardState.identity = boardState.identity && typeof boardState.identity === "object" && boardState.identity.privateKeyJwk && boardState.identity.publicKeyJwk ? boardState.identity : null;
       boardState.groups = Array.isArray(boardState.groups) ? boardState.groups : [];
-      boardState.groups.forEach((group, index) => {
-        group.id = typeof group.id === "string" && group.id ? group.id : createId("group");
-        group.title = typeof group.title === "string" ? group.title : "Untitled group";
-        group.color = normalizeColor(group.color) || getDefaultGroupColor(group, index);
-        group.createdAt = typeof group.createdAt === "string" ? group.createdAt : now;
-        group.policyOverrides = group.policyOverrides && typeof group.policyOverrides === "object"
-          ? group.policyOverrides
-          : null;
-        group.tasks = Array.isArray(group.tasks) ? group.tasks : [];
-        group.tasks.forEach((item) => normalizeTask(item, {
-          groupId: group.id,
-          parentId: null,
-          now,
-        }));
-      });
+      boardState.groups.forEach((group, index) => normalizeGroup(group, index, now));
       return boardState;
+    }
+
+    function normalizeGroup(group, index, now = new Date().toISOString()) {
+      group.id = safeId(group.id, "group");
+      group.title = typeof group.title === "string" ? group.title : "Untitled group";
+      // The color goes into a style attribute, so it is the same escape hatch
+      // as an id: anything but the six-digit hex the picker writes falls back
+      // to the group's default.
+      const color = normalizeColor(group.color);
+      group.color = /^#[0-9a-f]{6}$/i.test(color) ? color : getDefaultGroupColor(group, index);
+      group.createdAt = typeof group.createdAt === "string" ? group.createdAt : now;
+      group.policyOverrides = group.policyOverrides && typeof group.policyOverrides === "object"
+        ? group.policyOverrides
+        : null;
+      group.tasks = Array.isArray(group.tasks) ? group.tasks : [];
+      group.tasks.forEach((item) => normalizeTask(item, {
+        groupId: group.id,
+        parentId: null,
+        now,
+      }));
+      return group;
     }
 
     function normalizeTask(item, context = {}) {
       const now = context.now || new Date().toISOString();
-      item.id = typeof item.id === "string" && item.id ? item.id : createId("task");
+      item.id = safeId(item.id, "task");
       item.text = typeof item.text === "string" ? item.text : "";
       item.done = Boolean(item.done);
       item.completedAt = item.done
@@ -181,12 +220,8 @@
       item.schedule = item.schedule && typeof item.schedule === "object" ? item.schedule : null;
       item.reminderAt = typeof item.reminderAt === "string" ? item.reminderAt : null;
       item.createdAt = typeof item.createdAt === "string" ? item.createdAt : now;
-      item.createdInGroupId = typeof item.createdInGroupId === "string"
-        ? item.createdInGroupId
-        : (context.groupId || null);
-      item.createdUnderTaskId = typeof item.createdUnderTaskId === "string"
-        ? item.createdUnderTaskId
-        : (context.parentId || null);
+      item.createdInGroupId = safeIdRef(item.createdInGroupId) || safeIdRef(context.groupId);
+      item.createdUnderTaskId = safeIdRef(item.createdUnderTaskId) || safeIdRef(context.parentId);
       item.policyOverrides = item.policyOverrides && typeof item.policyOverrides === "object"
         ? item.policyOverrides
         : null;
@@ -198,14 +233,14 @@
         ? item.images
           .filter((img) => img && (typeof img.assetId === "string" || (typeof img.src === "string" && img.src.startsWith("data:image/"))))
           .map((img) => ({
-            id: typeof img.id === "string" ? img.id : createId("img"),
+            id: safeId(img.id, "img"),
             ...(typeof img.assetId === "string" ? { assetId: img.assetId } : { src: img.src }),
             width: Number(img.width) > 0 ? Math.round(Number(img.width)) : 260,
             caption: typeof img.caption === "string" ? img.caption : "",
           }))
         : [];
       item.linkType = ["alias", "reference"].includes(item.linkType) ? item.linkType : null;
-      item.targetTaskId = item.linkType && typeof item.targetTaskId === "string" ? item.targetTaskId : null;
+      item.targetTaskId = item.linkType ? safeIdRef(item.targetTaskId) : null;
       item.children = Array.isArray(item.children) ? item.children : [];
       item.children.forEach((child) => normalizeTask(child, {
         groupId: context.groupId || item.createdInGroupId,
@@ -281,7 +316,7 @@
           // bytes not local yet (asset still syncing in): a sized placeholder
           // holds the slot so nothing jumps when the image lands
           const body = src
-            ? `<img src="${src}" style="width: ${width}px" alt="Pasted image" draggable="false" decoding="sync">`
+            ? `<img src="${escapeHtml(src)}" style="width: ${width}px" alt="Pasted image" draggable="false" decoding="sync">`
             : `<span class="image-pending" style="width: ${width}px" title="Image is syncing in">…</span>`;
           return `
             <span class="task-image ${isSelected("image", img.id) ? "selected" : ""}" data-node-kind="image" data-node-id="${img.id}" data-image-task="${resolved.id}" tabindex="0">
