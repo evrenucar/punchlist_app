@@ -3,6 +3,10 @@
     const IS_DEMO = typeof location !== "undefined" && /[?&]demo\b/.test(location.search || "");
     const STORAGE_KEY = "scheduling-task-management-board-v1" + (IS_DEMO ? "-demo" : "");
     const THEME_STORAGE_KEY = "scheduling-task-management-theme-v1" + (IS_DEMO ? "-demo" : "");
+    // Every localStorage key this app owns starts with this, so a key that
+    // doesn't is a key some OTHER site on this origin wrote. That is what the
+    // shared-origin warning counts as evidence (countForeignStorageKeys).
+    const APP_STORAGE_PREFIX = "scheduling-task-management-";
     // Same detection style as IS_DEMO: only a copy opened from disk (file://)
     // ever checks for updates. The hosted site, its ?demo iframe, and the
     // claude.ai artifact all serve over http(s) and must never phone home.
@@ -86,6 +90,9 @@
     const appVersionEl = document.querySelector("[data-app-version]");
     if (appVersionEl) appVersionEl.textContent = "v" + APP_VERSION;
     const exampleBannerHostEl = document.querySelector("[data-example-banner-host]");
+    // Its own host, NOT the example banner's: a new user on a shared origin
+    // must see both, not one silently replacing the other.
+    const sharedOriginHostEl = document.querySelector("[data-shared-origin-host]");
     const sidebarEl = document.querySelector(".sidebar");
     const sidebarToggleEl = document.querySelector("[data-sidebar-toggle]");
     const sidebarBackdropEl = document.querySelector("[data-sidebar-backdrop]");
@@ -152,6 +159,7 @@
     const syncFieldsEl = document.querySelector("[data-sync-fields]");
     const syncRepoEl = document.querySelector("[data-sync-repo]");
     const syncTokenEl = document.querySelector("[data-sync-token]");
+    const syncOriginNoticeEl = document.querySelector("[data-sync-origin-notice]");
     const syncNowEl = document.querySelector("[data-sync-now]");
     const syncStatusEl = document.querySelector("[data-sync-status]");
     const updatesSectionEl = document.querySelector("[data-updates-section]");
@@ -208,6 +216,8 @@
     // The dismissed-version marker lives in its own key (like the sync config)
     // so it can never ride along in a board or settings export.
     const UPDATE_DISMISS_KEY = STORAGE_KEY + "-update-dismissed";
+    // Same reason for the dismissed amber shared-origin strip.
+    const SHARED_ORIGIN_DISMISS_KEY = STORAGE_KEY + "-origin-dismissed";
     let syncConfig = loadSyncConfig();
     let syncApplying = false;
     let syncBusy = false;

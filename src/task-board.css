@@ -211,6 +211,27 @@
       flex: 0 0 auto;
     }
 
+    /* The shared-origin warning borrows the example banner's shape and only
+       changes colour, so the two stack without looking like two designs. */
+    .origin-banner {
+      color: var(--ink);
+      align-items: flex-start;
+    }
+
+    .origin-banner--warn {
+      border-color: var(--warning);
+      background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+    }
+
+    .origin-banner--danger {
+      border-color: var(--danger);
+      background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+    }
+
+    .origin-banner a {
+      color: inherit;
+    }
+
     /* Evren, 2026-07-28: Views / History / Help were three different heights and
        three different gaps. Views is a 44px nav-row with an icon like the other
        two now, and every row in the sidebar sits on the same 10px rhythm: the

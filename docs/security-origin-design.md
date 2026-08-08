@@ -120,7 +120,7 @@ It is conservative in one direction. Somebody self-hosting Punchlist at `myserve
 
 Add a second sentence, only when it has a number to report: count the localStorage keys that don't start with `"scheduling-task-management-"`. Every key the app owns starts with that string, because `STORAGE_KEY` and `THEME_STORAGE_KEY` both do (`src/app/01-constants.js:4-5`) and the other four are `STORAGE_KEY` plus a suffix (`src/app/01-constants.js:200`, `:203`, `:213`, and `src/app/25-app.js:770`). A non-zero count is direct evidence that another site has already written to this storage, which beats an abstract claim about browser scoping.
 
-Don't use the count as the trigger. Zero foreign keys proves nothing: a sibling site might store its state in IndexedDB, in cookies, or nowhere at all, and still be able to read yours.
+Don't use the count as the sole trigger. Zero foreign keys proves nothing: a sibling might store its state in IndexedDB, in cookies, or nowhere at all, and still be able to read yours. The implementation uses the count only as supplemental evidence for a root path, where path depth alone cannot prove whether the host has sibling sites; any non-zero foreign-key count therefore elevates the root to the same warning state.
 
 ### Copy
 
