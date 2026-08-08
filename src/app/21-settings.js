@@ -37,6 +37,13 @@
         if (state.identity) identityLineEl.textContent = `Signing identity: ${String(settings.username || "").trim() || "unnamed"} · ${state.identity.fingerprint}`;
       }
       if (syncDevicesEl) syncDevicesEl.innerHTML = renderDeviceRoster();
+      renderSharedOriginWarning();
+      // POSITIVE rule, deliberately (design P4): hidden only for a condition
+      // that is TRUE in demo. Phrased the other way round — "hide unless the
+      // host is the new domain" — every file:// copy would lose sync, because
+      // there the host is the empty string and never matches. The Updates
+      // section below gets this right the same way, by testing IS_LOCAL_FILE
+      // explicitly rather than by excluding hosts.
       if (syncSectionEl) syncSectionEl.hidden = IS_DEMO;
       if (reportBugEl) reportBugEl.hidden = IS_DEMO;
       if (syncEnabledEl) syncEnabledEl.checked = Boolean(syncConfig.enabled);
@@ -138,6 +145,9 @@
     });
     syncTokenEl?.addEventListener("change", () => {
       saveSyncConfig({ token: syncTokenEl.value.trim() });
+      // A token landing here is exactly what raises the warning from amber to
+      // red, so the notice re-renders on the same edit that stores it.
+      renderSharedOriginWarning();
       if (syncIsActive()) syncNow("config");
     });
     syncNowEl?.addEventListener("click", () => syncNow("manual"));

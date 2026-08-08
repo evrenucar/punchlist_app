@@ -197,7 +197,8 @@
                   Repository
                   <input type="text" data-sync-repo placeholder="you/punchlist-data" maxlength="140" autocomplete="off" spellcheck="false">
                 </label>
-                <label class="settings-row" title="A fine-grained personal access token with Contents read and write on that one repository. It stays in this browser and is never exported.">
+                <div data-sync-origin-notice></div>
+                <label class="settings-row" title="A fine-grained personal access token with Contents read and write on that one repository. It is never exported, and it never leaves this browser — but every page served from this web address shares that storage and can read it.">
                   Token
                   <input type="password" data-sync-token placeholder="github_pat_…" maxlength="255" autocomplete="off">
                 </label>
@@ -325,6 +326,7 @@
       </div>
 
       <div data-task-details-host></div>
+      <div data-shared-origin-host></div>
       <div data-example-banner-host></div>
       <div class="board-split" data-board-split>
         <section class="board" aria-label="Editable task groups" data-board></section>

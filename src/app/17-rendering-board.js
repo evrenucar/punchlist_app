@@ -43,6 +43,9 @@
           ? '<div class="example-banner"><span>These are example tasks. Click around, then clear them when you are ready.</span><button class="control primary" type="button" data-action="start-own-board">Start my own board</button></div>'
           : "";
       }
+      // Not gated on showList: the storage it warns about is shared whichever
+      // view is open.
+      renderSharedOriginWarning();
       renderHistoryList();
       if (!showList) {
         lifecycleSignature = getLifecycleSignature();

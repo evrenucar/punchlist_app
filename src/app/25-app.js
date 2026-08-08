@@ -163,6 +163,7 @@
       if (!button || boardEl.contains(button)) return;
       if (button.dataset.action === "add-group") addGroup();
       if (button.dataset.action === "start-own-board") startOwnBoard();
+      if (button.dataset.action === "dismiss-shared-origin") dismissSharedOriginWarning();
       if (button.dataset.action === "expand-all") setEveryCollapsed(false);
       if (button.dataset.action === "collapse-all") setEveryCollapsed(true);
       if (button.dataset.action === "restore-trash") {
@@ -1084,9 +1085,18 @@
       stopFocusTimer,
       insertEditingLineBreak,
       addTask,
+      isSharedOrigin,
+      countForeignStorageKeys,
+      sharedOriginWarning,
+      sharedOriginWarningHtml,
+      renderSharedOriginWarning,
+      dismissSharedOriginWarning,
+      syncSettingsControls,
       APP_VERSION,
       IS_DEMO,
+      IS_LOCAL_FILE,
       STORAGE_KEY,
+      SHARED_ORIGIN_DISMISS_KEY,
       startOwnBoard,
       reset() {
         localStorage.removeItem(STORAGE_KEY);

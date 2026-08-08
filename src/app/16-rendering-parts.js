@@ -764,6 +764,125 @@
       flashToast(12000);
     }
 
+    // Shared-origin detection (docs/security-origin-design.md, section 3).
+    // Browsers scope localStorage and IndexedDB to an ORIGIN, so every site
+    // published under the same hostname reads and writes the same store: the
+    // board, the pasted images, and the GitHub token. GitHub Pages serves a
+    // project site at <owner>.github.io/<repo>/, and that repo segment is
+    // itself the proof the origin is subdivided — something else owns "/",
+    // and every other repo that owner publishes gets a segment of its own.
+    //
+    // Path depth, not a list of sibling sites: a list rots the first time a
+    // seventh site is published, while this rule turns itself off on the day
+    // the app moves to an address of its own. It over-warns for someone
+    // self-hosting under a subdirectory on a box with nothing else on it.
+    // That costs a sentence of copy; the miss costs a token.
+    //
+    // A root path is only a heuristic for a dedicated origin, not proof of
+    // one. If the browser already contains a key another site owns, that is
+    // direct evidence that the root is shared too. Zero evidence must not
+    // silence the path-depth warning, because a sibling may use IndexedDB,
+    // cookies, or no persistent storage at all.
+    function isSharedOrigin() {
+      // The demo has nothing to lose: no key (signingAvailable), no token
+      // (syncIsActive), and its own -demo storage keys.
+      if (IS_DEMO) return false;
+      // BEFORE any path test, always. On file:// the pathname is a disk path
+      // like /C:/Users/evren/Downloads/task-board.html, which has depth and
+      // would trip every path rule there is — every downloaded copy on earth
+      // would warn about an origin it does not share.
+      if (IS_LOCAL_FILE) return false;
+      if (typeof location === "undefined") return false;
+      const path = String(location.pathname || "/").replace(/(?:index|task-board)\.html$/, "");
+      return (path !== "" && path !== "/") || countForeignStorageKeys() > 0;
+    }
+
+    // Direct evidence that another site has already written here, which beats
+    // an abstract claim about browser scoping. Never the trigger: zero foreign
+    // keys proves nothing, since a sibling can keep its state in IndexedDB, in
+    // cookies or nowhere at all and still read yours.
+    function countForeignStorageKeys() {
+      try {
+        if (typeof localStorage.key !== "function") return 0;
+        let count = 0;
+        for (let index = 0; index < localStorage.length; index += 1) {
+          if (!String(localStorage.key(index) || "").startsWith(APP_STORAGE_PREFIX)) count += 1;
+        }
+        return count;
+      } catch {
+        return 0;
+      }
+    }
+
+    // Two severities, keyed on whether a token is actually sitting here.
+    function sharedOriginWarning() {
+      if (!isSharedOrigin()) return null;
+      const hasToken = typeof syncConfig.token === "string" && syncConfig.token.trim() !== "";
+      const where = `${location.host}${location.pathname}`;
+      const foreignKeys = countForeignStorageKeys();
+      const evidence = foreignKeys > 0
+        ? ` Right now this storage holds ${foreignKeys} ${foreignKeys === 1 ? "entry that doesn't" : "entries that don't"} belong to Punchlist.`
+        : "";
+      return {
+        level: hasToken ? "danger" : "warn",
+        dismissible: !hasToken,
+        foreignKeys,
+        title: hasToken
+          ? "Your sync token is not private on this address."
+          : "This address shares storage with other sites.",
+        body: (hasToken
+          ? `Punchlist is running at ${where}, and browsers give every page on ${location.host} the same storage. Any other site published under that name can read your GitHub token and write to this board. Rotate that token, then either run Punchlist from a copy on your own disk or turn sync off here until Punchlist has an address of its own.`
+          : `Punchlist is running at ${where}, and every page on ${location.host} reads and writes the same browser storage. Another site published there can read and change the tasks on this board. A copy downloaded to your own disk doesn't have this problem.`) + evidence,
+      };
+    }
+
+    // The download link points at UPDATE_RELEASES_PAGE, never LATEST_BUILD_URL:
+    // that one is the shared origin the warning is about.
+    function sharedOriginWarningHtml(options = {}) {
+      const warning = sharedOriginWarning();
+      if (!warning) return "";
+      const dismiss = options.dismissible && warning.dismissible
+        ? '<button class="control" type="button" data-action="dismiss-shared-origin">Dismiss</button>'
+        : "";
+      return `<div class="example-banner origin-banner origin-banner--${warning.level}" role="${warning.level === "danger" ? "alert" : "status"}">`
+        + `<span><strong>${escapeHtml(warning.title)}</strong> ${escapeHtml(warning.body)} `
+        + `<a href="${escapeHtml(UPDATE_RELEASES_PAGE)}" target="_blank" rel="noopener">Download a copy</a></span>${dismiss}</div>`;
+    }
+
+    function sharedOriginDismissed() {
+      try {
+        return localStorage.getItem(SHARED_ORIGIN_DISMISS_KEY) === "1";
+      } catch {
+        return false;
+      }
+    }
+
+    // Both placements, one call: the board-top strip (dismissible only at the
+    // amber severity) and the line above the Token input, which is the moment
+    // a person is about to paste a credential.
+    function renderSharedOriginWarning() {
+      const warning = sharedOriginWarning();
+      // A dismissed amber strip stays gone; the red one has no dismiss at all,
+      // so an earlier dismissal cannot suppress it.
+      const hideStrip = !warning || (warning.dismissible && sharedOriginDismissed());
+      // Written only when it actually changes: this runs on every render, and
+      // rewriting a role="alert" re-announces it to a screen reader each time.
+      const write = (host, html) => {
+        if (host && host.innerHTML !== html) host.innerHTML = html;
+      };
+      write(sharedOriginHostEl, hideStrip ? "" : sharedOriginWarningHtml({ dismissible: true }));
+      write(syncOriginNoticeEl, sharedOriginWarningHtml());
+    }
+
+    function dismissSharedOriginWarning() {
+      try {
+        localStorage.setItem(SHARED_ORIGIN_DISMISS_KEY, "1");
+      } catch {
+        /* storage blocked: the strip just comes back next load */
+      }
+      renderSharedOriginWarning();
+    }
+
     function checkDueReminders(now = Date.now()) {
       if (!state.settings.reminders) return;
       getDueReminders(now).forEach(({ item }) => {
