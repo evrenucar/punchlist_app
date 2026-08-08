@@ -19,12 +19,14 @@ Then read, in this order, before changing anything:
 3. `docs/ROADMAP.md` — status and what remains, including the deferred research backlog.
 4. `README.md` — user-facing summary, commands, product rules.
 5. `docs/AGENT_INTERFACE.md` — full mechanics of the development interface (board protocol, chat, graph, presence).
+6. `docs/PRE_PRODUCTION.md` — the short, repeatable release gate; read it whenever the work touches preview, release, push, or deployment.
 
 ## Commands
 
 ```powershell
 node scripts/build-task-board.mjs          # src/ -> outputs/task-board.html (+ website copy)
 node --test tests/task-board.static.test.mjs   # full suite; must pass before any commit
+npm run preflight                         # local release gate; never pushes/deploys
 ```
 
 ## Development interface (hard rules — mechanics in `docs/AGENT_INTERFACE.md`)
@@ -43,6 +45,8 @@ node --test tests/task-board.static.test.mjs   # full suite; must pass before an
 - Never rename the localStorage key `scheduling-task-management-board-v1` — the user's live board depends on it, and that board lives in THIS machine's browser under the `file://` origin. Browser testing mutates real data: snapshot and restore it, and revert every test task/image/history/trash/settings change.
 - No frameworks, no npm dependencies, no server. Feature flags default off, and disabled features must render zero UI.
 - Behavior changes ship with: a regression test, a full suite run, a rebuild, and a real-browser check (against the built file, in an isolated browser context) at desktop and phone widths.
+- **Before production:** run `npm run preflight` and read `docs/PRE_PRODUCTION.md`. Treat `PRE-FLIGHT PASS` as local evidence only. Future agents must guide Evren through preview + rollback and the physical-phone check, report each gate explicitly, and stop for explicit authorization before any push, deployment, release, or other outward-facing action.
+- Never claim "production ready" from local tests alone. The minimum honest report is: local preflight, preview, rollback, physical phone, and production authorization, each marked PASS/FAIL/not run/waiting.
 - Prose follows `.claude/skills/no-ai-slop` + `rossmann-voice`; code follows `.claude/skills/ponytail`.
 
 ## Layout

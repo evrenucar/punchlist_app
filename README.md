@@ -46,7 +46,9 @@ Build and test with:
 
 ```powershell
 node scripts/build-task-board.mjs
-node --test tests/task-board.static.test.mjs
+node --test tests/task-board.static.test.mjs tests/preflight.test.mjs
+npm run test:browser
+npm run preflight                    # complete local pre-production gate
 ```
 
 Never hand-edit `outputs/task-board.html`; change `src/` and rebuild.
@@ -65,7 +67,7 @@ Never hand-edit `outputs/task-board.html`; change `src/` and rebuild.
 - Existing locally saved boards must migrate without losing text, hierarchy, completion, colors, or focus time.
 - Desktop keyboard workflows and phone touch workflows are equal requirements.
 
-See [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) for implementation context, [`docs/DIRECTIONS.md`](docs/DIRECTIONS.md) for the current priority and next-direction plan, and [`docs/ROADMAP.md`](docs/ROADMAP.md) for prioritized work.
+See [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md) for implementation context, [`docs/DIRECTIONS.md`](docs/DIRECTIONS.md) for the current priority and next-direction plan, [`docs/ROADMAP.md`](docs/ROADMAP.md) for prioritized work, and [`docs/PRE_PRODUCTION.md`](docs/PRE_PRODUCTION.md) for the repeatable release gate.
 
 ## License
 
