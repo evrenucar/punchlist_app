@@ -287,6 +287,15 @@
 
     <article>
       <header>
+        <h2>A downloaded copy hears about updates faster</h2>
+        <span class="entry-date">August 8, 2026 · build v1.5.42</span>
+      </header>
+      <p>The update check used to poll GitHub's Releases page. Releases are now cut by hand at milestones, sometimes weeks apart, so a downloaded copy could sit unnotified for 24 builds in a row while the hosted site had long since moved on.</p>
+      <p>It now checks <code>latest.json</code> instead, a small file the build writes fresh every time. Same silent, no-account, zero-network-otherwise check as before: only a copy opened from disk, only with the setting on, never in the demo, & it says nothing at all if it can't reach the file.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Ctrl+↑ & Ctrl+↓ reach focus mode</h2>
         <span class="entry-date">July 29, 2026 · build v1.5.39</span>
       </header>

@@ -210,6 +210,31 @@ test("the source parts are numbered without a gap and none is orphaned", async (
   assert.match(build, /"src\/app\/01-constants\.js", "src\/task-board\.js"/, "the pre-split path stays in the count or the version walks backwards");
 });
 
+// task-aud-4-2gmn: the update channel is website/latest.json, written on every
+// build, not GitHub Releases (those are cut by hand at milestones and can sit
+// behind for weeks on purpose). This pins the contract a downloaded copy
+// relies on: the version in latest.json must be the SAME version the build
+// just stamped into the app, not a parallel computation that happens to agree.
+test("build writes website/latest.json as the update channel, agreeing with the stamped version", async () => {
+  const [output, latestJsonRaw, gitignore] = await Promise.all([
+    readBoard(),
+    readFile(path.join(root, "website", "latest.json"), "utf8"),
+    readFile(path.join(root, ".gitignore"), "utf8"),
+  ]);
+  const stamped = (output.match(/APP_VERSION\s*=\s*["'](\d+\.\d+\.\d+)["']/) || [])[1];
+  assert.ok(stamped, "expected a stamped APP_VERSION in the built output");
+
+  const latest = JSON.parse(latestJsonRaw); // throws (loudly) if the build ever emits bad JSON
+  assert.equal(latest.version, stamped, "latest.json must announce the exact version the build just stamped, not a re-derived one");
+  assert.match(latest.download, /^https:\/\/.+task-board\.html$/, "download must be an absolute link to the actual buildable file");
+  assert.match(latest.notes, /^https:\/\//, "notes must be an absolute URL");
+
+  assert.doesNotMatch(gitignore, /(^|\n)\s*(website\/)?latest\.json\s*($|\n)/, "latest.json is a served build output and must not be gitignored");
+
+  const build = await readFile(path.join(root, "scripts", "build-task-board.mjs"), "utf8");
+  assert.match(build, /latest\.json/);
+});
+
 test("legacy state migrates to version two without losing task data", async () => {
   const api = await loadBoardApi();
   const legacy = {
@@ -2541,17 +2566,21 @@ test("update check: numeric version compare, and only a downloaded copy checks",
   await demo.checkForUpdate();
   assert.equal(demoCalls.length, 0, "demo mode makes no network call");
 
-  // Downloaded copy with the setting on: exactly one request to the releases API.
+  // Downloaded copy with the setting on: exactly one request, to the build's
+  // own latest.json — never the old GitHub Releases API.
   const localCalls = [];
   const local = await loadBoardApi({
     location: { protocol: "file:" },
-    fetch: async (url) => { localCalls.push(String(url)); return { ok: true, status: 200, json: async () => ({ tag_name: "v" + api.APP_VERSION }) }; },
+    fetch: async (url) => {
+      localCalls.push(String(url));
+      return { ok: true, status: 200, json: async () => ({ version: "99.0.0", download: "https://evrenucar.github.io/punchlist_app/task-board.html", notes: "https://evrenucar.github.io/punchlist_app/notes.html" }) };
+    },
   });
   assert.equal(local.updateChecksEnabled(), true, "a downloaded copy with the setting on checks");
   localCalls.length = 0; // ignore the fire-and-forget boot call
   await local.checkForUpdate();
   assert.equal(localCalls.length, 1, "a downloaded copy makes exactly one request");
-  assert.match(localCalls[0], /api\.github\.com\/repos\/evrenucar\/punchlist_app\/releases\/latest/);
+  assert.equal(localCalls[0], "https://evrenucar.github.io/punchlist_app/latest.json", "the update channel is the build's own latest.json, not GitHub Releases");
 
   // Turning the setting off cuts the local file off entirely.
   local.updateSettings({ checkForUpdates: false });
@@ -2563,6 +2592,166 @@ test("update check: numeric version compare, and only a downloaded copy checks",
   const html = await readBoard();
   assert.match(html, /data-updates-section/);
   assert.match(html, /data-check-updates/);
+  assert.doesNotMatch(html, /releases\/latest/, "the shipped app never references the GitHub Releases API for update detection");
+});
+
+test("update check against latest.json: 404, malformed JSON, and an up-to-date reply are all silent", async () => {
+  const api = await loadBoardApi();
+
+  // A 404 (site not yet deployed, or the path is wrong): checkForUpdate must
+  // not throw. Awaiting it with no try/catch here IS the assertion — if the
+  // source ever dropped its own try/catch, this await would reject and fail
+  // the test loudly, exactly the "asserted, not assumed" bar.
+  const notFoundCalls = [];
+  const notFound = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async (url) => { notFoundCalls.push(String(url)); return { ok: false, status: 404, json: async () => { throw new Error("no body on a 404"); } }; },
+  });
+  notFoundCalls.length = 0;
+  await notFound.checkForUpdate();
+  assert.equal(notFoundCalls.length, 1, "still exactly one request on a 404");
+
+  // Malformed JSON (a captive portal's HTML error page, a truncated response):
+  // response.json() rejects, and that must be swallowed too.
+  const badJsonCalls = [];
+  const badJson = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async (url) => { badJsonCalls.push(String(url)); return { ok: true, status: 200, json: async () => { throw new SyntaxError("Unexpected token < in JSON"); } }; },
+  });
+  badJsonCalls.length = 0;
+  await badJson.checkForUpdate();
+  assert.equal(badJsonCalls.length, 1);
+
+  // A network failure (offline, DNS, CORS refusal): fetch itself rejects.
+  const offline = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async () => { throw new TypeError("Failed to fetch"); },
+  });
+  await offline.checkForUpdate(); // must not throw
+
+  // Already up to date: latest.json's version is not newer than APP_VERSION.
+  // No toast, no error, and updateChecksEnabled still reports true (the
+  // gate, not the outcome, is what that flag reports).
+  const current = await loadBoardApi({
+    location: { protocol: "file:" },
+    fetch: async () => ({ ok: true, status: 200, json: async () => ({ version: api.APP_VERSION, download: "x", notes: "y" }) }),
+  });
+  assert.equal(current.updateChecksEnabled(), true);
+  await current.checkForUpdate();
+});
+
+// Notes freshness (task-aud-4-2gmn, part B): the failure this guards against
+// is latest.json announcing a version, the user clicking "What changed", and
+// notes.html having nothing recent to say. Detection walks the real markup
+// (every <span class="entry-date">…</span>, the running notes page's actual
+// convention) rather than a substring search over the whole file, because a
+// naive `html.includes("v1.5.4")` would also match "v1.5.40", "v1.5.41", etc.
+// Entries name either one build ("build v1.5.39") or a batch range ("builds
+// v1.5.28 to v1.5.31"); every version mentioned anywhere counts as documented.
+//
+// SEVERITY CALL, round two. The first cut of this guard required an EXACT
+// match for the version being stamped, and it broke on its own first re-run:
+// the build derives the version from a git commit COUNT, so the very commit
+// that adds "covers v1.5.42" moves HEAD, and the next build (no new commit
+// needed) stamps v1.5.43. write-notes -> commit -> version moves -> notes are
+// stale again, forever, on every single commit that touches src/app. That is
+// not a corner case; the version bumps on essentially every such commit (see
+// the version-derivation test above), while real notes entries land once per
+// finished batch (see e.g. "builds v1.5.28 to v1.5.31", or the 2026-07-28
+// handoff note "gained entries for v1.5.26 AND v1.5.25") — an exact-match
+// guard is therefore incompatible with "tests pass before every commit"
+// (AGENTS.md) by construction, not by neglect.
+//
+// The fix keeps this a TEST (not a build failure — same reasoning as before:
+// no new process, the loud failure lands at the existing pre-commit/pre-ship
+// checkpoint) but swaps exact coverage for a bounded staleness check: fresh
+// if the newest documented version is within NOTES_STALENESS_TOLERANCE patch
+// numbers of the version being stamped, on the same major.minor line. Crossing
+// a milestone (major.minor changes) gets ZERO tolerance — patch resets to 0
+// there, so "close enough" has no meaning, and a milestone is exactly the
+// moment Evren already treats as note-worthy on purpose.
+//
+// Two rejected alternatives, and why:
+// - An open-ended range ("builds v1.5.42 and later") is self-defeating: once
+//   written, it silently covers every future version until someone remembers
+//   to close it, so the guard can never fail again — a guard that can no
+//   longer fail is worse than no guard, because it reads as coverage.
+// - Checking only the major.minor line would not have caught the incident
+//   that motivated this feature at all: those 24 stale builds were all inside
+//   the same 1.5.x line, so a minor-only check would have stayed silent
+//   through the entire thing.
+// The tolerance is grounded in this project's own history, not guessed: the
+// largest patch gap ever left between two consecutive real notes entries is 5
+// (v1.5.19 -> v1.5.14). NOTES_STALENESS_TOLERANCE=10 doubles that headroom —
+// no ordinary batch trips it — while staying far under the 24-build gap that
+// prompted this guard in the first place, so genuine neglect still fails loud
+// well before it repeats that incident.
+const NOTES_STALENESS_TOLERANCE = 10;
+function notesEntryVersions(notesHtml) {
+  const spans = [...notesHtml.matchAll(/<span class="entry-date">([\s\S]*?)<\/span>/g)].map((m) => m[1]);
+  return spans.flatMap((text) => [...text.matchAll(/v(\d+\.\d+\.\d+)/g)].map((m) => m[1].split(".").map(Number)));
+}
+function compareTuples(a, b) {
+  for (let i = 0; i < 3; i += 1) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+function notesFreshnessGap(notesHtml, version) {
+  const target = version.split(".").map(Number);
+  const versions = notesEntryVersions(notesHtml);
+  if (!versions.length) return Infinity; // nothing documented at all
+  const newest = versions.reduce((a, b) => (compareTuples(a, b) >= 0 ? a : b));
+  if (compareTuples(target, newest) <= 0) return 0; // already documented, or older than the newest entry
+  if (target[0] !== newest[0] || target[1] !== newest[1]) return Infinity; // undocumented milestone: no tolerance
+  return target[2] - newest[2];
+}
+function notesAreFresh(notesHtml, version, tolerance = NOTES_STALENESS_TOLERANCE) {
+  return notesFreshnessGap(notesHtml, version) <= tolerance;
+}
+
+test("notes freshness helper: fires when notes are stale or absent, stays quiet within tolerance", () => {
+  const single = `<article><span class="entry-date">July 1, 2026 · build v1.5.10</span></article>`;
+  assert.equal(notesAreFresh(single, "1.5.10"), true, "the exact documented version is fresh");
+  assert.equal(notesAreFresh(single, "1.5.9"), true, "older than the newest entry is fresh (already covered by history)");
+  assert.equal(notesAreFresh(single, "1.5.20"), true, "10 patches ahead is inside the tolerance");
+  assert.equal(notesAreFresh(single, "1.5.21"), false, "11 patches ahead exceeds the tolerance");
+
+  const range = `<article><span class="entry-date">July 2, 2026 · builds v1.5.28 to v1.5.31</span></article>`;
+  assert.equal(notesAreFresh(range, "1.5.31"), true, "the top of a range is fresh");
+  assert.equal(notesAreFresh(range, "1.5.41"), true, "10 ahead of a range's top is still inside the tolerance");
+  assert.equal(notesAreFresh(range, "1.5.42"), false, "11 ahead of a range's top exceeds the tolerance");
+
+  // A milestone bump (major.minor changes) with nothing documented yet gets
+  // zero tolerance: patch resets to 0, so "close enough" is meaningless, and
+  // this is exactly the moment a note is expected on purpose.
+  assert.equal(notesAreFresh(single, "1.6.0"), false, "a new milestone with zero notes is never fresh, however small the patch gap looks");
+
+  const noVersion = `<article><span class="entry-date">July 19, 2026</span></article>`;
+  assert.equal(notesAreFresh(noVersion, "1.5.0"), false, "an entry naming no version documents nothing");
+  assert.equal(notesAreFresh(`<p>no entries at all</p>`, "1.5.0"), false, "an empty notes page is never fresh");
+
+  // Robust against substring collisions a naive html.includes() would get
+  // wrong: "v1.5.4" must not appear to cover "v1.5.40" or "v1.5.41".
+  const trap = `<article><span class="entry-date">July 20, 2026 · build v1.5.4</span></article>`;
+  assert.equal(notesAreFresh(trap, "1.5.40"), false, "a shorter version number must not falsely match a longer one as 'newest'");
+});
+
+test("notes freshness: website/notes.html is not more than 10 patches behind the version this build just stamped", async () => {
+  const [output, notesHtml] = await Promise.all([
+    readBoard(),
+    readFile(path.join(root, "website", "notes.html"), "utf8"),
+  ]);
+  const stamped = (output.match(/APP_VERSION\s*=\s*["'](\d+\.\d+\.\d+)["']/) || [])[1];
+  assert.ok(stamped, "expected a stamped APP_VERSION in the built output");
+  const gap = notesFreshnessGap(notesHtml, stamped);
+  assert.ok(
+    gap <= NOTES_STALENESS_TOLERANCE,
+    gap === Infinity
+      ? `website/notes.html documents nothing on the v${stamped.split(".")[0]}.${stamped.split(".")[1]}.x line that v${stamped} belongs to. ` +
+        `Add an <article> with <span class="entry-date">…build v${stamped}</span> describing what shipped, then rebuild.`
+      : `website/notes.html's newest entry is ${gap} patch versions behind v${stamped} (tolerance is ${NOTES_STALENESS_TOLERANCE}). ` +
+        `Add an <article> with <span class="entry-date">…build v${stamped}</span> (or extend the latest "builds vX.Y.Z to vX.Y.Z" ` +
+        `range to include it) describing what shipped, then rebuild.`
+  );
 });
 
 test("github sync: decision table and utf8 base64 roundtrip", async () => {

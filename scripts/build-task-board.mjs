@@ -85,6 +85,23 @@ const websiteCopy = path.join(root, "website", "task-board.html");
 await mkdir(path.dirname(websiteCopy), { recursive: true });
 await writeFile(websiteCopy, output, "utf8");
 
+// The update channel (task-aud-4-2gmn): a downloaded copy compares itself
+// against THIS file instead of GitHub Releases, so every build tells old
+// copies about itself, not just the milestones Evren cuts by hand. Pulled
+// from the same constants the app itself uses (LATEST_BUILD_URL,
+// UPDATE_NOTES_URL) rather than duplicating the URLs as fresh literals here.
+const latestBuildUrl = (script.match(/LATEST_BUILD_URL\s*=\s*["']([^"']+)["']/) || [])[1];
+const notesUrl = (script.match(/UPDATE_NOTES_URL\s*=\s*["']([^"']+)["']/) || [])[1];
+if (!version || !latestBuildUrl || !notesUrl) {
+  throw new Error("latest.json stamp failed: version, LATEST_BUILD_URL, or UPDATE_NOTES_URL missing");
+}
+const latestJsonPath = path.join(root, "website", "latest.json");
+await writeFile(
+  latestJsonPath,
+  `${JSON.stringify({ version, download: `${latestBuildUrl}task-board.html`, notes: notesUrl }, null, 2)}\n`,
+  "utf8"
+);
+
 // The development interface renders its board pane from a BUILT app file, and
 // it takes the project's own pinned copy ahead of the one vendored beside the
 // tool. Once the tool lives in a separate checkout, that vendored copy is the
