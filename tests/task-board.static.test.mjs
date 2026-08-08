@@ -1503,6 +1503,191 @@ test("task images become keyboard nodes and delete removes just the image", asyn
   assert.match(api.state.history.at(-1).text, /Removed an image/);
 });
 
+test("a malicious image src cannot break out of the img tag on the board", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+  const payload = '"><script>window.__pwned=1</script><img src="';
+  item.images = [{ id: "img-xss1", src: payload, width: 200 }];
+
+  const html = api.renderTask(item, group.id, "");
+  assert.equal(html.includes(payload), false, "the raw payload never lands unescaped");
+  assert.equal(/<script>/.test(html), false, "no script tag escapes the img attribute");
+  assert.match(html, /src="&quot;&gt;&lt;script&gt;/, "the src attribute stays intact and inert");
+});
+
+test("a malicious image src cannot break out of the img tag in focus mode", async () => {
+  const api = await loadBoardApi();
+  const payload = '"><script>window.__pwned=1</script><img src="';
+  const item = { id: "img-xss2", text: "has a picture", children: [], images: [{ id: "img-xss2-img", src: payload, width: 200 }] };
+
+  const html = api.renderFocusChildren([item], 0, null);
+  assert.equal(html.includes(payload), false, "the raw payload never lands unescaped");
+  assert.equal(/<script>/.test(html), false, "no script tag escapes the img attribute");
+  assert.match(html, /src="&quot;&gt;&lt;script&gt;/, "the src attribute stays intact and inert");
+});
+
+// The escape above stops a hostile src. The ids around it are written into
+// attributes by the same renderers, so an imported board carrying a quote in a
+// group, task or image id got the identical breakout for free — these pin the
+// fix at the normalize seam, on both render paths.
+const ATTR_PAYLOAD = '" onmouseover="window.__pwned=1" data-x="';
+const HOSTILE_SRC = `data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"></svg>${ATTR_PAYLOAD}`;
+
+function plantHostileIds(api) {
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  const item = group.tasks[0];
+  const untouched = { groupId: api.state.groups[0].id, taskId: group.tasks[1].id };
+  group.id = ATTR_PAYLOAD;
+  item.id = ATTR_PAYLOAD;
+  item.images = [{ id: ATTR_PAYLOAD, src: HOSTILE_SRC, width: 200 }];
+  api.normalizeState(api.state);
+  return { group, item, untouched };
+}
+
+test("hostile group, task and image ids are rewritten at the normalize seam", async () => {
+  const api = await loadBoardApi();
+  const { group, item, untouched } = plantHostileIds(api);
+
+  assert.match(group.id, /^group-[A-Za-z0-9_-]+$/, "the group gets a freshly generated id");
+  assert.match(item.id, /^task-[A-Za-z0-9_-]+$/, "so does the task");
+  assert.match(item.images[0].id, /^img-[A-Za-z0-9_-]+$/, "and the image");
+  assert.equal(item.images[0].src, HOSTILE_SRC, "the src itself is kept — escaping handles it at render");
+  // ordinary generated ids are left exactly as they were
+  assert.equal(api.state.groups[0].id, untouched.groupId);
+  assert.equal(group.tasks[1].id, untouched.taskId);
+});
+
+test("hostile ids cannot break out of an attribute on the board", async () => {
+  const api = await loadBoardApi();
+  const { group, item } = plantHostileIds(api);
+
+  const html = api.renderTask(item, group.id, "");
+  assert.equal(html.includes(ATTR_PAYLOAD), false, "no raw payload anywhere in the row");
+  // the escaped src still reads "onmouseover=&quot;…" as inert text; what must
+  // never appear is the live form, an unescaped quote opening a handler
+  assert.equal(/onmouseover="/.test(html), false, "no handler attribute is smuggled in");
+  assert.ok(html.includes(`data-task="${item.id}"`), "the row still carries its sanitized id");
+  assert.ok(html.includes(`data-node-id="${item.images[0].id}"`), "so does the image node");
+  assert.ok(html.includes(`data-group-id="${group.id}"`), "and the group");
+  assert.match(html, /src="data:image\/svg\+xml,&lt;svg xmlns=&quot;/, "the image src renders escaped");
+});
+
+test("hostile ids cannot break out of an attribute in focus mode", async () => {
+  const stub = (extra = {}) => ({
+    innerHTML: "",
+    textContent: "",
+    hidden: false,
+    dataset: {},
+    classList: { add() {}, remove() {} },
+    addEventListener() {},
+    contains() { return false; },
+    focus() {},
+    scrollIntoView() {},
+    ...extra,
+  });
+  const elements = new Map([
+    ["[data-board]", stub()],
+    ["[data-section-nav]", stub()],
+    ["[data-total-count]", stub()],
+    ["[data-done-count]", stub()],
+    ["[data-search]", stub({ value: "" })],
+    ["[data-focus-mode]", stub({ hidden: true })],
+    ["[data-focus-task]", stub()],
+    ["[data-focus-timer]", stub()],
+    ["[data-focus-crumb]", stub()],
+  ]);
+  const api = await loadBoardApi({
+    document: {
+      activeElement: null,
+      querySelector(selector) {
+        return elements.get(selector) || null;
+      },
+      querySelectorAll() {
+        return [];
+      },
+      addEventListener() {},
+      createRange() {
+        return { collapse() {}, deleteContents() {}, insertNode() {}, selectNodeContents() {}, setStartAfter() {} };
+      },
+    },
+  });
+  const { group, item } = plantHostileIds(api);
+
+  const outline = api.renderFocusChildren([item], 0, group);
+  assert.equal(outline.includes(ATTR_PAYLOAD), false, "no raw payload in the focus outline");
+  assert.equal(/onmouseover="/.test(outline), false, "no handler attribute is smuggled in");
+  assert.ok(outline.includes(`data-focus-task-text="${item.id}"`), "the outline row carries the sanitized id");
+  assert.match(outline, /src="data:image\/svg\+xml,&lt;svg xmlns=&quot;/, "the image src renders escaped");
+
+  assert.equal(api.enterGroupFocusMode(group.id), true);
+  const focusHtml = elements.get("[data-focus-task]").innerHTML;
+  assert.equal(focusHtml.includes(ATTR_PAYLOAD), false, "nor in the group focus header");
+  assert.ok(focusHtml.includes(`data-focus-group-title="${group.id}"`), "which carries the sanitized group id");
+});
+
+test("a hostile group color cannot break out of the group style attribute", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-today");
+  group.color = '#ff0000" onmouseover="window.__pwned=1';
+  api.normalizeState(api.state);
+  assert.match(group.color, /^#[0-9a-f]{6}$/i, "an unparseable color falls back to the group default");
+  group.color = "#123abc";
+  api.normalizeState(api.state);
+  assert.equal(group.color, "#123abc", "an ordinary picked color survives");
+});
+
+test("hostile ids inside a trash record are rewritten before Restore can use them", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-projects");
+  api.state.trash.push({
+    id: ATTR_PAYLOAD,
+    kind: "task",
+    item: { id: ATTR_PAYLOAD, text: "Deleted task", children: [], images: [{ id: ATTR_PAYLOAD, src: HOSTILE_SRC, width: 120 }] },
+    deletedAt: "2026-08-01T00:00:00.000Z",
+    retentionSeconds: null,
+    source: { groupId: group.id, parentId: ATTR_PAYLOAD, index: 0 },
+  });
+  api.normalizeState(api.state);
+
+  const record = api.state.trash.at(-1);
+  assert.match(record.id, /^trash-[A-Za-z0-9_-]+$/, "the record id renders as data-trash-id, so it gets a fresh one");
+  assert.match(record.item.id, /^task-[A-Za-z0-9_-]+$/, "the task waiting inside it is normalized too");
+  assert.match(record.item.images[0].id, /^img-[A-Za-z0-9_-]+$/);
+  assert.equal(record.source.parentId, null, "a hostile parent reference is dropped rather than invented");
+  assert.equal(record.source.groupId, group.id, "an ordinary one survives");
+
+  assert.equal(api.restoreTrashRecord(record.id), true);
+  const restored = group.tasks.find((item) => item.text === "Deleted task");
+  assert.equal(api.renderTask(restored, group.id, "").includes(ATTR_PAYLOAD), false, "the restored row is clean");
+});
+
+test("an alias whose target id was regenerated renders unresolved instead of throwing", async () => {
+  const api = await loadBoardApi();
+  const group = api.state.groups.find((item) => item.id === "group-projects");
+  const target = group.tasks[0];
+  target.id = ATTR_PAYLOAD;
+  group.tasks.push(
+    { id: "alias-hostile-target", text: "Linked copy", children: [], linkType: "alias", targetTaskId: ATTR_PAYLOAD },
+    { id: "alias-stale-target", text: "Linked copy", children: [], linkType: "alias", targetTaskId: "task-long-gone" },
+  );
+  api.normalizeState(api.state);
+
+  const hostile = group.tasks.find((item) => item.id === "alias-hostile-target");
+  const stale = group.tasks.find((item) => item.id === "alias-stale-target");
+  assert.equal(hostile.targetTaskId, null, "a hostile target reference drops to null, not a fresh id");
+  assert.equal(stale.targetTaskId, "task-long-gone", "a well-formed one is left alone even when it resolves to nothing");
+  assert.equal(api.resolveTaskItem(hostile), hostile, "an unresolved alias resolves to the placement itself");
+  assert.equal(api.resolveTaskItem(stale), stale);
+
+  for (const alias of [hostile, stale]) {
+    const html = api.renderTask(alias, group.id, "");
+    assert.equal(html.includes(ATTR_PAYLOAD), false);
+    assert.ok(html.includes(`data-task="${alias.id}"`), "the placement still renders, minus its target");
+    assert.equal(api.renderFocusChildren([alias], 0, group).includes(ATTR_PAYLOAD), false, "and in focus mode");
+  }
+});
+
 test("trash records describe their origin group and parent", async () => {
   const api = await loadBoardApi();
   const group = api.state.groups.find((item) => item.id === "group-projects");
