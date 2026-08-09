@@ -202,8 +202,12 @@
     window.addEventListener?.("pointercancel", () => { boardPressActive = false; }, true);
 
     boardEl.addEventListener("click", (event) => {
-      if (Date.now() < squelchTapUntil) return;
       const button = event.target.closest("button");
+      // A long touch-selection release suppresses the synthetic row click that
+      // follows it, but actionable controls still need their click. Otherwise
+      // the next checkbox tap only selects the row and the completion toggle
+      // appears to fail until the 500ms guard expires.
+      if (Date.now() < squelchTapUntil && !button) return;
       const groupRow = event.target.closest("[data-group-row]");
       const row = event.target.closest("[data-task-row]");
       if (groupRow) selectNode("group", groupRow.dataset.groupRow);

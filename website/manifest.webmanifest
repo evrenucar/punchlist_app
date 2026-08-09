@@ -1,0 +1,11 @@
+{
+  "name": "Punchlist",
+  "short_name": "Punchlist",
+  "id": "./task-board.html",
+  "start_url": "./task-board.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f5",
+  "theme_color": "#191b1a",
+  "description": "A local-first task board that remains available offline after the hosted app is opened once."
+}

@@ -694,6 +694,15 @@
     // always wins over a freshly generated one (see createSigningIdentity).
     ensureSigningIdentity().catch(() => {});
 
+    // Hosted builds register the same-origin service worker so the normal web
+    // app can reopen offline after its first HTTPS visit. Downloaded file://
+    // copies already work offline and cannot register service workers.
+    function registerOfflineApp() {
+      if (IS_LOCAL_FILE || !window.isSecureContext || !("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+    }
+    registerOfflineApp();
+
     // Fire-and-forget update check (downloaded copy only; see checkForUpdate).
     checkForUpdate();
 

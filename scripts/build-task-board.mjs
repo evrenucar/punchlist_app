@@ -48,7 +48,7 @@ if (!template.includes("<!-- TASK_BOARD_STYLES -->") || !template.includes("<!--
 // src/task-board.js is the pre-split source and is listed on purpose: the patch
 // counts commits, so dropping the path the app lived in until 2026-07-29 would
 // make the version jump backwards the day it was split.
-const appFiles = ["src/app", "src/task-board.js", "src/task-board.css", "src/task-board.html"];
+const appFiles = ["src/app", "src/task-board.js", "src/task-board.css", "src/task-board.html", "src/sw.js", "src/manifest.webmanifest"];
 const base = (script.match(/APP_VERSION\s*=\s*["'](\d+\.\d+)/) || [])[1];
 let patch = 0;
 try {
@@ -84,6 +84,13 @@ await writeFile(outputPath, output, "utf8");
 const websiteCopy = path.join(root, "website", "task-board.html");
 await mkdir(path.dirname(websiteCopy), { recursive: true });
 await writeFile(websiteCopy, output, "utf8");
+
+const [serviceWorkerSource, manifestSource] = await Promise.all([
+  readFile(path.join(sourceDir, "sw.js"), "utf8"),
+  readFile(path.join(sourceDir, "manifest.webmanifest"), "utf8"),
+]);
+await writeFile(path.join(root, "website", "sw.js"), serviceWorkerSource.replaceAll("__PUNCHLIST_VERSION__", version || "dev"), "utf8");
+await writeFile(path.join(root, "website", "manifest.webmanifest"), manifestSource, "utf8");
 
 // The update channel (task-aud-4-2gmn): a downloaded copy compares itself
 // against THIS file instead of GitHub Releases, so every build tells old
