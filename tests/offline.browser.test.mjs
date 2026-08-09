@@ -38,9 +38,10 @@ test.afterAll(async () => {
 test("hosted app reopens from its service-worker cache while offline", async ({ page, context }) => {
   await page.goto(`${baseURL}/task-board.html`, { waitUntil: "networkidle" });
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
-  await expect(page.locator("[data-app-version]")).toContainText("1.5.44");
+  const onlineVersion = await page.locator("[data-app-version]").textContent();
+  expect(onlineVersion).toMatch(/^v\d+\.\d+\.\d+$/);
   await context.setOffline(true);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator("[data-app-version]")).toContainText("1.5.44");
+  await expect(page.locator("[data-app-version]")).toHaveText(onlineVersion);
   await expect(page.locator("[data-task-row]").first()).toBeVisible();
 });
