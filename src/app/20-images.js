@@ -109,6 +109,10 @@
     });
 
     boardEl.addEventListener("focusin", (event) => {
+      // A row button owns its activation. Selecting the row during button
+      // focus can repaint the row before the synthesized click, retargeting
+      // that click to the row and losing the button action on touch.
+      if (event.target.closest("button")) return;
       if (suppressFocusSelection || Date.now() < squelchTapUntil) return;
       const sectionRow = event.target.closest("[data-section-row]");
       if (sectionRow) {

@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Punchlist">
+  <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='20' height='20' rx='5' fill='%23191b1a' transform='rotate(-4 12 12)'/%3E%3Cpath d='M7 13l3.4 3.4L17.5 8' stroke='white' stroke-width='2.8' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='20' cy='4.5' r='3' fill='%23ef4444'/%3E%3C/svg%3E">
   <style data-task-board-styles>
     :root {
@@ -8816,8 +8817,12 @@
     window.addEventListener?.("pointercancel", () => { boardPressActive = false; }, true);
 
     boardEl.addEventListener("click", (event) => {
-      if (Date.now() < squelchTapUntil) return;
       const button = event.target.closest("button");
+      // A long touch-selection release suppresses the synthetic row click that
+      // follows it, but actionable controls still need their click. Otherwise
+      // the next checkbox tap only selects the row and the completion toggle
+      // appears to fail until the 500ms guard expires.
+      if (Date.now() < squelchTapUntil && !button) return;
       const groupRow = event.target.closest("[data-group-row]");
       const row = event.target.closest("[data-task-row]");
       if (groupRow) selectNode("group", groupRow.dataset.groupRow);
@@ -9015,6 +9020,10 @@
     });
 
     boardEl.addEventListener("focusin", (event) => {
+      // A row button owns its activation. Selecting the row during button
+      // focus can repaint the row before the synthesized click, retargeting
+      // that click to the row and losing the button action on touch.
+      if (event.target.closest("button")) return;
       if (suppressFocusSelection || Date.now() < squelchTapUntil) return;
       const sectionRow = event.target.closest("[data-section-row]");
       if (sectionRow) {
@@ -11215,6 +11224,15 @@
     // Create the user's signing identity once per board; a pulled identity
     // always wins over a freshly generated one (see createSigningIdentity).
     ensureSigningIdentity().catch(() => {});
+
+    // Hosted builds register the same-origin service worker so the normal web
+    // app can reopen offline after its first HTTPS visit. Downloaded file://
+    // copies already work offline and cannot register service workers.
+    function registerOfflineApp() {
+      if (IS_LOCAL_FILE || !window.isSecureContext || !("serviceWorker" in navigator)) return;
+      navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(() => {});
+    }
+    registerOfflineApp();
 
     // Fire-and-forget update check (downloaded copy only; see checkForUpdate).
     checkForUpdate();

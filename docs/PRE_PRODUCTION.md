@@ -68,6 +68,27 @@ Use the preview URL and a disposable board on the real phone. Check only the hig
 
 The painted mobile controls are intentionally 30px with a 44px effective hit area. Do not enlarge them unless a real seam test reproduces an overlap defect.
 
+### Standard private mobile preview
+
+The standard mobile-acceptance flow is a temporary private preview, followed by testing on the physical phone. Keep the preview bound to the machine's Tailscale address so it is reachable only from the tailnet:
+
+```bash
+tailscale ip -4
+python3 -m http.server 4173 --bind <TAILSCALE_IP> --directory website
+```
+
+Send the phone:
+
+```text
+http://<TAILSCALE_IP>:4173/task-board.html
+```
+
+Use only disposable board data. Do not enter a real sync token or private production board. Test editing, completion taps, the checkbox/chevron seam, scrolling, gestures, keyboard behavior, drawer open/close, reload, and offline reopening.
+
+A plain HTTP Tailscale preview is suitable for UI and interaction checks, but browsers will not install the service worker there because service workers require a secure context. To verify hosted offline reopening on the phone, serve the same exact `website/` directory over HTTPS on a private tailnet URL, or perform the offline browser gate locally on `localhost` before the physical-phone pass.
+
+After testing, stop the temporary server and clear any disposable data.
+
 ## 3. Production remains a separate decision
 
 The agent must report:

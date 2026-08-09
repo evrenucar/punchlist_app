@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build-task-board.mjs",
     "pretest": "npm run build",
-    "test": "node --test tests/task-board.static.test.mjs tests/preflight.test.mjs",
+    "test": "node --test tests/task-board.static.test.mjs tests/preflight.test.mjs tests/offline-assets.test.mjs",
     "test:preflight": "node --test tests/preflight.test.mjs",
     "pretest:browser": "npm run build",
     "test:browser": "playwright test --config tests/playwright.config.mjs",
