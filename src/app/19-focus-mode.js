@@ -204,15 +204,17 @@
     boardEl.addEventListener("click", (event) => {
       const button = event.target.closest("button");
       // A long touch-selection release suppresses the synthetic row click that
-      // follows it, but actionable controls still need their click. Otherwise
-      // the next checkbox tap only selects the row and the completion toggle
-      // appears to fail until the 500ms guard expires.
-      if (Date.now() < squelchTapUntil && !button) return;
-      const groupRow = event.target.closest("[data-group-row]");
-      const row = event.target.closest("[data-task-row]");
-      if (groupRow) selectNode("group", groupRow.dataset.groupRow);
-      if (row) selectTask(row.dataset.taskRow);
-      if (!button) return;
+      // follows it. Buttons own their own activation and must not select their
+      // parent row first: selection can focus/reflow the row during the same
+      // synthesized click, which turns a later tap into a row-only action.
+      if (!button) {
+        if (Date.now() < squelchTapUntil) return;
+        const groupRow = event.target.closest("[data-group-row]");
+        const row = event.target.closest("[data-task-row]");
+        if (groupRow) selectNode("group", groupRow.dataset.groupRow);
+        if (row) selectTask(row.dataset.taskRow);
+        return;
+      }
 
       const action = button.dataset.action;
       if (action === "toggle-task") toggleTask(button.dataset.taskId);

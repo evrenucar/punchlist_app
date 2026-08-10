@@ -2828,20 +2828,61 @@
         min-height: 44px;
       }
 
-      .chevron,
-      .checkbox {
+      .chevron {
+        width: 30px;
+        height: 30px;
         min-width: 30px;
         min-height: 30px;
         position: relative;
       }
 
-      /* 30px visuals with a 44px tap area (Evren's pick, 2026-07-17):
-         the pseudo-element extends the hit box without changing density */
-      .chevron::after,
-      .checkbox::after {
+      /* The control itself, not an overlapping pseudo-element, owns the 44px
+         tap target. Its 30px visual stays in the exact previous position. */
+      .checkbox {
+        position: relative;
+        left: -6px;
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        min-height: 44px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      .checkbox::before {
         content: "";
         position: absolute;
-        inset: -7px;
+        inset: 7px;
+        border: 1px solid var(--line-strong);
+        border-radius: 6px;
+      }
+
+      .checkbox.done {
+        border: 0;
+        background: transparent;
+      }
+
+      .checkbox.done::before {
+        border-color: var(--done);
+        background: var(--done);
+      }
+
+      .checkbox.done svg {
+        position: relative;
+        z-index: 1;
+      }
+
+      .chevron::after,
+      .checkbox::after {
+        content: none;
+      }
+
+      .task-row {
+        /* The 44px checkbox sits 6px left of its 37px grid column, preserving
+           the old 30px painted position while leaving a real gap on both seams. */
+        grid-template-columns: 30px 37px minmax(0, 1fr) 24px;
+        position: relative;
       }
 
       .color-picker {
@@ -2855,9 +2896,6 @@
       }
 
       .task-row {
-        /* columns must fit the 30px touch-size chevron/checkbox above, or they
-           overflow the gap and shove the text into the checkbox */
-        grid-template-columns: 30px 30px minmax(0, 1fr) 24px;
         min-height: 44px;
       }
 
@@ -3300,7 +3338,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.44";
+    const APP_VERSION = "1.5.45";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     // The update channel: build-task-board.mjs writes this file fresh on every
     // build ({version, download, notes}), so a downloaded copy learns about
@@ -8819,15 +8857,17 @@
     boardEl.addEventListener("click", (event) => {
       const button = event.target.closest("button");
       // A long touch-selection release suppresses the synthetic row click that
-      // follows it, but actionable controls still need their click. Otherwise
-      // the next checkbox tap only selects the row and the completion toggle
-      // appears to fail until the 500ms guard expires.
-      if (Date.now() < squelchTapUntil && !button) return;
-      const groupRow = event.target.closest("[data-group-row]");
-      const row = event.target.closest("[data-task-row]");
-      if (groupRow) selectNode("group", groupRow.dataset.groupRow);
-      if (row) selectTask(row.dataset.taskRow);
-      if (!button) return;
+      // follows it. Buttons own their own activation and must not select their
+      // parent row first: selection can focus/reflow the row during the same
+      // synthesized click, which turns a later tap into a row-only action.
+      if (!button) {
+        if (Date.now() < squelchTapUntil) return;
+        const groupRow = event.target.closest("[data-group-row]");
+        const row = event.target.closest("[data-task-row]");
+        if (groupRow) selectNode("group", groupRow.dataset.groupRow);
+        if (row) selectTask(row.dataset.taskRow);
+        return;
+      }
 
       const action = button.dataset.action;
       if (action === "toggle-task") toggleTask(button.dataset.taskId);
