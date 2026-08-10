@@ -66,3 +66,30 @@ test("a completion tap after touch selection is not swallowed by the selection g
   await tapCheckbox(page, targetId);
   await expect(page.locator(`[data-task-row="${targetId}"]`)).toHaveClass(/done/);
 });
+
+test("every corner of the advertised mobile completion hit area completes the task", async ({ page }) => {
+  await page.goto(baseURL);
+  for (const corner of ["top-left", "top-right", "bottom-left", "bottom-right"]) {
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    const id = await taskId(page, "Book a dentist appointment");
+    const checkbox = page.locator(`[data-action="toggle-done"][data-task-id="${id}"]`);
+    await checkbox.scrollIntoViewIfNeeded();
+    const box = await checkbox.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.round(box.width)).toBe(44);
+    const x = corner.includes("left") ? box.x + 1 : box.x + box.width - 1;
+    const y = corner.includes("top") ? box.y + 1 : box.y + box.height - 1;
+    await page.touchscreen.tap(x, y);
+    await expect(page.locator(`[data-task-row="${id}"]`), corner).toHaveClass(/done/);
+  }
+});
+
+test("a completion tap does not select the task row as a side effect", async ({ page }) => {
+  await page.goto(baseURL);
+  const id = await taskId(page, "Go for a 30-minute walk");
+  await tapCheckbox(page, id);
+  const row = page.locator(`[data-task-row="${id}"]`);
+  await expect(row).toHaveClass(/done/);
+  await expect(row).not.toHaveClass(/selected/);
+});
