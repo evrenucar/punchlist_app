@@ -93,3 +93,28 @@ test("a completion tap does not select the task row as a side effect", async ({ 
   await expect(row).toHaveClass(/done/);
   await expect(row).not.toHaveClass(/selected/);
 });
+
+test("completion preserves the mobile board scroll position and subsequent hit target", async ({ page }) => {
+  await page.goto(baseURL);
+  const id = await taskId(page, "Go for a 30-minute walk");
+  const checkbox = page.locator(`[data-action="toggle-done"][data-task-id="${id}"]`);
+  await checkbox.scrollIntoViewIfNeeded();
+  const box = await checkbox.boundingBox();
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const before = await page.evaluate(({ id, point }) => ({
+    scrollTop: document.querySelector("main").scrollTop,
+    hitTask: document.elementFromPoint(point.x, point.y)?.closest("[data-task-row]")?.dataset.taskRow,
+  }), { id, point });
+  expect(before.scrollTop).toBeGreaterThan(0);
+  expect(before.hitTask).toBe(id);
+
+  await page.touchscreen.tap(point.x, point.y);
+  await expect(page.locator(`[data-task-row="${id}"]`)).toHaveClass(/done/);
+
+  const after = await page.evaluate(({ point }) => ({
+    scrollTop: document.querySelector("main").scrollTop,
+    hitTask: document.elementFromPoint(point.x, point.y)?.closest("[data-task-row]")?.dataset.taskRow,
+  }), { point });
+  expect(after.scrollTop).toBe(before.scrollTop);
+  expect(after.hitTask).toBe(id);
+});

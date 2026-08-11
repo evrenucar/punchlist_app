@@ -193,6 +193,8 @@
     let lastUndoAction = null;
     let suppressFocusSelection = false;
     let boardPressActive = false;
+    let boardPressScrollTop = null;
+    let boardPressWasTouch = false;
     let squelchTapUntil = 0;
     let internalClipboard = null;
     let lifecycleSignature = "";

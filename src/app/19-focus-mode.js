@@ -197,12 +197,23 @@
 
     // Tracks whether a pointer is currently pressed anywhere on the board;
     // cleared at the window so a release outside the board can't strand it.
-    boardEl.addEventListener("pointerdown", () => { boardPressActive = true; }, true);
+    boardEl.addEventListener("pointerdown", (event) => {
+      boardPressActive = true;
+      boardPressWasTouch = event.pointerType !== "mouse";
+      boardPressScrollTop = boardPressWasTouch && mainEl ? mainEl.scrollTop : null;
+    }, true);
     window.addEventListener?.("pointerup", () => { boardPressActive = false; }, true);
-    window.addEventListener?.("pointercancel", () => { boardPressActive = false; }, true);
+    window.addEventListener?.("pointercancel", () => {
+      boardPressActive = false;
+      boardPressScrollTop = null;
+      boardPressWasTouch = false;
+    }, true);
 
     boardEl.addEventListener("click", (event) => {
       const button = event.target.closest("button");
+      const pressScrollTop = boardPressWasTouch ? boardPressScrollTop : null;
+      boardPressScrollTop = null;
+      boardPressWasTouch = false;
       // A long touch-selection release suppresses the synthetic row click that
       // follows it. Buttons own their own activation and must not select their
       // parent row first: selection can focus/reflow the row during the same
@@ -222,6 +233,13 @@
         const found = findTask(button.dataset.taskId);
         const item = found ? resolveTaskItem(found.item) : null;
         if (item) setTaskCompleted(button.dataset.taskId, !item.done);
+        // Mobile browsers can scroll the nested board while focusing the native
+        // button before this click is dispatched. Put the touch viewport back
+        // where the finger began, then repeat next frame after focus cleanup.
+        if (typeof pressScrollTop === "number" && mainEl) {
+          mainEl.scrollTop = pressScrollTop;
+          window.requestAnimationFrame?.(() => { mainEl.scrollTop = pressScrollTop; });
+        }
       }
       if (action === "go-origin") {
         const id = button.dataset.originTaskId;
