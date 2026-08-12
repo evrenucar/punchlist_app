@@ -197,6 +197,7 @@ test("mobile rows keep direct add visible and reveal a small selected-only delet
   expect(after.text.width).toBe(before.text.width);
   expect(after.add.left).toBe(before.add.left);
   expect(after.remove.width).toBeGreaterThan(0);
-  expect(after.remove.right).toBeLessThanOrEqual(after.row.right + 9);
-  expect(Math.abs((after.remove.top + after.remove.height / 2) - (after.add.top + after.add.height / 2))).toBeLessThanOrEqual(2);
+  expect(after.remove.top).toBeLessThanOrEqual(after.row.top + 2);
+  expect(after.remove.right).toBeLessThanOrEqual(after.row.right + 30);
+  expect(after.remove.left).toBeGreaterThanOrEqual(after.add.right + 4);
 });
