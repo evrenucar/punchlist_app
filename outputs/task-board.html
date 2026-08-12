@@ -2884,13 +2884,43 @@
         content: none;
       }
 
+      /* A non-editing task still fills its text lane, leaving no dead strip
+         before the persistent add button. */
+      .task-row > [data-task-text]:not(:focus) {
+        width: 100%;
+        min-width: 0;
+      }
+
       .task-row {
-        /* The 44px checkbox sits 6px left of its 37px grid column, preserving
-           the old 30px painted position while leaving a real gap on both seams.
-           A single 44px trigger keeps deeply nested text usable; it opens the
-           add/delete menu without changing the row's geometry. */
-        grid-template-columns: 30px 37px minmax(0, 1fr) 24px 44px;
+        /* Normal tasks do not need a link-badge column, so text runs straight
+           to the fixed 44px add control. Linked rows keep the fourth column. */
+        grid-template-columns: 30px 37px minmax(0, 1fr) 44px;
+        grid-template-areas: "chevron check text mobile";
+        column-gap: 0;
         position: relative;
+      }
+
+      .task-row > .chevron { grid-area: chevron; }
+      .task-row > .checkbox { grid-area: check; }
+      .task-row > .task-text {
+        grid-area: text;
+        padding-right: 0;
+      }
+      .task-row > .mobile-task-actions { grid-area: mobile; }
+
+      .task-row.linked {
+        grid-template-columns: 30px 37px minmax(0, 1fr) 24px 44px;
+        column-gap: 6px;
+        grid-template-areas: "chevron check text badge mobile";
+      }
+
+      .task-row > .task-link-badge {
+        display: none;
+      }
+
+      .task-row.linked > .task-link-badge {
+        display: grid;
+        grid-area: badge;
       }
 
       .color-picker {
@@ -2909,11 +2939,12 @@
 
       .task-actions {
         display: none;
+        grid-column: auto;
       }
 
       .mobile-task-actions {
         display: grid;
-        grid-column: 5;
+        grid-column: -1;
         grid-row: 1;
         position: relative;
         width: 44px;
@@ -2930,8 +2961,9 @@
         display: none;
         position: absolute;
         z-index: 2;
-        top: -5px;
-        right: -5px;
+        top: 50%;
+        right: -12px;
+        transform: translateY(-50%);
         width: 24px;
         height: 24px;
         place-items: center;
@@ -3379,7 +3411,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.53";
+    const APP_VERSION = "1.5.54";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     // The update channel: build-task-board.mjs writes this file fresh on every
     // build ({version, download, notes}), so a downloaded copy learns about
