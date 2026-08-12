@@ -2636,6 +2636,31 @@
       padding-left: 22px;
     }
 
+    .group-delete-confirm {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--danger);
+      background: var(--surface);
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .delete-confirm-actions {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .group-delete-confirm .control {
+      min-width: 44px;
+      min-height: 44px;
+    }
+
     .delete-confirm {
       display: flex;
       align-items: center;
@@ -2800,6 +2825,21 @@
       .topbar {
         align-items: stretch;
         flex-direction: column;
+      }
+
+      .group-delete-confirm {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        padding: 10px;
+      }
+
+      .delete-confirm-actions {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .group-delete-confirm .control {
+        min-width: 88px;
       }
 
       .topbar-heading {

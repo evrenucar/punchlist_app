@@ -163,6 +163,42 @@ test("selecting a mobile row keeps lower checkbox coordinates and targets stable
   await expect(belowCheckbox).toBeVisible();
 });
 
+test("group deletion confirmation stays below the header and its Delete button confirms on touch", async ({ page }) => {
+  await page.goto(baseURL);
+  const group = page.locator("[data-group-row]").first();
+  await group.scrollIntoViewIfNeeded();
+  const groupId = await group.getAttribute("data-group-row");
+  const before = await group.boundingBox();
+
+  await page.touchscreen.tap(before.x + before.width * 0.55, before.y + before.height / 2);
+  await expect(group).toHaveClass(/selected/);
+  await page.keyboard.press("Delete");
+
+  const confirmation = page.locator(`[data-group-delete-confirm="${groupId}"]`);
+  await expect(confirmation).toBeVisible();
+  const after = await page.evaluate((groupId) => {
+    const box = (node) => {
+      const rect = node?.getBoundingClientRect();
+      return rect && { x: rect.x, y: rect.y, width: rect.width, height: rect.height, right: rect.right, bottom: rect.bottom };
+    };
+    const header = document.querySelector(`[data-group-row="${groupId}"]`);
+    const title = header?.querySelector("[data-group-title]");
+    const confirm = document.querySelector(`[data-group-delete-confirm="${groupId}"]`);
+    const remove = confirm?.querySelector('[data-action="confirm-delete"]');
+    return { header: box(header), title: box(title), confirm: box(confirm), remove: box(remove), hit: remove && document.elementFromPoint(remove.getBoundingClientRect().x + remove.getBoundingClientRect().width / 2, remove.getBoundingClientRect().y + remove.getBoundingClientRect().height / 2)?.dataset.action };
+  }, groupId);
+  expect(Math.round(after.header.height)).toBe(Math.round(before.height));
+  expect(after.title.width).toBeGreaterThan(100);
+  expect(after.confirm.y).toBeGreaterThanOrEqual(after.header.bottom);
+  expect(after.remove.width).toBeGreaterThanOrEqual(40);
+  expect(after.remove.height).toBeGreaterThanOrEqual(40);
+  expect(after.hit).toBe("confirm-delete");
+
+  const deleteBox = await confirmation.locator('[data-action="confirm-delete"]').boundingBox();
+  await page.touchscreen.tap(deleteBox.x + deleteBox.width / 2, deleteBox.y + deleteBox.height / 2);
+  await expect(page.locator(`[data-group-card="${groupId}"]`)).toHaveCount(0);
+});
+
 test("mobile rows keep direct add visible and reveal a small selected-only delete without shifting text", async ({ page }) => {
   await page.goto(baseURL);
   const id = await taskId(page, "Pick a color palette");

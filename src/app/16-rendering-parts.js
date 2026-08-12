@@ -380,17 +380,19 @@
               <span class="group-count">${count}</span>
             </div>
             <div class="group-tools">
-              ${pendingGroupDelete?.groupId === group.id ? `
-                <span class="delete-confirm" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
-                  <span class="delete-confirm-text">Delete ${pendingGroupDelete.label || "this group"}?</span>
-                  <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
-                  <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
-                </span>` : ""}
               ${renderPolicyMenu("group", group.id, group.policyOverrides)}
               <input class="color-picker" type="color" value="${palette.color}" data-group-color="${group.id}" aria-label="Change group color">
               <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" title="Add a task (Enter)" aria-label="Add task">${renderIcon("plus")}</button>
             </div>
           </header>
+          ${pendingGroupDelete?.groupId === group.id ? `
+            <section class="group-delete-confirm" data-group-delete-confirm="${group.id}" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
+              <span class="delete-confirm-text">Delete ${pendingGroupDelete.label || "this group"}?</span>
+              <div class="delete-confirm-actions">
+                <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
+                <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
+              </div>
+            </section>` : ""}
           <ul class="task-list ${collapsed ? "is-hidden" : ""}" data-group-list="${group.id}">
             ${visibleTasks}
             <li class="drop-zone child" data-drop-target="${group.id}" data-position="group" aria-hidden="true"></li>
