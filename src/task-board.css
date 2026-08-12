@@ -2895,54 +2895,48 @@
         min-height: 44px;
       }
 
-      .task-row.selected .task-actions {
+      .task-actions {
         display: none;
       }
 
       .mobile-task-actions {
-        display: none;
-      }
-
-      .task-row.selected .mobile-task-actions {
-        display: block;
+        display: grid;
         grid-column: 5;
         grid-row: 1;
         position: relative;
         width: 44px;
         height: 44px;
+        place-items: center;
       }
 
-      .mobile-task-actions-trigger {
+      .mobile-add-child {
         width: 44px;
         height: 44px;
       }
 
-      .mobile-task-actions-menu {
-        position: absolute;
-        z-index: 3;
-        right: 0;
-        top: calc(100% + 4px);
-        display: flex;
-        gap: 2px;
-        width: max-content;
-        padding: 4px;
-        border: 1px solid var(--line-strong);
-        border-radius: 8px;
-        background: var(--surface);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
-      }
-
-      .mobile-task-actions-menu[hidden] {
+      .mobile-delete-task {
         display: none;
-      }
-
-      .mobile-task-actions-menu .icon-button {
-        width: 44px;
-        height: 44px;
-      }
-
-      .mobile-task-actions-menu .danger {
+        position: absolute;
+        z-index: 2;
+        top: -5px;
+        right: -5px;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        background: var(--surface);
         color: var(--danger, #c92a2a);
+      }
+
+      .mobile-delete-task svg {
+        width: 13px;
+        height: 13px;
+      }
+
+      .task-row.selected .mobile-delete-task {
+        display: grid;
       }
 
       .views-nav button {

@@ -163,43 +163,39 @@ test("selecting a mobile row keeps lower checkbox coordinates and targets stable
   await expect(belowCheckbox).toBeVisible();
 });
 
-test("selected mobile rows reserve one compact actions trigger and keep nested text usable", async ({ page }) => {
+test("mobile rows keep direct add visible and reveal a small selected-only delete without shifting text", async ({ page }) => {
   await page.goto(baseURL);
   const id = await taskId(page, "Pick a color palette");
   const row = page.locator(`[data-task-row="${id}"]`);
   await row.scrollIntoViewIfNeeded();
-  const before = await row.boundingBox();
-  await page.touchscreen.tap(before.x + before.width * 0.55, before.y + before.height / 2);
-  await expect(row).toHaveClass(/selected/);
 
-  const layout = await page.evaluate((id) => {
+  const before = await page.evaluate((id) => {
     const box = (node) => {
       const rect = node?.getBoundingClientRect();
       return rect && { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
     };
     const row = document.querySelector(`[data-task-row="${id}"]`);
-    const text = row?.querySelector("[data-task-text]");
-    const trigger = row?.querySelector("[data-mobile-task-actions]");
-    return { row: box(row), text: box(text), trigger: box(trigger) };
+    return { row: box(row), text: box(row?.querySelector("[data-task-text]")), add: box(row?.querySelector("[data-mobile-add-child]")), remove: box(row?.querySelector("[data-mobile-delete-task]")) };
   }, id);
+  expect(before.text.width).toBeGreaterThanOrEqual(128);
+  expect(before.add.width).toBeGreaterThanOrEqual(40);
+  expect(before.remove.width).toBe(0);
 
-  expect(Math.round(layout.row.height)).toBe(Math.round(before.height));
-  expect(layout.text.width).toBeGreaterThanOrEqual(128);
-  expect(layout.trigger.width).toBeGreaterThanOrEqual(40);
-  expect(layout.trigger.left).toBeGreaterThanOrEqual(layout.text.right);
-  expect(layout.trigger.right).toBeLessThanOrEqual(layout.row.right);
+  await page.touchscreen.tap(before.row.left + before.row.width * 0.55, before.row.top + before.row.height / 2);
+  await expect(row).toHaveClass(/selected/);
 
-  const trigger = row.locator("[data-mobile-task-actions]");
-  await trigger.click();
-  const menu = row.locator("[data-mobile-task-actions-menu]");
-  await expect(menu).toBeVisible();
-  const controls = menu.locator("button");
-  await expect(controls).toHaveCount(2);
-  for (const control of await controls.all()) {
-    const box = await control.boundingBox();
-    expect(box.width).toBeGreaterThanOrEqual(40);
-    expect(box.height).toBeGreaterThanOrEqual(40);
-  }
-  const after = await row.boundingBox();
-  expect(Math.round(after.height)).toBe(Math.round(before.height));
+  const after = await page.evaluate((id) => {
+    const box = (node) => {
+      const rect = node?.getBoundingClientRect();
+      return rect && { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const row = document.querySelector(`[data-task-row="${id}"]`);
+    return { row: box(row), text: box(row?.querySelector("[data-task-text]")), add: box(row?.querySelector("[data-mobile-add-child]")), remove: box(row?.querySelector("[data-mobile-delete-task]")) };
+  }, id);
+  expect(Math.round(after.row.height)).toBe(Math.round(before.row.height));
+  expect(after.text.width).toBe(before.text.width);
+  expect(after.add.left).toBe(before.add.left);
+  expect(after.remove.width).toBeGreaterThan(0);
+  expect(after.remove.right).toBeLessThanOrEqual(after.row.right);
+  expect(after.remove.top).toBeGreaterThanOrEqual(after.row.top);
 });

@@ -2907,54 +2907,48 @@
         min-height: 44px;
       }
 
-      .task-row.selected .task-actions {
+      .task-actions {
         display: none;
       }
 
       .mobile-task-actions {
-        display: none;
-      }
-
-      .task-row.selected .mobile-task-actions {
-        display: block;
+        display: grid;
         grid-column: 5;
         grid-row: 1;
         position: relative;
         width: 44px;
         height: 44px;
+        place-items: center;
       }
 
-      .mobile-task-actions-trigger {
+      .mobile-add-child {
         width: 44px;
         height: 44px;
       }
 
-      .mobile-task-actions-menu {
-        position: absolute;
-        z-index: 3;
-        right: 0;
-        top: calc(100% + 4px);
-        display: flex;
-        gap: 2px;
-        width: max-content;
-        padding: 4px;
-        border: 1px solid var(--line-strong);
-        border-radius: 8px;
-        background: var(--surface);
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
-      }
-
-      .mobile-task-actions-menu[hidden] {
+      .mobile-delete-task {
         display: none;
-      }
-
-      .mobile-task-actions-menu .icon-button {
-        width: 44px;
-        height: 44px;
-      }
-
-      .mobile-task-actions-menu .danger {
+        position: absolute;
+        z-index: 2;
+        top: -5px;
+        right: -5px;
+        width: 24px;
+        height: 24px;
+        place-items: center;
+        padding: 0;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        background: var(--surface);
         color: var(--danger, #c92a2a);
+      }
+
+      .mobile-delete-task svg {
+        width: 13px;
+        height: 13px;
+      }
+
+      .task-row.selected .mobile-delete-task {
+        display: grid;
       }
 
       .views-nav button {
@@ -3385,7 +3379,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.52";
+    const APP_VERSION = "1.5.53";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     // The update channel: build-task-board.mjs writes this file fresh on every
     // build ({version, download, notes}), so a downloaded copy learns about
@@ -7713,11 +7707,8 @@
               <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
             </div>
             <div class="mobile-task-actions">
-              <button class="icon-button mobile-task-actions-trigger" type="button" data-mobile-task-actions data-action="toggle-mobile-task-actions" data-task-id="${item.id}" aria-label="Task actions" aria-expanded="false" title="Task actions">${renderIcon("menu")}</button>
-              <div class="mobile-task-actions-menu" data-mobile-task-actions-menu hidden>
-                <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
-                <button class="icon-button danger" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
-              </div>
+              <button class="icon-button mobile-add-child" type="button" data-mobile-add-child data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
+              <button class="mobile-delete-task" type="button" data-mobile-delete-task data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
             </div>
           </div>
           ${imagesHtml}
@@ -8955,18 +8946,6 @@
         const id = button.dataset.originTaskId;
         selectNode("task", id);
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-      if (action === "toggle-mobile-task-actions") {
-        const shell = button.closest(".mobile-task-actions");
-        const menu = shell?.querySelector("[data-mobile-task-actions-menu]");
-        if (menu) {
-          const opens = menu.hidden;
-          for (const other of boardEl.querySelectorAll("[data-mobile-task-actions-menu]")) other.hidden = true;
-          for (const trigger of boardEl.querySelectorAll("[data-mobile-task-actions]")) trigger.setAttribute("aria-expanded", "false");
-          menu.hidden = !opens;
-          button.setAttribute("aria-expanded", String(opens));
-        }
-        return;
       }
       if (action === "delete-task") {
         // a parent's trash button asks like any other subtree delete

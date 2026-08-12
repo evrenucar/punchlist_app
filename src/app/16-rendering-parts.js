@@ -351,11 +351,8 @@
               <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
             </div>
             <div class="mobile-task-actions">
-              <button class="icon-button mobile-task-actions-trigger" type="button" data-mobile-task-actions data-action="toggle-mobile-task-actions" data-task-id="${item.id}" aria-label="Task actions" aria-expanded="false" title="Task actions">${renderIcon("menu")}</button>
-              <div class="mobile-task-actions-menu" data-mobile-task-actions-menu hidden>
-                <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
-                <button class="icon-button danger" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
-              </div>
+              <button class="icon-button mobile-add-child" type="button" data-mobile-add-child data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
+              <button class="mobile-delete-task" type="button" data-mobile-delete-task data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
             </div>
           </div>
           ${imagesHtml}

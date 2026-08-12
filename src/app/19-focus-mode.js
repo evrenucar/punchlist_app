@@ -246,18 +246,6 @@
         selectNode("task", id);
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      if (action === "toggle-mobile-task-actions") {
-        const shell = button.closest(".mobile-task-actions");
-        const menu = shell?.querySelector("[data-mobile-task-actions-menu]");
-        if (menu) {
-          const opens = menu.hidden;
-          for (const other of boardEl.querySelectorAll("[data-mobile-task-actions-menu]")) other.hidden = true;
-          for (const trigger of boardEl.querySelectorAll("[data-mobile-task-actions]")) trigger.setAttribute("aria-expanded", "false");
-          menu.hidden = !opens;
-          button.setAttribute("aria-expanded", String(opens));
-        }
-        return;
-      }
       if (action === "delete-task") {
         // a parent's trash button asks like any other subtree delete
         if (countTaskDescendants(button.dataset.taskId) > 0) deleteSelectedNodes([{ kind: "task", id: button.dataset.taskId }]);
