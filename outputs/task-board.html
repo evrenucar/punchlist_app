@@ -2880,8 +2880,10 @@
 
       .task-row {
         /* The 44px checkbox sits 6px left of its 37px grid column, preserving
-           the old 30px painted position while leaving a real gap on both seams. */
-        grid-template-columns: 30px 37px minmax(0, 1fr) 24px;
+           the old 30px painted position while leaving a real gap on both seams.
+           The last 92px is permanently reserved for the two direct row actions.
+           Selection reveals those controls but never changes any row geometry. */
+        grid-template-columns: 30px 37px minmax(0, 1fr) 24px 92px;
         position: relative;
       }
 
@@ -2905,20 +2907,28 @@
 
       .task-row.selected .task-actions {
         display: flex;
-        /* Keep the selected-row toolbar in normal flow. It gives text a real,
-           readable line above the controls instead of covering it, and follows
-           the row when it moves. */
+        /* Selection only reveals the permanently reserved trailing controls.
+           They stay in the same grid cell, so nothing below changes position. */
         position: static;
-        grid-column: 2 / -1;
-        grid-row: 2;
+        grid-column: 5;
+        grid-row: 1;
         justify-content: flex-end;
-        width: auto;
+        width: 92px;
         height: 44px;
         transform: none;
-        overflow: visible;
+        overflow: hidden;
         border-radius: 0;
         background: transparent;
         opacity: 1;
+      }
+
+      .task-row.selected .task-actions .drag-handle,
+      .task-row.selected .task-actions [data-action="focus-task"] {
+        display: none;
+      }
+
+      .task-row.selected .task-actions .policy-menu {
+        display: none;
       }
 
       .views-nav button {
@@ -3349,7 +3359,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.50";
+    const APP_VERSION = "1.5.51";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     // The update channel: build-task-board.mjs writes this file fresh on every
     // build ({version, download, notes}), so a downloaded copy learns about
