@@ -2636,14 +2636,26 @@
       padding-left: 22px;
     }
 
+    .group {
+      position: relative;
+    }
+
     .group-delete-confirm {
+      position: absolute;
+      z-index: 12;
+      top: 0;
+      right: 0;
+      left: 0;
       display: flex;
+      min-height: 64px;
       align-items: center;
       justify-content: space-between;
-      gap: 12px;
-      border-bottom: 1px solid var(--danger);
-      background: var(--surface);
-      padding: 10px 12px;
+      gap: 10px;
+      border: 1px solid var(--danger);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--surface) 94%, var(--danger) 6%);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      padding: 8px 10px;
       color: var(--text);
       font-size: 13px;
       font-weight: 700;

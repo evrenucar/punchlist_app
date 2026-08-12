@@ -163,7 +163,7 @@ test("selecting a mobile row keeps lower checkbox coordinates and targets stable
   await expect(belowCheckbox).toBeVisible();
 });
 
-test("group deletion confirmation stays below the header and its Delete button confirms on touch", async ({ page }) => {
+test("group deletion confirmation overlays the selected group and its Delete button confirms on touch", async ({ page }) => {
   await page.goto(baseURL);
   const group = page.locator("[data-group-row]").first();
   await group.scrollIntoViewIfNeeded();
@@ -189,7 +189,10 @@ test("group deletion confirmation stays below the header and its Delete button c
   }, groupId);
   expect(Math.round(after.header.height)).toBe(Math.round(before.height));
   expect(after.title.width).toBeGreaterThan(100);
-  expect(after.confirm.y).toBeGreaterThanOrEqual(after.header.bottom);
+  expect(after.confirm.y).toBeGreaterThanOrEqual(after.header.y);
+  expect(after.confirm.y).toBeLessThanOrEqual(after.header.bottom);
+  expect(after.confirm.bottom).toBeLessThanOrEqual(after.header.bottom + 28);
+  expect(after.confirm.width).toBeLessThanOrEqual(after.header.width);
   expect(after.remove.width).toBeGreaterThanOrEqual(40);
   expect(after.remove.height).toBeGreaterThanOrEqual(40);
   expect(after.hit).toBe("confirm-delete");

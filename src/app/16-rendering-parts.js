@@ -373,6 +373,14 @@
       const collapsed = group.collapsed && !query;
       return `
         <article class="group" id="${group.id}" data-group-card="${group.id}" style="${groupStyleVars(group, index)}">
+          ${pendingGroupDelete?.groupId === group.id ? `
+            <section class="group-delete-confirm" data-group-delete-confirm="${group.id}" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
+              <span class="delete-confirm-text">Delete ${pendingGroupDelete.label || "this group"}?</span>
+              <div class="delete-confirm-actions">
+                <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
+                <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
+              </div>
+            </section>` : ""}
           <header class="group-header ${isSelected("group", group.id) ? "selected" : ""}" data-group-row="${group.id}" data-node-kind="group" data-node-id="${group.id}" data-drag-kind="group" data-touch-drag draggable="true" tabindex="0">
             <div class="group-heading">
               <button class="chevron" type="button" data-action="toggle-group" data-group-id="${group.id}" title="${collapsed ? "Expand" : "Collapse"} group (Ctrl+${collapsed ? "Down" : "Up"})" aria-label="${collapsed ? "Expand" : "Collapse"} group" aria-expanded="${collapsed ? "false" : "true"}">${renderIcon("chevron")}</button>
@@ -385,14 +393,6 @@
               <button class="icon-button" type="button" data-action="add-task" data-group-id="${group.id}" title="Add a task (Enter)" aria-label="Add task">${renderIcon("plus")}</button>
             </div>
           </header>
-          ${pendingGroupDelete?.groupId === group.id ? `
-            <section class="group-delete-confirm" data-group-delete-confirm="${group.id}" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
-              <span class="delete-confirm-text">Delete ${pendingGroupDelete.label || "this group"}?</span>
-              <div class="delete-confirm-actions">
-                <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
-                <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
-              </div>
-            </section>` : ""}
           <ul class="task-list ${collapsed ? "is-hidden" : ""}" data-group-list="${group.id}">
             ${visibleTasks}
             <li class="drop-zone child" data-drop-target="${group.id}" data-position="group" aria-hidden="true"></li>
