@@ -288,6 +288,18 @@
       return (item.children || []).some((child) => taskMatchesFilter(child, query));
     }
 
+    function renderPendingDeleteConfirmation(kind, id) {
+      if (pendingGroupDelete?.anchorKind !== kind || pendingGroupDelete?.anchorId !== id) return "";
+      return `
+        <section class="delete-confirm-overlay" data-${kind}-delete-confirm="${id}" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
+          <span class="delete-confirm-text">Delete ${pendingGroupDelete.label || "this item"}?</span>
+          <div class="delete-confirm-actions">
+            <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
+            <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
+          </div>
+        </section>`;
+    }
+
     function renderTask(item, groupId, query) {
       const group = findGroup(groupId);
       if (isTaskHiddenFromActive(item, group)) return "";
@@ -334,6 +346,7 @@
 
       return `
         <li class="task" data-task="${item.id}">
+          ${renderPendingDeleteConfirmation("task", item.id)}
           <div class="drop-zone" data-drop-target="${item.id}" data-position="before" aria-hidden="true"></div>
           <div class="task-row ${resolved?.done ? "done" : ""} ${item.linkType ? `linked ${item.linkType}` : ""} ${isSelected("task", item.id) ? "selected" : ""}" data-task-row="${item.id}" data-node-kind="task" data-node-id="${item.id}" data-drag-kind="task" draggable="true" tabindex="0">
             <button class="chevron ${hasChildren ? "" : "hidden"}" type="button" data-action="toggle-task" data-task-id="${item.id}" title="${expanded ? "Collapse" : "Expand"} task (Ctrl+${expanded ? "Up" : "Down"})" aria-label="${expanded ? "Collapse" : "Expand"} task" aria-expanded="${expanded ? "true" : "false"}">
@@ -373,14 +386,7 @@
       const collapsed = group.collapsed && !query;
       return `
         <article class="group" id="${group.id}" data-group-card="${group.id}" style="${groupStyleVars(group, index)}">
-          ${pendingGroupDelete?.groupId === group.id ? `
-            <section class="group-delete-confirm" data-group-delete-confirm="${group.id}" data-delete-confirm role="alertdialog" aria-label="Confirm deletion">
-              <span class="delete-confirm-text">Delete ${pendingGroupDelete.label || "this group"}?</span>
-              <div class="delete-confirm-actions">
-                <button class="control compact danger" type="button" data-action="confirm-delete">Delete</button>
-                <button class="control compact" type="button" data-action="cancel-delete">Cancel</button>
-              </div>
-            </section>` : ""}
+          ${renderPendingDeleteConfirmation("group", group.id)}
           <header class="group-header ${isSelected("group", group.id) ? "selected" : ""}" data-group-row="${group.id}" data-node-kind="group" data-node-id="${group.id}" data-drag-kind="group" data-touch-drag draggable="true" tabindex="0">
             <div class="group-heading">
               <button class="chevron" type="button" data-action="toggle-group" data-group-id="${group.id}" title="${collapsed ? "Expand" : "Collapse"} group (Ctrl+${collapsed ? "Down" : "Up"})" aria-label="${collapsed ? "Expand" : "Collapse"} group" aria-expanded="${collapsed ? "false" : "true"}">${renderIcon("chevron")}</button>

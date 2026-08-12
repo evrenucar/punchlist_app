@@ -166,14 +166,17 @@
       const taskNodes = nodes.filter((node) => node.kind === "task");
       const subtreeCount = !groupsToDelete.length && taskNodes.length === 1 ? countTaskDescendants(taskNodes[0].id) : 0;
       if ((groupsToDelete.length || taskNodes.length > 1 || subtreeCount > 0) && !options.confirmed) {
+        const anchorNode = groupsToDelete[0] || taskNodes[0] || null;
         pendingGroupDelete = {
           nodes: nodes.map((node) => ({ ...node })),
           groupId: groupsToDelete[0]?.id || findTask(taskNodes[0]?.id)?.group?.id || null,
+          anchorKind: anchorNode?.kind || "group",
+          anchorId: anchorNode?.id || groupsToDelete[0]?.id || null,
           label: nodes.length > 1 ? `${nodes.length} selected items`
             : groupsToDelete.length ? "this group"
             : `this task and its ${subtreeCount} sub-item${subtreeCount === 1 ? "" : "s"}`,
         };
-        // the confirm card lives in the group header: one group swap shows it
+        // One group swap places the confirmation over its exact group/task anchor.
         if (pendingGroupDelete.groupId) renderGroupInPlace(pendingGroupDelete.groupId);
         else render();
         document.querySelector('[data-action="confirm-delete"]')?.focus();

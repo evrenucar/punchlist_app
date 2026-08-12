@@ -2636,11 +2636,12 @@
       padding-left: 22px;
     }
 
-    .group {
+    .group,
+    .task {
       position: relative;
     }
 
-    .group-delete-confirm {
+    .delete-confirm-overlay {
       position: absolute;
       z-index: 12;
       top: 0;
@@ -2668,7 +2669,7 @@
       gap: 8px;
     }
 
-    .group-delete-confirm .control {
+    .delete-confirm-overlay .control {
       min-width: 44px;
       min-height: 44px;
     }
@@ -2839,7 +2840,7 @@
         flex-direction: column;
       }
 
-      .group-delete-confirm {
+      .delete-confirm-overlay {
         align-items: flex-start;
         flex-wrap: wrap;
         padding: 10px;
@@ -2850,7 +2851,7 @@
         justify-content: flex-end;
       }
 
-      .group-delete-confirm .control {
+      .delete-confirm-overlay .control {
         min-width: 88px;
       }
 

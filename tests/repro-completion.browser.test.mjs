@@ -202,6 +202,72 @@ test("group deletion confirmation overlays the selected group and its Delete but
   await expect(page.locator(`[data-group-card="${groupId}"]`)).toHaveCount(0);
 });
 
+test("nested subtree confirmation anchors immediately above the exact task at two depths", async ({ page }) => {
+  for (const targetText of ["Press Enter to add a task below", "Tab and Shift+Tab change how deeply it nests"]) {
+    await page.goto(baseURL);
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+
+    const ids = await page.evaluate(() => {
+      const api = window.taskBoardTestApi;
+      const walk = (tasks, text) => {
+        for (const task of tasks || []) {
+          if (task.text === text) return task;
+          const nested = walk(task.children, text);
+          if (nested) return nested;
+        }
+        return null;
+      };
+      const parent = api.state.groups.flatMap((group) => group.tasks).map((task) => walk([task], "Press Enter to add a task below")).find(Boolean);
+      const child = api.state.groups.flatMap((group) => group.tasks).map((task) => walk([task], "Tab and Shift+Tab change how deeply it nests")).find(Boolean);
+      child.children.push({ id: "test-deep-leaf", text: "Deep leaf", done: false, collapsed: false, children: [], images: [] });
+      const group = api.state.groups.find((candidate) => candidate.tasks.some((task) => walk([task], parent.text)));
+      api.renderGroupInPlace(group.id);
+      return { parentId: parent.id, childId: child.id };
+    });
+
+    const targetId = targetText.startsWith("Press Enter") ? ids.parentId : ids.childId;
+    const target = page.locator(`[data-task-row="${targetId}"]`);
+    await target.scrollIntoViewIfNeeded();
+    const before = await target.boundingBox();
+    await page.touchscreen.tap(before.x + before.width * 0.55, before.y + before.height / 2);
+    await expect(target).toHaveClass(/selected/);
+    const trash = target.locator('[data-mobile-delete-task]');
+    const trashBox = await trash.boundingBox();
+    await page.touchscreen.tap(trashBox.x + trashBox.width / 2, trashBox.y + trashBox.height / 2);
+
+    const confirmation = page.locator(`[data-task-delete-confirm="${targetId}"]`);
+    await expect(confirmation).toBeVisible();
+    const geometry = await page.evaluate((targetId) => {
+      const rect = (node) => {
+        const box = node?.getBoundingClientRect();
+        return box && { top: box.top, bottom: box.bottom, left: box.left, right: box.right, width: box.width, height: box.height };
+      };
+      const row = document.querySelector(`[data-task-row="${targetId}"]`);
+      const confirm = document.querySelector(`[data-task-delete-confirm="${targetId}"]`);
+      const remove = confirm?.querySelector('[data-action="confirm-delete"]');
+      const removeBox = remove?.getBoundingClientRect();
+      return {
+        row: rect(row),
+        confirm: rect(confirm),
+        remove: rect(remove),
+        hit: removeBox && document.elementFromPoint(removeBox.x + removeBox.width / 2, removeBox.y + removeBox.height / 2)?.dataset.action,
+      };
+    }, targetId);
+    expect(geometry.confirm.top).toBeGreaterThanOrEqual(geometry.row.top - 8);
+    expect(geometry.confirm.top).toBeLessThanOrEqual(geometry.row.bottom);
+    expect(geometry.confirm.left).toBeGreaterThanOrEqual(geometry.row.left - 1);
+    expect(geometry.confirm.right).toBeLessThanOrEqual(geometry.row.right + 1);
+    expect(geometry.remove.width).toBeGreaterThanOrEqual(40);
+    expect(geometry.remove.height).toBeGreaterThanOrEqual(40);
+    expect(geometry.hit).toBe("confirm-delete");
+
+    const deleteBox = await confirmation.locator('[data-action="confirm-delete"]').boundingBox();
+    await page.touchscreen.tap(deleteBox.x + deleteBox.width / 2, deleteBox.y + deleteBox.height / 2);
+    await expect(page.locator(`[data-task-row="${targetId}"]`)).toHaveCount(0);
+  }
+});
+
 test("mobile rows keep direct add visible and reveal a small selected-only delete without shifting text", async ({ page }) => {
   await page.goto(baseURL);
   const id = await taskId(page, "Pick a color palette");
