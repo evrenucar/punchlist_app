@@ -1,4 +1,4 @@
-const CACHE_NAME = "punchlist-v1.5.49";
+const CACHE_NAME = "punchlist-v1.5.50";
 const APP_SHELL = [
   "./",
   "./index.html",

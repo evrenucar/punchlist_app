@@ -119,7 +119,7 @@ test("completion preserves the mobile board scroll position and subsequent hit t
   expect(after.hitTask).toBe(id);
 });
 
-test("selecting a mobile row keeps lower checkbox coordinates stable", async ({ page }) => {
+test("selecting a mobile row moves lower controls only with their visible row", async ({ page }) => {
   await page.goto(baseURL);
   const selectedId = await taskId(page, "Buy groceries");
   const belowId = await taskId(page, "Book a dentist appointment");
@@ -130,34 +130,76 @@ test("selecting a mobile row keeps lower checkbox coordinates stable", async ({ 
   const before = await page.evaluate(({ selectedId, belowId }) => {
     const rect = (node) => {
       const box = node?.getBoundingClientRect();
-      return box && { x: box.x, y: box.y, width: box.width, height: box.height };
+      return box && { x: box.x, y: box.y, top: box.top, bottom: box.bottom, width: box.width, height: box.height };
     };
-    const row = document.querySelector(`[data-task-row="${selectedId}"]`);
-    const checkbox = document.querySelector(`[data-action="toggle-done"][data-task-id="${belowId}"]`);
-    return { row: rect(row), checkbox: rect(checkbox) };
+    return {
+      row: rect(document.querySelector(`[data-task-row="${selectedId}"]`)),
+      checkbox: rect(document.querySelector(`[data-action="toggle-done"][data-task-id="${belowId}"]`)),
+    };
   }, { selectedId, belowId });
-  const originalPoint = { x: before.checkbox.x + before.checkbox.width / 2, y: before.checkbox.y + before.checkbox.height / 2 };
 
   await page.touchscreen.tap(before.row.x + before.row.width * 0.6, before.row.y + before.row.height / 2);
   await expect(selectedRow).toHaveClass(/selected/);
 
-  const after = await page.evaluate(({ point, selectedId }) => {
+  const after = await page.evaluate(({ selectedId, belowId }) => {
+    const rect = (node) => {
+      const box = node?.getBoundingClientRect();
+      return box && { x: box.x, y: box.y, top: box.top, bottom: box.bottom, width: box.width, height: box.height };
+    };
     const row = document.querySelector(`[data-task-row="${selectedId}"]`);
-    const checkbox = document.elementFromPoint(point.x, point.y);
+    const checkbox = document.querySelector(`[data-action="toggle-done"][data-task-id="${belowId}"]`);
     const actions = row?.querySelector(".task-actions");
     return {
-      rowHeight: row?.getBoundingClientRect().height,
-      actionHeight: actions?.getBoundingClientRect().height,
-      originalPointTask: checkbox?.closest("[data-task-row]")?.dataset.taskRow,
-      originalPointAction: checkbox?.closest("button")?.dataset.action,
+      row: rect(row),
+      checkbox: rect(checkbox),
+      actions: rect(actions),
+      actionButtons: [...(actions?.querySelectorAll("button") || [])].map(rect),
     };
-  }, { point: originalPoint, selectedId });
-  expect(after.rowHeight).toBe(before.row.height);
-  expect(after.actionHeight).toBeGreaterThan(0);
-  expect(after.originalPointTask).toBe(belowId);
-  expect(after.originalPointAction).toBe("toggle-done");
+  }, { selectedId, belowId });
+  expect(after.row.height).toBeGreaterThan(before.row.height);
+  expect(after.checkbox.y).toBeGreaterThan(before.checkbox.y);
+  expect(after.actions.top).toBeGreaterThanOrEqual(after.row.top);
+  expect(after.actions.bottom).toBeLessThanOrEqual(after.row.bottom);
+  expect(after.actionButtons.every((button) => button.width >= 40 && button.height >= 40)).toBe(true);
 
-  await page.touchscreen.tap(originalPoint.x, originalPoint.y);
+  const currentPoint = { x: after.checkbox.x + after.checkbox.width / 2, y: after.checkbox.y + after.checkbox.height / 2 };
+  const hit = await page.evaluate((point) => {
+    const node = document.elementFromPoint(point.x, point.y);
+    return { task: node?.closest("[data-task-row]")?.dataset.taskRow, action: node?.closest("button")?.dataset.action };
+  }, currentPoint);
+  expect(hit.task).toBe(belowId);
+  expect(hit.action).toBe("toggle-done");
+
+  await page.touchscreen.tap(currentPoint.x, currentPoint.y);
   await expect(page.locator(`[data-task-row="${belowId}"]`)).toHaveClass(/done/);
   await expect(belowCheckbox).toBeVisible();
+});
+
+test("selected mobile-row actions form a visible second row without covering task text", async ({ page }) => {
+  await page.goto(baseURL);
+  const id = await taskId(page, "Reply to Sam about the weekend");
+  const row = page.locator(`[data-task-row="${id}"]`);
+  await row.scrollIntoViewIfNeeded();
+  const before = await row.boundingBox();
+  await page.touchscreen.tap(before.x + before.width * 0.55, before.y + before.height / 2);
+  await expect(row).toHaveClass(/selected/);
+
+  const layout = await page.evaluate((id) => {
+    const box = (node) => {
+      const rect = node?.getBoundingClientRect();
+      return rect && { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width, height: rect.height };
+    };
+    const row = document.querySelector(`[data-task-row="${id}"]`);
+    const text = row?.querySelector("[data-task-text]");
+    const actions = row?.querySelector(".task-actions");
+    const controls = [...(actions?.querySelectorAll("button") || [])].map(box);
+    return { row: box(row), text: box(text), actions: box(actions), controls };
+  }, id);
+
+  expect(layout.row.height).toBeGreaterThan(before.height);
+  expect(layout.actions.top).toBeGreaterThanOrEqual(layout.text.bottom);
+  expect(layout.actions.bottom).toBeLessThanOrEqual(layout.row.bottom);
+  expect(layout.actions.left).toBeGreaterThanOrEqual(layout.row.left);
+  expect(layout.actions.right).toBeLessThanOrEqual(layout.row.right);
+  expect(layout.controls.every((control) => control.width >= 40 && control.height >= 40)).toBe(true);
 });
