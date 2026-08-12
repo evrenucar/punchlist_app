@@ -254,8 +254,8 @@ test("nested subtree confirmation anchors immediately above the exact task at tw
         hit: removeBox && document.elementFromPoint(removeBox.x + removeBox.width / 2, removeBox.y + removeBox.height / 2)?.dataset.action,
       };
     }, targetId);
-    expect(geometry.confirm.top).toBeGreaterThanOrEqual(geometry.row.top - 8);
-    expect(geometry.confirm.top).toBeLessThanOrEqual(geometry.row.bottom);
+    expect(Math.abs(geometry.confirm.bottom - geometry.row.top)).toBeLessThanOrEqual(1);
+    expect(geometry.confirm.top).toBeLessThan(geometry.row.top);
     expect(geometry.confirm.left).toBeGreaterThanOrEqual(geometry.row.left - 1);
     expect(geometry.confirm.right).toBeLessThanOrEqual(geometry.row.right + 1);
     expect(geometry.remove.width).toBeGreaterThanOrEqual(40);

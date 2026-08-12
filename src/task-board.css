@@ -2674,6 +2674,14 @@
       min-height: 44px;
     }
 
+    /* Task rows begin after their 6px before-drop zone. Position the nested
+       confirmation from that same boundary, then lift it by its own height so
+       the card's bottom edge meets the exact task row's top edge. */
+    [data-task-delete-confirm] {
+      top: 6px;
+      transform: translateY(-100%);
+    }
+
     .delete-confirm {
       display: flex;
       align-items: center;
