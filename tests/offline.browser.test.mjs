@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { createReadStream } from "node:fs";
+import { createReadStream, readFileSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { test, expect } from "@playwright/test";
@@ -33,6 +33,12 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await new Promise((resolve) => server.close(resolve));
+});
+
+test("online navigations are network-first so an installed preview can upgrade", () => {
+  const worker = readFileSync(path.resolve("src/sw.js"), "utf8");
+  expect(worker).toContain('event.request.mode === "navigate"');
+  expect(worker).toContain('fetch(event.request).catch(() => caches.match(event.request))');
 });
 
 test("hosted app reopens from its service-worker cache while offline", async ({ page, context }) => {
