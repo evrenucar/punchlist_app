@@ -163,9 +163,9 @@ test("selecting a mobile row keeps lower checkbox coordinates and targets stable
   await expect(belowCheckbox).toBeVisible();
 });
 
-test("selected mobile-row actions use reserved edge space without covering task text", async ({ page }) => {
+test("selected mobile rows reserve one compact actions trigger and keep nested text usable", async ({ page }) => {
   await page.goto(baseURL);
-  const id = await taskId(page, "Reply to Sam about the weekend");
+  const id = await taskId(page, "Pick a color palette");
   const row = page.locator(`[data-task-row="${id}"]`);
   await row.scrollIntoViewIfNeeded();
   const before = await row.boundingBox();
@@ -179,15 +179,27 @@ test("selected mobile-row actions use reserved edge space without covering task 
     };
     const row = document.querySelector(`[data-task-row="${id}"]`);
     const text = row?.querySelector("[data-task-text]");
-    const actions = row?.querySelector(".task-actions");
-    const controls = [...(actions?.querySelectorAll("button") || [])].map(box).filter((control) => control.width > 0 && control.height > 0);
-    return { row: box(row), text: box(text), actions: box(actions), controls };
+    const trigger = row?.querySelector("[data-mobile-task-actions]");
+    return { row: box(row), text: box(text), trigger: box(trigger) };
   }, id);
 
   expect(Math.round(layout.row.height)).toBe(Math.round(before.height));
-  expect(layout.actions.left).toBeGreaterThanOrEqual(layout.text.right);
-  expect(layout.actions.right).toBeLessThanOrEqual(layout.row.right);
-  expect(layout.actions.top).toBeGreaterThanOrEqual(layout.row.top);
-  expect(layout.actions.bottom).toBeLessThanOrEqual(layout.row.bottom);
-  expect(layout.controls.every((control) => control.width >= 40 && control.height >= 40)).toBe(true);
+  expect(layout.text.width).toBeGreaterThanOrEqual(128);
+  expect(layout.trigger.width).toBeGreaterThanOrEqual(40);
+  expect(layout.trigger.left).toBeGreaterThanOrEqual(layout.text.right);
+  expect(layout.trigger.right).toBeLessThanOrEqual(layout.row.right);
+
+  const trigger = row.locator("[data-mobile-task-actions]");
+  await trigger.click();
+  const menu = row.locator("[data-mobile-task-actions-menu]");
+  await expect(menu).toBeVisible();
+  const controls = menu.locator("button");
+  await expect(controls).toHaveCount(2);
+  for (const control of await controls.all()) {
+    const box = await control.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(40);
+    expect(box.height).toBeGreaterThanOrEqual(40);
+  }
+  const after = await row.boundingBox();
+  expect(Math.round(after.height)).toBe(Math.round(before.height));
 });

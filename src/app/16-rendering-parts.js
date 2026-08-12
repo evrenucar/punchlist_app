@@ -7,6 +7,7 @@
         reference: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
         plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
         trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>',
+        menu: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
         sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>',
       };
       return icons[name] || "";
@@ -348,6 +349,13 @@
               <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" data-touch-drag title="Drag to move; hold on touch screens (Alt+arrows)" aria-label="Drag task; hold on touch screens">${renderIcon("grip")}</button>
               <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
               <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
+            </div>
+            <div class="mobile-task-actions">
+              <button class="icon-button mobile-task-actions-trigger" type="button" data-mobile-task-actions data-action="toggle-mobile-task-actions" data-task-id="${item.id}" aria-label="Task actions" aria-expanded="false" title="Task actions">${renderIcon("menu")}</button>
+              <div class="mobile-task-actions-menu" data-mobile-task-actions-menu hidden>
+                <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
+                <button class="icon-button danger" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
+              </div>
             </div>
           </div>
           ${imagesHtml}

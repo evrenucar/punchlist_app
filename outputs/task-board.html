@@ -1517,6 +1517,12 @@
       transition: opacity 120ms ease;
     }
 
+    /* The compact action trigger belongs to the phone breakpoint only. Keeping
+       its wrapper out of the base grid preserves desktop and wide touch rows. */
+    .mobile-task-actions {
+      display: none;
+    }
+
     .placement-badge {
       display: grid;
       grid-column: 4;
@@ -2881,9 +2887,9 @@
       .task-row {
         /* The 44px checkbox sits 6px left of its 37px grid column, preserving
            the old 30px painted position while leaving a real gap on both seams.
-           The last 92px is permanently reserved for the two direct row actions.
-           Selection reveals those controls but never changes any row geometry. */
-        grid-template-columns: 30px 37px minmax(0, 1fr) 24px 92px;
+           A single 44px trigger keeps deeply nested text usable; it opens the
+           add/delete menu without changing the row's geometry. */
+        grid-template-columns: 30px 37px minmax(0, 1fr) 24px 44px;
         position: relative;
       }
 
@@ -2901,34 +2907,54 @@
         min-height: 44px;
       }
 
-      .task-actions {
+      .task-row.selected .task-actions {
         display: none;
       }
 
-      .task-row.selected .task-actions {
-        display: flex;
-        /* Selection only reveals the permanently reserved trailing controls.
-           They stay in the same grid cell, so nothing below changes position. */
-        position: static;
+      .mobile-task-actions {
+        display: none;
+      }
+
+      .task-row.selected .mobile-task-actions {
+        display: block;
         grid-column: 5;
         grid-row: 1;
-        justify-content: flex-end;
-        width: 92px;
+        position: relative;
+        width: 44px;
         height: 44px;
-        transform: none;
-        overflow: hidden;
-        border-radius: 0;
-        background: transparent;
-        opacity: 1;
       }
 
-      .task-row.selected .task-actions .drag-handle,
-      .task-row.selected .task-actions [data-action="focus-task"] {
+      .mobile-task-actions-trigger {
+        width: 44px;
+        height: 44px;
+      }
+
+      .mobile-task-actions-menu {
+        position: absolute;
+        z-index: 3;
+        right: 0;
+        top: calc(100% + 4px);
+        display: flex;
+        gap: 2px;
+        width: max-content;
+        padding: 4px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+      }
+
+      .mobile-task-actions-menu[hidden] {
         display: none;
       }
 
-      .task-row.selected .task-actions .policy-menu {
-        display: none;
+      .mobile-task-actions-menu .icon-button {
+        width: 44px;
+        height: 44px;
+      }
+
+      .mobile-task-actions-menu .danger {
+        color: var(--danger, #c92a2a);
       }
 
       .views-nav button {
@@ -3359,7 +3385,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.51";
+    const APP_VERSION = "1.5.52";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     // The update channel: build-task-board.mjs writes this file fresh on every
     // build ({version, download, notes}), so a downloaded copy learns about
@@ -7343,6 +7369,7 @@
         reference: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M14 3h7v7M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg>',
         plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
         trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3"/></svg>',
+        menu: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>',
         sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>',
       };
       return icons[name] || "";
@@ -7684,6 +7711,13 @@
               <button class="icon-button drag-handle" type="button" data-action="focus-task" data-task-id="${item.id}" data-touch-drag title="Drag to move; hold on touch screens (Alt+arrows)" aria-label="Drag task; hold on touch screens">${renderIcon("grip")}</button>
               <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
               <button class="icon-button" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
+            </div>
+            <div class="mobile-task-actions">
+              <button class="icon-button mobile-task-actions-trigger" type="button" data-mobile-task-actions data-action="toggle-mobile-task-actions" data-task-id="${item.id}" aria-label="Task actions" aria-expanded="false" title="Task actions">${renderIcon("menu")}</button>
+              <div class="mobile-task-actions-menu" data-mobile-task-actions-menu hidden>
+                <button class="icon-button" type="button" data-action="add-child" data-task-id="${item.id}" data-group-id="${groupId}" title="Add a subtask (Enter, then Tab)" aria-label="Add subtask">${renderIcon("plus")}</button>
+                <button class="icon-button danger" type="button" data-action="delete-task" data-task-id="${item.id}" title="Delete task (Backspace)" aria-label="Delete task">${renderIcon("trash")}</button>
+              </div>
             </div>
           </div>
           ${imagesHtml}
@@ -8921,6 +8955,18 @@
         const id = button.dataset.originTaskId;
         selectNode("task", id);
         getNodeRow({ kind: "task", id })?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      if (action === "toggle-mobile-task-actions") {
+        const shell = button.closest(".mobile-task-actions");
+        const menu = shell?.querySelector("[data-mobile-task-actions-menu]");
+        if (menu) {
+          const opens = menu.hidden;
+          for (const other of boardEl.querySelectorAll("[data-mobile-task-actions-menu]")) other.hidden = true;
+          for (const trigger of boardEl.querySelectorAll("[data-mobile-task-actions]")) trigger.setAttribute("aria-expanded", "false");
+          menu.hidden = !opens;
+          button.setAttribute("aria-expanded", String(opens));
+        }
+        return;
       }
       if (action === "delete-task") {
         // a parent's trash button asks like any other subtree delete

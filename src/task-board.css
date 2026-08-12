@@ -1505,6 +1505,12 @@
       transition: opacity 120ms ease;
     }
 
+    /* The compact action trigger belongs to the phone breakpoint only. Keeping
+       its wrapper out of the base grid preserves desktop and wide touch rows. */
+    .mobile-task-actions {
+      display: none;
+    }
+
     .placement-badge {
       display: grid;
       grid-column: 4;
@@ -2869,9 +2875,9 @@
       .task-row {
         /* The 44px checkbox sits 6px left of its 37px grid column, preserving
            the old 30px painted position while leaving a real gap on both seams.
-           The last 92px is permanently reserved for the two direct row actions.
-           Selection reveals those controls but never changes any row geometry. */
-        grid-template-columns: 30px 37px minmax(0, 1fr) 24px 92px;
+           A single 44px trigger keeps deeply nested text usable; it opens the
+           add/delete menu without changing the row's geometry. */
+        grid-template-columns: 30px 37px minmax(0, 1fr) 24px 44px;
         position: relative;
       }
 
@@ -2889,34 +2895,54 @@
         min-height: 44px;
       }
 
-      .task-actions {
+      .task-row.selected .task-actions {
         display: none;
       }
 
-      .task-row.selected .task-actions {
-        display: flex;
-        /* Selection only reveals the permanently reserved trailing controls.
-           They stay in the same grid cell, so nothing below changes position. */
-        position: static;
+      .mobile-task-actions {
+        display: none;
+      }
+
+      .task-row.selected .mobile-task-actions {
+        display: block;
         grid-column: 5;
         grid-row: 1;
-        justify-content: flex-end;
-        width: 92px;
+        position: relative;
+        width: 44px;
         height: 44px;
-        transform: none;
-        overflow: hidden;
-        border-radius: 0;
-        background: transparent;
-        opacity: 1;
       }
 
-      .task-row.selected .task-actions .drag-handle,
-      .task-row.selected .task-actions [data-action="focus-task"] {
+      .mobile-task-actions-trigger {
+        width: 44px;
+        height: 44px;
+      }
+
+      .mobile-task-actions-menu {
+        position: absolute;
+        z-index: 3;
+        right: 0;
+        top: calc(100% + 4px);
+        display: flex;
+        gap: 2px;
+        width: max-content;
+        padding: 4px;
+        border: 1px solid var(--line-strong);
+        border-radius: 8px;
+        background: var(--surface);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+      }
+
+      .mobile-task-actions-menu[hidden] {
         display: none;
       }
 
-      .task-row.selected .task-actions .policy-menu {
-        display: none;
+      .mobile-task-actions-menu .icon-button {
+        width: 44px;
+        height: 44px;
+      }
+
+      .mobile-task-actions-menu .danger {
+        color: var(--danger, #c92a2a);
       }
 
       .views-nav button {
