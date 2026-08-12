@@ -118,3 +118,46 @@ test("completion preserves the mobile board scroll position and subsequent hit t
   expect(after.scrollTop).toBe(before.scrollTop);
   expect(after.hitTask).toBe(id);
 });
+
+test("selecting a mobile row keeps lower checkbox coordinates stable", async ({ page }) => {
+  await page.goto(baseURL);
+  const selectedId = await taskId(page, "Buy groceries");
+  const belowId = await taskId(page, "Book a dentist appointment");
+  const selectedRow = page.locator(`[data-task-row="${selectedId}"]`);
+  const belowCheckbox = page.locator(`[data-action="toggle-done"][data-task-id="${belowId}"]`);
+  await selectedRow.scrollIntoViewIfNeeded();
+
+  const before = await page.evaluate(({ selectedId, belowId }) => {
+    const rect = (node) => {
+      const box = node?.getBoundingClientRect();
+      return box && { x: box.x, y: box.y, width: box.width, height: box.height };
+    };
+    const row = document.querySelector(`[data-task-row="${selectedId}"]`);
+    const checkbox = document.querySelector(`[data-action="toggle-done"][data-task-id="${belowId}"]`);
+    return { row: rect(row), checkbox: rect(checkbox) };
+  }, { selectedId, belowId });
+  const originalPoint = { x: before.checkbox.x + before.checkbox.width / 2, y: before.checkbox.y + before.checkbox.height / 2 };
+
+  await page.touchscreen.tap(before.row.x + before.row.width * 0.6, before.row.y + before.row.height / 2);
+  await expect(selectedRow).toHaveClass(/selected/);
+
+  const after = await page.evaluate(({ point, selectedId }) => {
+    const row = document.querySelector(`[data-task-row="${selectedId}"]`);
+    const checkbox = document.elementFromPoint(point.x, point.y);
+    const actions = row?.querySelector(".task-actions");
+    return {
+      rowHeight: row?.getBoundingClientRect().height,
+      actionHeight: actions?.getBoundingClientRect().height,
+      originalPointTask: checkbox?.closest("[data-task-row]")?.dataset.taskRow,
+      originalPointAction: checkbox?.closest("button")?.dataset.action,
+    };
+  }, { point: originalPoint, selectedId });
+  expect(after.rowHeight).toBe(before.row.height);
+  expect(after.actionHeight).toBeGreaterThan(0);
+  expect(after.originalPointTask).toBe(belowId);
+  expect(after.originalPointAction).toBe("toggle-done");
+
+  await page.touchscreen.tap(originalPoint.x, originalPoint.y);
+  await expect(page.locator(`[data-task-row="${belowId}"]`)).toHaveClass(/done/);
+  await expect(belowCheckbox).toBeVisible();
+});

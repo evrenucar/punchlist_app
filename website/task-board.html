@@ -2905,8 +2905,21 @@
 
       .task-row.selected .task-actions {
         display: flex;
-        grid-column: 3 / 5;
-        justify-content: flex-start;
+        /* Keep the selected-row toolbar reachable without creating an implicit
+           second grid row. A normal-flow toolbar moves every task below it,
+           so the screen coordinate that was a checkbox becomes another row. */
+        position: absolute;
+        top: 50%;
+        right: 4px;
+        z-index: 1;
+        width: max-content;
+        height: 44px;
+        transform: translateY(-50%);
+        grid-column: auto;
+        justify-content: flex-end;
+        overflow: hidden;
+        border-radius: 6px;
+        background: var(--group-selected, var(--accent-soft));
         opacity: 1;
       }
 
@@ -3338,7 +3351,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.47";
+    const APP_VERSION = "1.5.48";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     // The update channel: build-task-board.mjs writes this file fresh on every
     // build ({version, download, notes}), so a downloaded copy learns about
