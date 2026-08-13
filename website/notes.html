@@ -287,6 +287,18 @@
 
     <article>
       <header>
+        <h2>The phone build keeps the board under your fingers</h2>
+        <span class="entry-date">August 13, 2026 · build v1.5.60</span>
+      </header>
+      <p>This is the mobile stability batch tested on the physical phone. Completing one task after another no longer moves the next checkbox away from the place you were tapping, and revealing a task's actions no longer grows its row or steals width from deeply nested text. Every mobile task keeps a direct <strong>+</strong>; Delete appears only on the selected row, at its top-right edge.</p>
+      <p><strong>Deleting a nested branch points at the branch you chose.</strong> Its confirmation sits directly above that exact row, follows its indentation, and leaves the rest of the tree visible. Delete and Cancel keep full touch targets. Group deletion uses the same compact treatment instead of squeezing the group title.</p>
+      <p><strong>Focus mode fits the phone now.</strong> Long text, metadata, images, captions, and nested outlines stay inside the screen. Back and Fold all move to a bottom-left dock on small screens, above the phone's safe area, so leaving or folding the view does not require reaching back to the top.</p>
+      <p><strong>The hamburger stays reachable while you scroll.</strong> It pins to the top-right after its original place scrolls away, then returns to that place when you reach the top. Completed and Trash also gain enough end space to clear Safari's bottom controls at maximum scroll.</p>
+      <p><strong>Hosted and downloaded copies remain portable.</strong> The hosted service worker now asks the network for a fresh app shell before falling back to its cache, while offline reopening and direct <code>file://</code> use still work. No storage key or board format changed, so existing boards, exports, history, images, and sync settings carry forward. A downloaded copy also checks the small <code>latest.json</code> channel rather than waiting for the next GitHub release page poll.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>Mobile task actions stay out of the way</h2>
         <span class="entry-date">August 12, 2026 · build v1.5.53</span>
       </header>
