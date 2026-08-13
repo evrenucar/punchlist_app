@@ -287,6 +287,16 @@
 
     <article>
       <header>
+        <h2>The shared-address warning is out of the way</h2>
+        <span class="entry-date">August 14, 2026 · build v1.5.61</span>
+      </header>
+      <p>The security notice about Punchlist sharing browser storage with other apps on the same domain is now hidden. That shared address currently hosts apps controlled by the same owner, so the recurring board-top warning and the matching notice above the GitHub sync token were more interruption than help.</p>
+      <p><strong>This is an explicit temporary product policy.</strong> The origin detector and warning model remain in the app, dormant behind one switch, so the migration to a custom or dedicated domain can restore or retire the old-address guidance deliberately instead of rebuilding it later.</p>
+      <p><strong>Nothing about storage or sync changed.</strong> Existing boards, images, history, exports, GitHub sync settings, offline reopening, and direct <code>file://</code> use behave exactly as before. This build only removes the visible notification.</p>
+    </article>
+
+    <article>
+      <header>
         <h2>The phone build keeps the board under your fingers</h2>
         <span class="entry-date">August 13, 2026 · build v1.5.60</span>
       </header>

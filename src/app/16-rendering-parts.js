@@ -849,9 +849,15 @@
       };
     }
 
+    // Temporary product policy: suppress shared-origin warning UI until
+    // Punchlist has a dedicated domain. Detection and warning-model code stay
+    // intact so removing this explicit gate restores the previous behavior.
+    const SUPPRESS_SHARED_ORIGIN_WARNING_UI = true;
+
     // The download link points at UPDATE_RELEASES_PAGE, never LATEST_BUILD_URL:
     // that one is the shared origin the warning is about.
     function sharedOriginWarningHtml(options = {}) {
+      if (SUPPRESS_SHARED_ORIGIN_WARNING_UI) return "";
       const warning = sharedOriginWarning();
       if (!warning) return "";
       const dismiss = options.dismissible && warning.dismissible

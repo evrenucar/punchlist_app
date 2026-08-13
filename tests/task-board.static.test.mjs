@@ -2671,7 +2671,7 @@ function countingStorage(entries = {}) {
 // disk path with depth, so a path test that runs before the file:// test warns
 // on every downloaded copy on earth. That is the first case here, and it uses
 // a realistic Downloads path rather than a token one.
-test("shared-origin trigger: file:// and demo never warn, a hosted subpath does, a hosted root does not", async () => {
+test("shared-origin detector remains available, but its warning markup is suppressed", async () => {
   const local = await loadBoardApi({
     location: { protocol: "file:", host: "", pathname: "/C:/Users/evren/Downloads/task-board.html", search: "" },
     localStorage: countingStorage({ "some-other-site-key": "1" }),
@@ -2697,40 +2697,38 @@ test("shared-origin trigger: file:// and demo never warn, a hosted subpath does,
     location: { protocol: "https:", host: "punchlist.example", pathname: "/", search: "" },
     localStorage: countingStorage({ "other-site-state": "1" }),
   });
-  assert.equal(rootWithEvidence.isSharedOrigin(), true, "foreign storage evidence also warns at a hosted root");
-  assert.match(rootWithEvidence.sharedOriginWarning().body, /holds 1 entry that doesn't belong/);
+  assert.equal(rootWithEvidence.isSharedOrigin(), true, "foreign storage evidence remains available for a future re-enable");
+  assert.match(rootWithEvidence.sharedOriginWarning().body, /holds 1 entry that doesn't belong/, "the warning model remains available for a future re-enable");
+  assert.equal(rootWithEvidence.sharedOriginWarningHtml(), "", "a hosted root with foreign keys renders zero warning markup");
 
   const subpaths = ["/punchlist_app/", "/punchlist_app/index.html", "/punchlist_app/task-board.html", "/tools/punchlist/"];
   for (const pathname of subpaths) {
     const shared = await loadBoardApi({ location: { protocol: "https:", host: "evrenucar.github.io", pathname, search: "" } });
-    assert.equal(shared.isSharedOrigin(), true, `${pathname} is one segment of a subdivided origin`);
+    assert.equal(shared.isSharedOrigin(), true, `${pathname} remains detectable as one segment of a subdivided origin`);
+    assert.ok(shared.sharedOriginWarning(), `${pathname} keeps its warning model for a future re-enable`);
+    assert.equal(shared.sharedOriginWarningHtml(), "", `${pathname} renders zero warning markup`);
   }
 });
 
-test("shared-origin warning: severity follows the token, and the evidence line counts foreign keys", async () => {
+test("shared-origin warning UI stays suppressed with a sync token and foreign storage evidence", async () => {
   const hostedLocation = { protocol: "https:", host: "evrenucar.github.io", pathname: "/punchlist_app/", search: "" };
 
-  // No token: amber, dismissible, no evidence sentence when nothing foreign is
-  // stored. Zero foreign keys is NOT a reason to stay quiet — a sibling can
-  // keep its state in IndexedDB and still read this one.
+  // The detector still distinguishes the conditions that a future re-enable
+  // will need, but none of them produce a visible warning during this policy.
   const amber = await loadBoardApi({ location: hostedLocation, localStorage: countingStorage() });
+  assert.equal(amber.isSharedOrigin(), true);
   const warning = amber.sharedOriginWarning();
   assert.equal(warning.level, "warn");
   assert.equal(warning.dismissible, true);
   assert.equal(warning.foreignKeys, 0);
-  assert.match(warning.title, /^This address shares storage with other sites\.$/);
-  assert.match(warning.body, /running at evrenucar\.github\.io\/punchlist_app\//);
-  assert.doesNotMatch(warning.body, /Right now this storage holds/, "no number, no sentence");
-  assert.doesNotMatch(warning.body, /token/i, "the amber copy never mentions a token there isn't");
+  assert.equal(amber.sharedOriginWarningHtml(), "");
 
-  // A token present is the red case: it names the token and refuses dismissal.
+  // A present sync token must not re-enable either warning placement.
   amber.saveSyncConfig({ token: "github_pat_example" });
   const red = amber.sharedOriginWarning();
   assert.equal(red.level, "danger");
   assert.equal(red.dismissible, false);
-  assert.match(red.title, /^Your sync token is not private on this address\.$/);
-  assert.match(red.body, /read your GitHub token/);
-  assert.match(red.body, /Rotate that token/);
+  assert.equal(amber.sharedOriginWarningHtml(), "");
 
   // Evidence: only keys that are not Punchlist's own count, and the sentence
   // agrees in number.
@@ -2746,6 +2744,7 @@ test("shared-origin warning: severity follows the token, and the evidence line c
   });
   assert.equal(withForeign.countForeignStorageKeys(), 2, "the app's own keys are not evidence against it");
   assert.match(withForeign.sharedOriginWarning().body, /Right now this storage holds 2 entries that don't belong to Punchlist\./);
+  assert.equal(withForeign.sharedOriginWarningHtml(), "");
 
   const singular = await loadBoardApi({
     location: hostedLocation,
@@ -2754,43 +2753,28 @@ test("shared-origin warning: severity follows the token, and the evidence line c
   assert.equal(singular.countForeignStorageKeys(), 1);
   assert.match(singular.sharedOriginWarning().body, /Right now this storage holds 1 entry that doesn't belong to Punchlist\./);
 
-  // A storage that refuses to enumerate (no key()) must not throw or block the
-  // warning; it just loses the evidence sentence.
+  // A storage that refuses to enumerate (no key()) keeps the detector safe.
   const opaque = await loadBoardApi({ location: hostedLocation });
   assert.equal(opaque.countForeignStorageKeys(), 0);
   assert.equal(opaque.isSharedOrigin(), true);
+  assert.ok(opaque.sharedOriginWarning());
 });
 
-test("shared-origin warning renders in both places: the board strip and above the Token input", async () => {
+test("shared-origin warning UI renders empty in both placements for a shared subpath and sync token", async () => {
   const hostedLocation = { protocol: "https:", host: "evrenucar.github.io", pathname: "/punchlist_app/", search: "" };
   const api = await loadBoardApi({ location: hostedLocation, localStorage: countingStorage() });
   const strip = api.testElements.get("[data-shared-origin-host]");
   const settingsNotice = api.testElements.get("[data-sync-origin-notice]");
 
   api.renderSharedOriginWarning();
-  assert.match(strip.innerHTML, /origin-banner--warn/);
-  assert.match(strip.innerHTML, /This address shares storage with other sites/);
-  assert.match(settingsNotice.innerHTML, /This address shares storage with other sites/, "the notice sits where a credential is about to be pasted");
-  assert.match(strip.innerHTML, /data-action="dismiss-shared-origin"/, "the amber strip can be dismissed");
-  assert.doesNotMatch(settingsNotice.innerHTML, /dismiss-shared-origin/, "the settings notice is not a nag to dismiss");
-
-  // The download link must not point back at the shared origin.
-  assert.match(strip.innerHTML, /href="https:\/\/github\.com\/evrenucar\/punchlist_app\/releases"/);
-  assert.doesNotMatch(strip.innerHTML, /href="https:\/\/evrenucar\.github\.io\/punchlist_app\/"/);
-
-  // Dismissing the amber strip clears it and remembers, in its own key so it
-  // can never ride along in an export.
-  api.dismissSharedOriginWarning();
   assert.equal(strip.innerHTML, "");
-  assert.match(settingsNotice.innerHTML, /shares storage/, "dismissal is the strip's, not the credential warning's");
-  assert.equal(api.SHARED_ORIGIN_DISMISS_KEY, "scheduling-task-management-board-v1-origin-dismissed");
+  assert.equal(settingsNotice.innerHTML, "");
 
-  // A token turns it red, and an earlier dismissal cannot suppress that.
+  // A token does not re-enable either placement.
   api.saveSyncConfig({ token: "github_pat_example" });
   api.renderSharedOriginWarning();
-  assert.match(strip.innerHTML, /origin-banner--danger/);
-  assert.match(strip.innerHTML, /Your sync token is not private on this address/);
-  assert.doesNotMatch(strip.innerHTML, /dismiss-shared-origin/, "the red warning has no dismiss");
+  assert.equal(strip.innerHTML, "");
+  assert.equal(settingsNotice.innerHTML, "");
 
   // And on file:// both hosts stay empty.
   const local = await loadBoardApi({

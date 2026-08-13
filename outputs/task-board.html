@@ -3560,7 +3560,7 @@
     const SCHEMA_VERSION = 2;
     // Only the major.minor here matter; the build overwrites the patch with a
     // git commit count so it climbs on its own. Edit "1.5" for a milestone.
-    const APP_VERSION = "1.5.60";
+    const APP_VERSION = "1.5.61";
     const LATEST_BUILD_URL = "https://evrenucar.github.io/punchlist_app/";
     // The update channel: build-task-board.mjs writes this file fresh on every
     // build ({version, download, notes}), so a downloaded copy learns about
@@ -8389,9 +8389,15 @@
       };
     }
 
+    // Temporary product policy: suppress shared-origin warning UI until
+    // Punchlist has a dedicated domain. Detection and warning-model code stay
+    // intact so removing this explicit gate restores the previous behavior.
+    const SUPPRESS_SHARED_ORIGIN_WARNING_UI = true;
+
     // The download link points at UPDATE_RELEASES_PAGE, never LATEST_BUILD_URL:
     // that one is the shared origin the warning is about.
     function sharedOriginWarningHtml(options = {}) {
+      if (SUPPRESS_SHARED_ORIGIN_WARNING_UI) return "";
       const warning = sharedOriginWarning();
       if (!warning) return "";
       const dismiss = options.dismissible && warning.dismissible

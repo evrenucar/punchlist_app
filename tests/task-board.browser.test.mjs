@@ -654,11 +654,9 @@ test.describe("IndexedDB image assets", () => {
   });
 });
 
-// Shared-origin warning (docs/security-origin-design.md, section 3) in a real
-// engine. The static suite can prove the trigger and the copy; only this one
-// can prove the strip is actually on screen, that it does not replace the
-// example banner, and that the notice above the Token input is visible at the
-// moment a credential is about to be pasted.
+// Shared-origin warning suppression in a real engine. The detector remains for
+// later re-enable, but neither placement should appear under the temporary
+// same-domain sharing policy.
 //
 // The throwaway server answers every path with the app, so the same build is
 // loaded once at "/" (an origin of its own) and once at "/punchlist_app/" (one
@@ -679,72 +677,54 @@ test.describe("shared-origin warning", () => {
     await expect(page.locator("[data-example-banner-host] .example-banner")).toBeVisible();
   });
 
-  test("a hosted root with foreign storage evidence still warns", async ({ page }) => {
+  test("a hosted root with foreign storage evidence renders neither warning placement", async ({ page }) => {
     await openAt(page, "", () => {
       window.localStorage.setItem("other-site-state", "1");
     });
-    await expect(page.locator(strip)).toBeVisible();
-    await expect(page.locator(strip)).toContainText("This address shares storage with other sites");
-    await expect(page.locator(strip)).toContainText("this storage holds 1 entry that doesn't belong to Punchlist");
+    await expect(page.locator(strip)).toHaveCount(0);
     await page.locator("[data-settings-menu] > summary").click();
     await page.locator("[data-sync-section] > summary").click();
     await page.locator("[data-sync-enabled]").check();
-    await expect(page.locator("[data-sync-origin-notice] .origin-banner")).toBeVisible();
+    await expect(page.locator("[data-sync-origin-notice] .origin-banner")).toHaveCount(0);
   });
 
-  test("an app served under a path warns on the board and above the Token input", async ({ page }) => {
+  test("an app served under a shared subpath renders neither warning placement", async ({ page }) => {
     await openAt(page, "punchlist_app/");
-    await expect(page.locator(strip)).toBeVisible();
-    await expect(page.locator(strip)).toHaveClass(/origin-banner--warn/);
-    await expect(page.locator(strip)).toContainText("This address shares storage with other sites");
-    await expect(page.locator(strip)).toContainText("/punchlist_app/");
-    // its own strip, above the example banner rather than instead of it
+    await expect(page.locator(strip)).toHaveCount(0);
+    // The unrelated example banner remains present.
     await expect(page.locator("[data-example-banner-host] .example-banner")).toBeVisible();
 
-    // second placement: Settings -> Sync, in the field block, directly above
-    // the Token input — the moment a person is about to paste a credential.
+    // Settings -> Sync stays available but has no credential warning notice.
     await page.locator("[data-settings-menu] > summary").click();
     await page.locator("[data-sync-section] > summary").click();
     await page.locator("[data-sync-enabled]").check();
-    const notice = page.locator("[data-sync-origin-notice] .origin-banner");
-    await expect(notice).toBeVisible();
-    const noticeBottom = (await notice.boundingBox()).y;
-    const tokenTop = (await page.locator("[data-sync-token]").boundingBox()).y;
-    expect(noticeBottom).toBeLessThan(tokenTop);
-    await expect(notice).toContainText("shares storage with other sites");
-    // The section itself stays available: a warned user must still be able to
-    // reach the toggle and turn sync OFF.
+    await expect(page.locator("[data-sync-origin-notice] .origin-banner")).toHaveCount(0);
+    // The section itself stays available.
     await expect(page.locator("[data-sync-enabled]")).toBeVisible();
   });
 
-  test("a token on the page turns the warning red and takes the dismiss away", async ({ page }) => {
+  test("a sync token on a shared subpath does not re-enable warning UI", async ({ page }) => {
     await openAt(page, "punchlist_app/", () => {
       window.localStorage.setItem(
         "scheduling-task-management-board-v1-sync",
         JSON.stringify({ enabled: true, repo: "evrenucar/punchlist-data", token: "github_pat_browser_test" }),
       );
     });
-    await expect(page.locator(strip)).toHaveClass(/origin-banner--danger/);
-    await expect(page.locator(strip)).toContainText("Your sync token is not private on this address");
+    await expect(page.locator(strip)).toHaveCount(0);
+    await page.locator("[data-settings-menu] > summary").click();
+    await page.locator("[data-sync-section] > summary").click();
+    await expect(page.locator("[data-sync-origin-notice] .origin-banner")).toHaveCount(0);
     await expect(page.locator('[data-action="dismiss-shared-origin"]')).toHaveCount(0);
   });
 
-  test("foreign storage keys are counted as evidence, and the amber strip dismisses for good", async ({ page }) => {
+  test("foreign storage keys on a shared subpath do not re-enable warning UI", async ({ page }) => {
     await openAt(page, "punchlist_app/", () => {
       window.localStorage.setItem("clocktest-settings", "1");
       window.localStorage.setItem("lucide-cache", "2");
     });
-    await expect(page.locator(strip)).toContainText("this storage holds 2 entries that don't belong to Punchlist");
-
-    // The download link points at the releases page, never back at the shared
-    // origin the warning is about.
-    const href = await page.locator(`${strip} a`).getAttribute("href");
-    expect(href).toBe("https://github.com/evrenucar/punchlist_app/releases");
-
-    await page.locator('[data-action="dismiss-shared-origin"]').click();
     await expect(page.locator(strip)).toHaveCount(0);
-    await page.reload();
-    await expect(page.locator('[data-group-card="group-getting-started"]')).toBeVisible();
-    await expect(page.locator(strip)).toHaveCount(0);
+    await page.locator("[data-settings-menu] > summary").click();
+    await page.locator("[data-sync-section] > summary").click();
+    await expect(page.locator("[data-sync-origin-notice] .origin-banner")).toHaveCount(0);
   });
 });
