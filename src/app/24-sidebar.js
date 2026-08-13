@@ -15,6 +15,24 @@
 
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
 
+    let mobileSidebarTogglePinAt = null;
+    function updateMobileSidebarTogglePin() {
+      if (!sidebarToggleEl || !mainEl) return;
+      const mobile = Boolean(window.matchMedia?.("(max-width: 640px)").matches);
+      if (!mobile) {
+        sidebarToggleEl.classList.remove("mobile-pinned");
+        mobileSidebarTogglePinAt = null;
+        return;
+      }
+      if (mobileSidebarTogglePinAt === null && !sidebarToggleEl.classList.contains("mobile-pinned")) {
+        mobileSidebarTogglePinAt = sidebarToggleEl.getBoundingClientRect().bottom + mainEl.scrollTop;
+      }
+      sidebarToggleEl.classList.toggle("mobile-pinned", mainEl.scrollTop > mobileSidebarTogglePinAt);
+    }
+
+    mainEl?.addEventListener("scroll", updateMobileSidebarTogglePin, { passive: true });
+    window.matchMedia?.("(max-width: 640px)")?.addEventListener?.("change", updateMobileSidebarTogglePin);
+
     // Evren, 2026-07-28: "scrolling is dead while the cursor is over the help
     // text". The drawer backdrop is what sat under it. Under 980px the sidebar
     // is a fixed drawer at z-index 60 and the backdrop covers the screen at 55.

@@ -2579,6 +2579,10 @@
       border-bottom: 1px solid var(--line);
     }
 
+    .focus-mode__actions {
+      display: contents;
+    }
+
     /* Breadcrumb: the focused group/task title stays visible in the bar while
        the big in-body title scrolls away. */
     .focus-mode__crumb {
@@ -2844,7 +2848,7 @@
 
     @media (max-width: 640px) {
       main {
-        padding: 20px;
+        padding: 20px 20px calc(92px + env(safe-area-inset-bottom));
       }
 
       /* the header's 6px group-color border insets the left content, so the
@@ -2879,6 +2883,16 @@
         order: 0;
         margin-left: 0;
         justify-content: flex-end;
+        min-height: 44px;
+      }
+
+      .sidebar-toggle.mobile-pinned {
+        position: fixed;
+        z-index: 49;
+        top: calc(12px + env(safe-area-inset-top));
+        right: 12px;
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        box-shadow: var(--shadow);
       }
 
       .search {
@@ -3042,6 +3056,78 @@
 
       .task-row.selected .mobile-delete-task {
         display: grid;
+      }
+
+      .focus-mode,
+      .focus-mode__task,
+      .focus-mode__text,
+      .focus-mode__children,
+      .focus-outline,
+      .focus-outline li,
+      .focus-child-text,
+      .focus-mode__images,
+      .focus-mode__image,
+      .focus-child-image {
+        min-width: 0;
+        max-width: 100%;
+      }
+
+      .focus-mode__task,
+      .focus-mode__text,
+      .focus-mode__children,
+      .focus-outline,
+      .focus-outline li,
+      .focus-mode__images {
+        width: 100%;
+      }
+
+      .focus-mode,
+      .focus-mode__task,
+      .focus-mode__images {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .focus-outline li {
+        margin-left: 0 !important;
+      }
+
+      .focus-outline li > .focus-outline {
+        border-left: 1px solid var(--line);
+        padding-left: 8px;
+      }
+
+      .focus-mode__image,
+      .focus-child-image {
+        height: auto;
+      }
+
+      .focus-mode__actions {
+        display: flex;
+        align-items: center;
+        position: fixed;
+        z-index: 2;
+        left: 12px;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        box-shadow: var(--shadow);
+        padding: 6px;
+      }
+
+      .focus-mode__actions .control {
+        min-width: 44px;
+        min-height: 44px;
+      }
+
+      .focus-mode__task {
+        padding-bottom: calc(84px + env(safe-area-inset-bottom));
+      }
+
+      .focus-mode__timer {
+        min-height: calc(72px + env(safe-area-inset-bottom));
+        padding-bottom: calc(18px + env(safe-area-inset-bottom));
       }
 
       .views-nav button {
@@ -3445,8 +3531,10 @@
 
   <section class="focus-mode" data-focus-mode hidden>
     <div class="focus-mode__bar">
-      <button type="button" class="control" data-focus-exit title="Exit focus mode (Ctrl+Alt+F)">Back</button>
-      <button type="button" class="control" data-focus-fold title="Collapse or expand every row">Fold all</button>
+      <div class="focus-mode__actions" data-focus-actions>
+        <button type="button" class="control" data-focus-exit title="Exit focus mode (Ctrl+Alt+F)">Back</button>
+        <button type="button" class="control" data-focus-fold title="Collapse or expand every row">Fold all</button>
+      </div>
       <div class="focus-mode__crumb" data-focus-crumb></div>
       <span class="focus-mode__hint">Ctrl+Alt+F to exit</span>
       <div class="focus-mode__clock" data-focus-clock aria-label="Current time">--:--</div>
@@ -10531,6 +10619,24 @@
     });
 
     sidebarBackdropEl?.addEventListener("click", closeSidebarDrawer);
+
+    let mobileSidebarTogglePinAt = null;
+    function updateMobileSidebarTogglePin() {
+      if (!sidebarToggleEl || !mainEl) return;
+      const mobile = Boolean(window.matchMedia?.("(max-width: 640px)").matches);
+      if (!mobile) {
+        sidebarToggleEl.classList.remove("mobile-pinned");
+        mobileSidebarTogglePinAt = null;
+        return;
+      }
+      if (mobileSidebarTogglePinAt === null && !sidebarToggleEl.classList.contains("mobile-pinned")) {
+        mobileSidebarTogglePinAt = sidebarToggleEl.getBoundingClientRect().bottom + mainEl.scrollTop;
+      }
+      sidebarToggleEl.classList.toggle("mobile-pinned", mainEl.scrollTop > mobileSidebarTogglePinAt);
+    }
+
+    mainEl?.addEventListener("scroll", updateMobileSidebarTogglePin, { passive: true });
+    window.matchMedia?.("(max-width: 640px)")?.addEventListener?.("change", updateMobileSidebarTogglePin);
 
     // Evren, 2026-07-28: "scrolling is dead while the cursor is over the help
     // text". The drawer backdrop is what sat under it. Under 980px the sidebar

@@ -384,8 +384,10 @@
 
   <section class="focus-mode" data-focus-mode hidden>
     <div class="focus-mode__bar">
-      <button type="button" class="control" data-focus-exit title="Exit focus mode (Ctrl+Alt+F)">Back</button>
-      <button type="button" class="control" data-focus-fold title="Collapse or expand every row">Fold all</button>
+      <div class="focus-mode__actions" data-focus-actions>
+        <button type="button" class="control" data-focus-exit title="Exit focus mode (Ctrl+Alt+F)">Back</button>
+        <button type="button" class="control" data-focus-fold title="Collapse or expand every row">Fold all</button>
+      </div>
       <div class="focus-mode__crumb" data-focus-crumb></div>
       <span class="focus-mode__hint">Ctrl+Alt+F to exit</span>
       <div class="focus-mode__clock" data-focus-clock aria-label="Current time">--:--</div>
