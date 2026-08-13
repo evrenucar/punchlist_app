@@ -172,6 +172,11 @@ test("group deletion confirmation overlays the selected group and its Delete but
 
   await page.touchscreen.tap(before.x + before.width * 0.55, before.y + before.height / 2);
   await expect(group).toHaveClass(/selected/);
+  // A touch may leave focus inside the editable group title on platforms with
+  // different font metrics. Focus the selected row before exercising its
+  // keyboard Delete path; the confirmation itself is still confirmed by touch.
+  await group.focus();
+  await expect(group).toBeFocused();
   await page.keyboard.press("Delete");
 
   const confirmation = page.locator(`[data-group-delete-confirm="${groupId}"]`);
